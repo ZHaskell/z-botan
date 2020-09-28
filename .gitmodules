@@ -1,0 +1,3 @@
+[submodule "third_party/botan"]
+	path = third_party/botan
+	url = https://github.com/randombit/botan.git
