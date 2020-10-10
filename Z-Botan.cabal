@@ -37,11 +37,11 @@ flag no-pkg-config
 
 library
     exposed-modules:        Z.Botan.FFI
-                            Z.Botan
+                            Z.IO.TLS
 
     build-depends:          base                    >= 4.12 && <5.0
-                          , Z-Data                  >= 0.1.4
-                          , Z-IO                    >= 0.1.3
+                          , Z-Data                  >= 0.1.6 && < 0.1.7
+                          , Z-IO                    >= 0.1.4 && < 0.1.5
 
 
     include-dirs:           include
@@ -56,7 +56,6 @@ library
 
     install-includes:       hs_botan.h 
     
-    cpp-options:            -march=native
     c-sources:              cbits/hs_botan.cpp
 
                             third_party/botan/src/lib/asn1/alg_id.cpp
@@ -226,6 +225,7 @@ library
                             third_party/botan/src/lib/math/numbertheory/monty_exp.cpp
                             third_party/botan/src/lib/math/numbertheory/mp_numth.cpp
                             third_party/botan/src/lib/math/numbertheory/numthry.cpp
+                            third_party/botan/src/lib/math/numbertheory/nistp_redc.cpp
                             third_party/botan/src/lib/math/numbertheory/pow_mod.cpp
                             third_party/botan/src/lib/math/numbertheory/primality.cpp
                             third_party/botan/src/lib/math/numbertheory/primes.cpp
@@ -460,7 +460,8 @@ library
     extra-libraries:        stdc++
 
     default-language:       Haskell2010
-    build-tools:            hsc2hs, hspec-discover
+    build-tool-depends:     hsc2hs:hsc2hs, hspec-discover:hspec-discover
+
     ghc-options:            -Wall
 
 test-suite Z-Botan-Test

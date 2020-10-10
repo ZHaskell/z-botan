@@ -23,19 +23,22 @@ import qualified System.Environment as System
 main :: IO ()
 main = do
     mainArgs <- System.getArgs
-    defaultMainWithHooksArgs simpleUserHooks {
-        postConf = \ args flags pkg_descr lbi -> do
-            let verbosity = fromFlag (configVerbosity flags)
-                baseDir lbi' = fromMaybe "" (takeDirectory <$> cabalFilePath lbi')
-                configFile = baseDir lbi </> "third_party" </> "botan" </> "configure.py"
-                configFolder = baseDir lbi </> "third_party" </> "botan"
-            confExists <- doesFileExist configFile
-            if confExists
-              then runConfigureScript configFolder configFile verbosity flags lbi
-              else die' verbosity "botan configure script not found."
+    if head mainArgs == "configure"
+    then defaultMainWithHooksArgs simpleUserHooks {
+            postConf = \ args flags pkg_descr lbi -> do
+                let verbosity = fromFlag (configVerbosity flags)
+                    baseDir lbi' = fromMaybe "" (takeDirectory <$> cabalFilePath lbi')
+                    configFile = baseDir lbi </> "third_party" </> "botan" </> "configure.py"
+                    configFolder = baseDir lbi </> "third_party" </> "botan"
+                confExists <- doesFileExist configFile
+                if confExists
+                  then runConfigureScript configFolder configFile verbosity flags lbi
+                  else die' verbosity "botan configure script not found."
 
-            postConf simpleUserHooks args flags pkg_descr lbi
-    } ("--with-gcc=c++":mainArgs)
+                postConf simpleUserHooks args flags pkg_descr lbi
+        ,   regHook = \ _ _ _ _ -> return ()
+        } ("--with-gcc=c++":mainArgs)
+    else defaultMain
 
 
 runConfigureScript :: FilePath -> FilePath -> Verbosity -> ConfigFlags -> LocalBuildInfo -> IO ()
