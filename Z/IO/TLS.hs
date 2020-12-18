@@ -35,12 +35,18 @@ data TLSClient = TLSClient
 
 data TLSClientConfig = TLSClientConfig
     { tlsClientTCPConfig :: TCPClientConfig
-    , tlsClientServerInfo :: (V.Bytes, V.Bytes, Word32)
+    , tlsClientServerInfo :: ServerInfo
+    , tlsClientCredentials :: CredentialConfig
     }
 
+data CredentialConfig = CredentialConfig
+data ServerInfo = ServerInfo CBytes CBytes Word32
+
 defaultTLSClientConfig :: TLSClientConfig
-defaultTLSClientConfig = TLSClientConfig defaultTCPClientConfig
-                                         ("", "", 0)
+defaultTLSClientConfig = TLSClientConfig
+    defaultTCPClientConfig{tcpRemoteAddr = ipv4 "93.184.216.34" 443}
+    (ServerInfo "www.example.com" "https" 443)
+
 
 instance Input TLSClient where
     readInput tlsc@TLSClient{..} readBuf readLen = do
@@ -126,15 +132,20 @@ initTLSClient TLSClientConfig{..} = do
 
 data TLSServerConfig = TLSServerConfig
     { tlsServerTCPConfig :: TCPServerConfig
-    , tlsServerInfo :: (V.Bytes, V.Bytes, Word32)
+    , tlsServerInfo :: ServerInfo
+    , tlsServerCredentials :: CredentialConfig
     }
 
-defaultTLSServerConfig :: TLSClientConfig
-defaultTLSServerConfig = TLSClientConfig defaultTCPClientConfig
-                                         ("", "", 0)
+defaultTLSServerConfig :: TLSServerConfig
+defaultTLSServerConfig =
+    TLSServerConfig defaultTCPServerConfig (ServerInfo "www.example.com" "https" 443)
 
 startTLSServer :: TLSServerConfig -> IO ()
-startTLSServer = error "W.I.P"
+startTLSServer TLSServerConfig{..} = do
+    startTCPServer tlsServerTCPConfig $ \ tcp ->
+        print tcp
+
+
 
 --------------------------------------------------------------------------------
 

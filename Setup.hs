@@ -60,7 +60,8 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
             then []
             else ["--cpu=" ++ show (pretty arch), "--os=" ++ show (pretty os)]
 
-        args = configureFile:maybeHostFlag
+        -- pass amalgamation to produce botan_all.cpp
+        args = configureFile:"--amalgamation":maybeHostFlag
 
     pyConfiguredProg <- lookupProgram pyProg
                       `fmap` configureProgram  verbosity pyProg progDb
