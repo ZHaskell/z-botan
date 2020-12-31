@@ -17,7 +17,11 @@ bug-reports:                https://github.com/haskell-Z/z-botan/issues
 extra-source-files:         ChangeLog.md
                             README.md
                             LICENSE
-                            third_party/botan/**/*.h
+                            third_party/botan/src/**/*.h
+                            third_party/botan/src/**/*.cpp
+                            third_party/botan/configure.py
+                            third_party/cacert.md
+                            third_party/cacert.pem
 
 custom-setup
   setup-depends:
@@ -29,11 +33,6 @@ custom-setup
 source-repository head
     type:     git
     location: git://github.com/haskell-Z/z-botan.git
-
-flag no-pkg-config
-    description: Don't use pkg-config to check for library dependences
-    default: False
-    manual: True
 
 library
     exposed-modules:        Z.Botan.FFI
