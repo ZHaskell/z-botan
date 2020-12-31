@@ -1,4 +1,4 @@
-module Z.Crypto.Hash where
+module Z.Botan.Hash where
 
 import           Control.Concurrent.STM
 import           Data.Word
@@ -13,7 +13,7 @@ import           Z.Botan.FFI
 import           Z.Data.CBytes      as CB
 import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
 import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text.ShowT  as T
+import qualified Z.Data.Text        as T
 import           Z.Foreign
 import           Z.IO.BIO
 import           System.IO.Unsafe
@@ -95,7 +95,7 @@ data HashType
     | CRC24
     | CRC32
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.ShowT, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
 
 hashTypeToCBytes :: HashType -> CBytes
 hashTypeToCBytes h = case h of
@@ -141,7 +141,7 @@ data Hash = Hash
     , getHashSize :: Int
     }
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.ShowT
+    deriving anyclass T.Print
 
 newHash :: HasCallStack => HashType -> IO Hash
 newHash typ = do
@@ -192,7 +192,7 @@ finalHash (Hash bts _ siz) =
 @
 import Z.Data.CBytes
 import Z.Data.Vector.Hex
-import Z.Crypto.Hash
+import Z.Botan.Hash
 import Z.IO
 
 -- | Calculate SHA256 and MD5 checksum for a file in one streaming pass.

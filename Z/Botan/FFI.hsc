@@ -11,7 +11,7 @@ import           Z.Botan.Exception
 import           Z.Data.CBytes
 import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
 import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text.ShowT  as T
+import qualified Z.Data.Text        as T
 import           Z.Foreign
 
 #include "hs_botan.h"
@@ -22,13 +22,12 @@ foreign import ccall unsafe hs_botan_hex_encode :: BA## Word8 -> Int -> Int -> M
 foreign import ccall unsafe hs_botan_hex_encode_lower :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
 foreign import ccall unsafe hs_botan_hex_decode :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
 
-
 --------------------------------------------------------------------------------
 
 -- | Internal type to representation botan struct, botan_xxx_t is always pointer type.
 newtype BotanStruct = BotanStruct (ForeignPtr BotanStruct)
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.ShowT
+    deriving anyclass T.Print
 
 type BotanStructT = Ptr BotanStruct
 
@@ -96,7 +95,7 @@ foreign import ccall unsafe botan_hash_final :: BotanStructT -> MBA## Word8 -> I
 
 data CipherDirection = CipherEncrypt | CipherDecrypt
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass (T.ShowT, EncodeJSON, ToValue, FromValue)
+    deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
 
 cipherDirectionToFlag ::  CipherDirection -> Word32
 cipherDirectionToFlag CipherEncrypt = #const BOTAN_CIPHER_INIT_FLAG_ENCRYPT

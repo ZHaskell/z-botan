@@ -1,4 +1,4 @@
-module Z.Crypto.RNG
+module Z.Botan.RNG
   ( -- * RNG
     RNGType(..), RNG
   , newRNG, getRandom

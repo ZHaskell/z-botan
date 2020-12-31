@@ -1,4 +1,4 @@
-module Z.Crypto.Cipher
+module Z.Botan.Cipher
   ( -- * Block Cipher
     BlockCipher, blockCipherSize, blockCipherKeySpec
   , BlockCipherType(..), StreamCipherType(..)
@@ -18,9 +18,9 @@ import           Z.Botan.Exception
 import           Z.Data.CBytes      as CB
 import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
 import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text.ShowT  as T
+import qualified Z.Data.Text        as T
 import           Z.Foreign
-import           Z.Crypto.Hash
+import           Z.Botan.Hash
 import           Z.Botan.FFI
 import           Z.IO.BIO
 
@@ -152,7 +152,7 @@ data BlockCipherType
       -- A 64-bit cipher popular for its simple implementation. Avoid in new code.
     | XTEA
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.ShowT, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
 
 blockCipherTypeToCBytes :: BlockCipherType -> CBytes
 blockCipherTypeToCBytes b = case b of
@@ -203,7 +203,7 @@ data BlockCipher = BlockCipher
     , blockCipherKeySpec :: (Int, Int, Int)
     }
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.ShowT
+    deriving anyclass T.Print
 
 -- | Create a new block cipher.
 --
@@ -304,7 +304,7 @@ data StreamCipherType
       -- required for compatibility with existing systems.
     | RC4
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.ShowT, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
 
 streamCipherTypeToCBytes :: StreamCipherType -> CBytes
 streamCipherTypeToCBytes s = case s of
@@ -426,7 +426,7 @@ data CipherMode
     -- It is also less commonly implemented.
     | CBC_CTS BlockCipherType
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.ShowT, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
 
 cipherTypeToCBytes :: CipherMode -> CBytes
 cipherTypeToCBytes ct = case ct of
@@ -453,7 +453,7 @@ data Cipher = Cipher
     , defaultNonceLength :: Int
     }
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.ShowT
+    deriving anyclass T.Print
 
 -- | Create a new cipher.
 --
