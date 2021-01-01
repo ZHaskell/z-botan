@@ -1,9 +1,11 @@
-#include <botan_all.h>
 #include <HsFFI.h>
+#include <stdlib.h>
+#include <botan/ffi.h>
 
 #ifndef HS_BOTAN
 #define HS_BOTAN
 
+/*
 class Callbacks : public Botan::TLS::Callbacks
 {
     public:
@@ -21,7 +23,6 @@ class Callbacks : public Botan::TLS::Callbacks
         ~Callbacks();
 };
 
-/*
 class Credentials : public Botan::Credentials_Manager {
     private:
         std::vector<Botan::Certificate_Store*> m_stores;
@@ -52,7 +53,6 @@ class Credentials : public Botan::Credentials_Manager {
 };
 */
 
-extern "C" {
 
 ////////////////////////////////////////////////////////////////////////////////
 // FFI helper
@@ -107,8 +107,8 @@ int hs_botan_cipher_finish(botan_cipher_t cipher_obj,
 #define HS_FATAL_ALERT -2
 #define HS_BOTAN_TLS_EXCEPTION -3
 
-typedef Callbacks                   botan_callbacks_t;
 /*
+typedef Callbacks                   botan_callbacks_t;
 typedef struct {
     Botan::TLS::Client*             tls_client;
     Callbacks*                      callbacks;
@@ -138,6 +138,5 @@ void hs_tls_received_data(botan_tls_client_t* client, const uint8_t buf[], size_
 void hs_tls_send(botan_tls_client_t* client, const uint8_t buf[], size_t buf_size);
 */
     
-}
 
 #endif 

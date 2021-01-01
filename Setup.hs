@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Main (main) where
 
 import Distribution.Pretty
@@ -37,7 +38,11 @@ main = do
 
                 postConf simpleUserHooks args flags pkg_descr lbi
         ,   regHook = \ _ _ _ _ -> return ()
-        } ("--with-gcc=c++":mainArgs)
+#if __GLASGOW_HASKELL__ < 810
+        } (mainArgs)
+#else
+        } mainArgs
+#endif
     else defaultMain
 
 
@@ -61,7 +66,7 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
             else ["--cpu=" ++ show (pretty arch), "--os=" ++ show (pretty os)]
 
         -- pass amalgamation to produce botan_all.cpp
-        args = configureFile:"--amalgamation":maybeHostFlag
+        args = configureFile:"--amalgamation":"--disable-shared":maybeHostFlag
 
     pyConfiguredProg <- lookupProgram pyProg
                       `fmap` configureProgram  verbosity pyProg progDb
