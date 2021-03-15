@@ -100,6 +100,28 @@ int hs_botan_cipher_finish(botan_cipher_t cipher_obj,
                            HsInt input_len,
                            size_t* output_written);
 
+int hs_botan_x509_cert_get_serial_number(botan_x509_cert_t cert, uint8_t * out, size_t* out_len);
+int hs_botan_x509_cert_get_authority_key_id(botan_x509_cert_t cert, uint8_t * out, size_t* out_len);
+int hs_botan_x509_cert_get_subject_key_id(botan_x509_cert_t cert, uint8_t * out, size_t* out_len);
+
+int hs_botan_x509_cert_get_public_key_bits(botan_x509_cert_t cert,
+                                                  uint8_t * out, size_t* out_len);
+
+
+int hs_botan_x509_cert_get_public_key(botan_x509_cert_t cert, botan_pubkey_t* key);
+int hs_botan_x509_cert_get_issuer_dn(botan_x509_cert_t cert,
+                                  const char* key, size_t index,
+                                  uint8_t * out, size_t* out_len);
+
+int hs_botan_x509_cert_get_subject_dn(botan_x509_cert_t cert,
+                                   const char* key, size_t index,
+                                   uint8_t * out, size_t* out_len);
+
+int hs_botan_x509_cert_to_string(botan_x509_cert_t cert, char * out, size_t* out_len);
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // TLS
 #define HS_MAX_CIPHERTEXT_SIZE Botan::TLS::MAX_CIPHERTEXT_SIZE

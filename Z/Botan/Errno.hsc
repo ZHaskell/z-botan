@@ -1,7 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE CApiFFI #-}
 
-
 module Z.Botan.Errno where
 
 import Foreign.C.Types
