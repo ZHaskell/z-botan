@@ -50,7 +50,7 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
         spSep = [searchPathSeparator]
         pathEnv = maybe (intercalate spSep extraPath)
                 ((intercalate spSep extraPath ++ spSep)++) $ lookup "PATH" env
-        pyProg = simpleProgram "python"
+        pyProg = simpleProgram "python3"
         progDb = modifyProgramSearchPath
             (\p -> map ProgramSearchPathDir extraPath ++ p) emptyProgramDb
         overEnv = [("PATH", Just pathEnv) | not (null extraPath)]
