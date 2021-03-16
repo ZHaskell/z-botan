@@ -91,11 +91,6 @@ foreign import ccall unsafe botan_hash_output_length :: BotanStructT -> MBA## CS
 foreign import ccall unsafe hs_botan_hash_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 foreign import ccall unsafe botan_hash_final :: BotanStructT -> MBA## Word8 -> IO CInt
 
-
---------------------------------------------------------------------------------x509
-
-
-
 --------------------------------------------------------------------------------
 
 data CipherDirection = CipherEncrypt | CipherDecrypt
@@ -138,6 +133,5 @@ foreign import ccall unsafe botan_cipher_valid_nonce_length :: BotanStructT -> C
 foreign import ccall unsafe botan_cipher_get_default_nonce_length :: BotanStructT -> MBA## Int -> IO CInt
 foreign import ccall unsafe botan_cipher_get_update_granularity :: BotanStructT -> MBA## Int -> IO CInt
 foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA## Int -> IO CInt
-
 
 --------------------------------------------------------------------------------
