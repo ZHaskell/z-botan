@@ -1,35 +1,33 @@
-module Z.Botan.RNG
+module Z.Crypto.RNG
   ( -- * RNG
     RNGType(..), RNG
-  , newRNG, getRandom
+  , newRNG, getRNG, getRandom
   , reseedRNG, reseedRNGFromRNG, addEntropyRNG
   ) where
 
-import           Data.Word
-import           Foreign.ForeignPtr
-import           Foreign.Ptr
+import           Control.Monad
+import           Data.IORef
+import           GHC.Conc
 import           GHC.Generics
-import           GHC.Prim           (mkWeak##)
-import           GHC.Types          (IO (..))
-import           Z.Botan.Exception
+import           System.IO.Unsafe
+import           Z.Botan.FFI
 import           Z.Botan.Exception
 import           Z.Data.CBytes
-import           Z.Data.FFI
-import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
+import           Z.Data.JSON         (JSON)
+import qualified Z.Data.Array       as A
 import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text.ShowT  as T
+import qualified Z.Data.Text        as T
 import           Z.Foreign
-import           Z.Type.Utils
 
 -- | RNG types.
 data RNGType = SystemRNG | AutoSeededRNG | ProcessorRNG
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass (T.ShowT, EncodeJSON, ToValue, FromValue)
+    deriving anyclass (T.Print, JSON)
 
 -- | Opaque botan RNG type.
 newtype RNG = RNG BotanStruct
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.ShowT
+    deriving anyclass T.Print
 
 -- | Initialize a random number generator object from the given 'RNGType'
 newRNG :: RNGType -> IO RNG
@@ -40,6 +38,27 @@ newRNG typ = RNG <$> newBotanStruct
     rngTypeCBytes SystemRNG = "system"
     rngTypeCBytes AutoSeededRNG = "user"
     rngTypeCBytes ProcessorRNG = "hwrng"
+
+-- | Get an autoseeded RNG from a global RNG pool divide by haskell capability.
+--
+-- Botan internal use a lock to protect user-space RNG, which may cause contention if shared.
+-- This function will fetch an autoseeded RNG from a global RNG pool, which is recommended under
+-- concurrent settings.
+getRNG :: IO RNG
+getRNG = do
+    (cap, _) <- threadCapability =<< myThreadId
+    rngArray <- readIORef rngArrayRef
+    A.indexArrM rngArray (cap `rem` A.sizeofArr rngArray)
+  where
+    rngArrayRef :: IORef (A.SmallArray RNG)
+    {-# NOINLINE rngArrayRef #-}
+    rngArrayRef = unsafePerformIO $ do
+        numCaps <- getNumCapabilities
+        rngArray <- A.newArr numCaps
+        forM_ [0..numCaps-1] $ \ i -> do
+            A.writeArr rngArray i =<< newRNG AutoSeededRNG
+        irngArray <- A.unsafeFreezeArr rngArray
+        newIORef irngArray
 
 -- | Get random bytes from a random number generator.
 getRandom :: RNG -> Int -> IO V.Bytes

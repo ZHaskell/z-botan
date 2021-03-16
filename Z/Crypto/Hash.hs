@@ -1,4 +1,4 @@
-module Z.Botan.Hash where
+module Z.Crypto.Hash where
 
 import           Control.Concurrent.STM
 import           Data.Word
@@ -11,7 +11,7 @@ import           GHC.TypeNats
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Data.CBytes      as CB
-import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
+import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Foreign
@@ -95,7 +95,7 @@ data HashType
     | CRC24
     | CRC32
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, JSON)
 
 hashTypeToCBytes :: HashType -> CBytes
 hashTypeToCBytes h = case h of

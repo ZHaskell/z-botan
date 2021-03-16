@@ -9,7 +9,7 @@ import           GHC.Types          (IO (..))
 import           Z.IO.Exception
 import           Z.Botan.Exception
 import           Z.Data.CBytes
-import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
+import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Foreign
@@ -43,6 +43,7 @@ newBotanStruct init_ destroy = do
     BotanStruct <$> newForeignPtr destroy p
 
 --------------------------------------------------------------------------------
+-- RNG
 
 foreign import ccall unsafe botan_rng_init :: MBA## BotanStructT -> BA## Word8 -> IO CInt
 foreign import ccall unsafe "&botan_rng_destroy" botan_rng_destroy :: FunPtr (BotanStructT -> IO ())
@@ -50,6 +51,49 @@ foreign import ccall unsafe botan_rng_get :: BotanStructT -> MBA## Word8 -> CSiz
 foreign import ccall unsafe botan_rng_reseed :: BotanStructT -> CSize -> IO CInt
 foreign import ccall unsafe botan_rng_reseed_from_rng :: BotanStructT -> BotanStructT -> CSize -> IO CInt
 foreign import ccall unsafe hs_botan_rng_add_entropy :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+
+
+--------------------------------------------------------------------------------
+-- MPI
+
+foreign import ccall unsafe botan_mp_init :: MBA## BotanStructT -> IO CInt
+foreign import ccall unsafe "&botan_mp_destroy" botan_mp_destroy :: FunPtr (BotanStructT -> IO ())
+foreign import ccall unsafe botan_mp_set_from_int :: BotanStructT -> CInt -> IO CInt
+foreign import ccall unsafe botan_mp_set_from_mp :: BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_num_bytes :: BotanStructT -> MBA## CSize -> IO CInt
+foreign import ccall unsafe botan_mp_num_bits :: BotanStructT -> MBA## CSize -> IO CInt
+foreign import ccall unsafe hs_botan_mp_to_hex :: BotanStructT -> MBA## Word8 -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_to_dec :: BotanStructT -> MBA## Word8 -> Int -> IO Int
+foreign import ccall unsafe hs_botan_mp_set_from_hex :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_set_from_dec :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_to_bin :: BotanStructT -> MBA## Word8 -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_from_bin :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe botan_mp_flip_sign :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_add :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_sub :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_mul :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_div :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_mod_mul :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_equal :: BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_zero :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_odd :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_even :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_positive :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_negative :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_to_uint32 :: BotanStructT -> MBA## Word32 -> IO CInt
+foreign import ccall unsafe botan_mp_cmp :: MBA## CInt -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_swap :: BotanStructT -> BotanStructT -> IO ()
+foreign import ccall unsafe botan_mp_powmod :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_lshift :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_rshift :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_mod_inverse :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_rand_bits :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_rand_range :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_gcd :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_prime :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_get_bit :: BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_set_bit :: BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_clear_bit :: BotanStructT -> CSize -> IO CInt
 
 --------------------------------------------------------------------------------
 
@@ -95,7 +139,7 @@ foreign import ccall unsafe botan_hash_final :: BotanStructT -> MBA## Word8 -> I
 
 data CipherDirection = CipherEncrypt | CipherDecrypt
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+    deriving anyclass (T.Print, JSON)
 
 cipherDirectionToFlag ::  CipherDirection -> Word32
 cipherDirectionToFlag CipherEncrypt = #const BOTAN_CIPHER_INIT_FLAG_ENCRYPT

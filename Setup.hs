@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Monad
 import Distribution.Pretty
 import Distribution.Simple
 import Distribution.Simple.Setup
@@ -50,7 +51,7 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
         spSep = [searchPathSeparator]
         pathEnv = maybe (intercalate spSep extraPath)
                 ((intercalate spSep extraPath ++ spSep)++) $ lookup "PATH" env
-        pyProg = simpleProgram "python"
+        pyProgs = simpleProgram <$> ["python", "python2", "python3"]
         progDb = modifyProgramSearchPath
             (\p -> map ProgramSearchPathDir extraPath ++ p) emptyProgramDb
         overEnv = [("PATH", Just pathEnv) | not (null extraPath)]
@@ -63,9 +64,10 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
         -- pass amalgamation to produce botan_all.cpp
         args = configureFile:"--amalgamation":maybeHostFlag
 
-    pyConfiguredProg <- lookupProgram pyProg
-                      `fmap` configureProgram  verbosity pyProg progDb
-    case pyConfiguredProg of
+    pyConfiguredProg <- forM pyProgs $ \ pyProg ->
+        lookupProgram pyProg <$> configureProgram verbosity pyProg progDb
+
+    case msum (pyConfiguredProg) of
       Just py -> runProgramInvocation verbosity $
                  (programInvocation (py {programOverrideEnv = overEnv}) args)
                  { progInvokeCwd = Just configFolder }
