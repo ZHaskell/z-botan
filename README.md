@@ -1,4 +1,4 @@
-## Z-Data
+## Z-Botan
 
 <!--
 [![Hackage](https://img.shields.io/hackage/v/Z-Botan.svg?style=flat)](https://hackage.haskell.org/package/Z-Botan)
