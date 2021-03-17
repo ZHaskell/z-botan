@@ -1,10 +1,8 @@
 module Z.Botan.FFI where
 
 import           Data.Word
-import           Foreign.ForeignPtr
 import           Foreign.Ptr
 import           GHC.Generics
-import           GHC.Prim           (mkWeak##)
 import           GHC.Types          (IO (..))
 import           Z.IO.Exception
 import           Z.Botan.Exception
@@ -13,6 +11,7 @@ import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Foreign
+import           Z.Foreign.CPtr
 
 #include "hs_botan.h"
 
@@ -25,22 +24,20 @@ foreign import ccall unsafe hs_botan_hex_decode :: BA## Word8 -> Int -> Int -> M
 --------------------------------------------------------------------------------
 
 -- | Internal type to representation botan struct, botan_xxx_t is always pointer type.
-newtype BotanStruct = BotanStruct (ForeignPtr BotanStruct)
-    deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.Print
 
-type BotanStructT = Ptr BotanStruct
+type BotanStruct = CPtr ()
+type BotanStructT = Ptr ()
 
 withBotanStruct :: BotanStruct -> (BotanStructT -> IO a) -> IO a
-withBotanStruct (BotanStruct fp) = withForeignPtr fp
+withBotanStruct = withCPtr
 
 newBotanStruct :: HasCallStack
                => (MBA## BotanStructT -> IO CInt)  -- ^ init function
                -> FunPtr (BotanStructT -> IO ())     -- ^ destroy function pointer
                -> IO BotanStruct
 newBotanStruct init_ destroy = do
-    (p, _) <- allocPrimUnsafe $ \ pp -> throwBotanIfMinus_ (init_ pp)
-    BotanStruct <$> newForeignPtr destroy p
+    (bts, _) <- newCPtrUnsafe (\ pp -> throwBotanIfMinus_ (init_ pp)) destroy
+    return bts
 
 --------------------------------------------------------------------------------
 -- RNG

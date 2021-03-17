@@ -1,13 +1,7 @@
 module Z.Crypto.Hash where
 
-import           Control.Concurrent.STM
 import           Data.Word
-import           Data.Function
-import           Data.Proxy
-import           Foreign.ForeignPtr
-import           Foreign.Ptr
 import           GHC.Generics
-import           GHC.TypeNats
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Data.CBytes      as CB
