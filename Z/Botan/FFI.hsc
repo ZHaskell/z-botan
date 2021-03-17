@@ -98,7 +98,7 @@ foreign import ccall unsafe botan_block_cipher_init :: MBA## BotanStructT -> BA#
 foreign import ccall unsafe "&botan_block_cipher_destroy"
     botan_block_cipher_destroy :: FunPtr (BotanStructT -> IO ())
 foreign import ccall unsafe botan_block_cipher_block_size :: BotanStructT -> IO CInt
-foreign import ccall unsafe botan_block_cipher_get_keyspec :: BotanStructT 
+foreign import ccall unsafe botan_block_cipher_get_keyspec :: BotanStructT
                                                            -> MBA## Int   -- ^ minimum_keylength
                                                            -> MBA## Int   -- ^ maximum_keylength
                                                            -> MBA## Int   -- ^ keylength_modulo
@@ -107,14 +107,14 @@ foreign import ccall unsafe botan_block_cipher_clear :: BotanStructT -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_set_key
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_encrypt_blocks
-    :: BotanStructT 
+    :: BotanStructT
     -> BA## Word8   -- ^ in_buf
     -> Int          -- ^ in offset
     -> MBA## Word8  -- ^ out buffer
     -> Int          -- ^ number of block
     -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_decrypt_blocks
-    :: BotanStructT 
+    :: BotanStructT
     -> BA## Word8   -- ^ in_buf
     -> Int          -- ^ in offset
     -> MBA## Word8  -- ^ out buffer
@@ -147,7 +147,7 @@ foreign import ccall unsafe "&botan_cipher_destroy"
     botan_cipher_destroy :: FunPtr (BotanStructT -> IO ())
 foreign import ccall unsafe botan_cipher_clear :: BotanStructT -> IO CInt
 foreign import ccall unsafe botan_cipher_reset :: BotanStructT -> IO CInt
-foreign import ccall unsafe botan_cipher_get_keyspec :: BotanStructT 
+foreign import ccall unsafe botan_cipher_get_keyspec :: BotanStructT
                                                      -> MBA## Int   -- ^ minimum_keylength
                                                      -> MBA## Int   -- ^ maximum_keylength
                                                      -> MBA## Int   -- ^ keylength_modulo
@@ -157,7 +157,7 @@ foreign import ccall unsafe hs_botan_cipher_set_key
 foreign import ccall unsafe hs_botan_cipher_start
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 foreign import ccall unsafe hs_botan_cipher_update
-    :: BotanStructT 
+    :: BotanStructT
     -> Word32       -- ^ flag
     -> MBA## Word8  -- ^ output
     -> Int          -- ^ output size
@@ -176,3 +176,28 @@ foreign import ccall unsafe botan_cipher_get_update_granularity :: BotanStructT 
 foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA## Int -> IO CInt
 
 --------------------------------------------------------------------------------
+-- PBKDF
+
+foreign import ccall unsafe hs_botan_pwdhash :: BA## Word8
+                                             -> Int -> Int -> Int
+                                             -> MBA## Word8 -> Int
+                                             -> BA## Word8 -> Int -> Int
+                                             -> BA## Word8 -> Int -> Int
+                                             -> IO Int
+
+foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
+                                                   -> Int
+                                                   -> MBA## Int -> Int -> Int -> Int
+                                                   -> MBA## Word8 -> Int
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> IO Int
+
+--------------------------------------------------------------------------------
+-- KDF
+
+foreign import ccall unsafe hs_botan_kdf :: BA## Word8
+                                         -> MBA## Word8 -> Int
+                                         -> BA## Word8 -> Int -> Int
+                                         -> BA## Word8 -> Int -> Int
+                                         -> IO Int
