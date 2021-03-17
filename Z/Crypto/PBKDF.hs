@@ -10,22 +10,23 @@ import Z.Foreign
     withPrimVectorUnsafe,
   )
 
-pwdHash ::
-  -- | the name of the given PBKDF algorithm
-  CBytes ->
-  -- | the first argument of algorithm
-  Int ->
-  -- | the second argument of the algorithm, optional, set to 0 to ignore
-  Int ->
-  -- | the third argument of the algorithm, optional, set to 0 to ignore
-  Int ->
-  -- | length of output key
-  Int ->
-  -- | passphrase
-  V.Bytes ->
-  -- | salt
-  V.Bytes ->
-  IO Int
+-- | Derive a key from a passphrase for a number of iterations using the given PBKDF algorithm.
+pwdHash
+  :: CBytes
+  -- ^ the name of the given PBKDF algorithm
+  -> Int
+  -- ^ the first argument of algorithm
+  -> Int
+  -- ^ the second argument of the algorithm, optional, set to 0 to ignore
+  -> Int
+  -- ^ the third argument of the algorithm, optional, set to 0 to ignore
+  -> Int
+  -- ^ length of output key
+  -> V.Bytes
+  -- ^ passphrase
+  -> V.Bytes
+  -- ^ salt
+  -> IO Int
 pwdHash algo p1 op2 op3 siz pwd s = do
   withCBytesUnsafe algo $ \algo' ->
     withPrimVectorUnsafe pwd $ \pwd' ppOff ppLen ->
@@ -34,24 +35,25 @@ pwdHash algo p1 op2 op3 siz pwd s = do
           hs_botan_pwdhash algo' p1 op2 op3 buf (fromIntegral siz) pwd' ppOff ppLen s' sOff sLen
         return b
 
-pwdHashTimed ::
-  -- | the name of the given PBKDF algorithm
-  CBytes ->
-  -- | run until milliseconds have passwd
-  Int ->
-  -- | the first argument of algorithm
-  Int ->
-  -- | the second argument of the algorithm, optional, set to 0 to ignore
-  Int ->
-  -- | the third argument of the algorithm, optional, set to 0 to ignore
-  Int ->
-  -- | length of output key
-  Int ->
-  -- | passphrase
-  V.Bytes ->
-  -- | salt
-  V.Bytes ->
-  IO Int
+-- | Derive a key from a passphrase using the given PBKDF algorithm.
+pwdHashTimed
+  :: CBytes
+  -- ^ the name of the given PBKDF algorithm
+  -> Int
+  -- ^ run until milliseconds have passwd
+  -> Int
+  -- ^ the first argument of algorithm
+  -> Int
+  -- ^ the second argument of the algorithm, optional, set to 0 to ignore
+  -> Int
+  -- ^ the third argument of the algorithm, optional, set to 0 to ignore
+  -> Int
+  -- ^ length of output key
+  -> V.Bytes
+  -- ^ passphrase
+  -> V.Bytes
+  -- ^ salt
+  -> IO Int
 pwdHashTimed algo msec p1 op2 op3 siz pwd s = do
   withCBytesUnsafe algo $ \algo' ->
     withPrimVectorUnsafe pwd $ \pwd' ppOff ppLen ->

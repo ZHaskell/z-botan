@@ -6,16 +6,17 @@ import Z.Data.CBytes (CBytes, withCBytesUnsafe)
 import qualified Z.Data.Vector as V
 import Z.Foreign (allocPrimVectorUnsafe, withPrimVectorUnsafe)
 
-kdf ::
-  -- | the name of the given PBKDF algorithm
-  CBytes ->
-  -- | length of output key
-  Int ->
-  -- | passphrase
-  V.Bytes ->
-  -- | salt
-  V.Bytes ->
-  IO Int
+-- | Derive a key using the given KDF algorithm.
+kdf
+  :: CBytes
+  -- ^ the name of the given PBKDF algorithm
+  -> Int
+  -- ^ length of output key
+  -> V.Bytes
+  -- ^ passphrase
+  -> V.Bytes
+  -- ^ salt
+  -> IO Int
 kdf algo siz pwd salt = do
   withCBytesUnsafe algo $ \algo' ->
     withPrimVectorUnsafe pwd $ \pwd' secretOff secretLen ->
