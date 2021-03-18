@@ -114,3 +114,33 @@ int hs_botan_mp_from_bin(botan_mp_t mp, const uint8_t* vec, HsInt off, HsInt len
 int hs_botan_mp_to_bin(botan_mp_t mp, uint8_t* vec, HsInt off){
     return botan_mp_to_bin(mp, vec+off);
 }
+
+// PBKDF
+
+int hs_botan_pwdhash(const char* algo
+                    ,HsInt p1, HsInt op2, HsInt op3
+                    ,uint8_t out[], HsInt out_len
+                    ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                    ,const uint8_t salt[], HsInt salt_off, HsInt salt_len){
+    return botan_pwdhash(algo, p1, op2, op3, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len);
+}
+
+int hs_botan_pwdhash_timed(const char* algo
+                          ,uint32_t msec
+                          ,HsInt* p_arr, HsInt p1, HsInt op2, HsInt op3
+                          ,uint8_t out[], HsInt out_len
+                          ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                          ,const uint8_t salt[], HsInt salt_off, HsInt salt_len){
+        p_arr[0]=p1; p_arr[1]=op2, p_arr[2]=op3;
+    return botan_pwdhash_timed(algo, msec, p_arr+0, p_arr+1, p_arr+2, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len);
+}
+
+// KDF
+
+int hs_botan_kdf(const char* algo
+                ,uint8_t out[], HsInt out_len
+                ,const uint8_t passwd[], HsInt passwd_off, HsInt passwd_len
+                ,const uint8_t salt[], HsInt salt_off, HsInt salt_len
+                ,const uint8_t label[], HsInt label_off, HsInt label_len){
+    return botan_kdf(algo, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len, label+label_off, label_len);
+}
