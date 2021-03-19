@@ -42,7 +42,7 @@ library
                             Z.Crypto.Hash
                             Z.Crypto.RNG
                             Z.Crypto.MPI
-                            Z.Crypto.PBKDF
+                            Z.Crypto.PubKey
                             Z.Crypto.KDF
                             Z.Crypto
 
@@ -109,6 +109,8 @@ library
                             UnboxedTuples
                             UnliftedFFITypes
                             ViewPatterns
+                            LambdaCase
+                            RecordWildCards
 
     build-tool-depends:     hsc2hs:hsc2hs, hspec-discover:hspec-discover
 
@@ -130,5 +132,3 @@ test-suite Z-Botan-Test
 
     ghc-options:            -threaded
     default-language:       Haskell2010
-
-

@@ -144,3 +144,17 @@ int hs_botan_kdf(const char* algo
                 ,const uint8_t label[], HsInt label_off, HsInt label_len){
     return botan_kdf(algo, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len, label+label_off, label_len);
 }
+
+// Public Key Creation, Import and Export
+
+int hs_botan_privkey_load (botan_privkey_t* key, botan_rng_t rng
+                          ,const uint8_t bits[], HsInt off, HsInt len
+                          ,const char* passwd){
+    if (*passwd == '\0') passwd = NULL;
+    return botan_privkey_load(key, rng, bits+off, len, passwd);
+}
+
+int hs_botan_pubkey_load (botan_pubkey_t* key
+                         ,const uint8_t bits[], HsInt off, HsInt len){
+    return botan_pubkey_load(key, bits+off, len);
+}

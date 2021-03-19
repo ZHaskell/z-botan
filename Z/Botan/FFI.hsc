@@ -183,7 +183,7 @@ foreign import ccall unsafe hs_botan_pwdhash :: BA## Word8
                                              -> MBA## Word8 -> Int
                                              -> BA## Word8 -> Int -> Int
                                              -> BA## Word8 -> Int -> Int
-                                             -> IO Int
+                                             -> IO CInt
 
 foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> Int
@@ -191,7 +191,7 @@ foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> MBA## Word8 -> Int
                                                    -> BA## Word8 -> Int -> Int
                                                    -> BA## Word8 -> Int -> Int
-                                                   -> IO Int
+                                                   -> IO CInt
 
 --------------------------------------------------------------------------------
 -- KDF
@@ -200,4 +200,74 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
                                          -> MBA## Word8 -> Int
                                          -> BA## Word8 -> Int -> Int
                                          -> BA## Word8 -> Int -> Int
-                                         -> IO Int
+                                         -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Public Key Creation, Import and Export (at Z.Crypto.PubKey)
+
+foreign import ccall unsafe botan_privkey_create :: MBA## BotanStructT -- ^ botan_privkey_t* key
+                                                 -> BA## Word8 -- ^ const char* algo_name
+                                                 -> BA## Word8 -- ^ const char* algo_params
+                                                 -> BotanStructT -- ^ botan_rng_t rng
+                                                 -> IO CInt
+
+foreign import ccall unsafe hs_botan_privkey_load :: MBA## BotanStructT
+                                                  -> BotanStructT
+                                                  -> BA## Word8 -> Int -> Int
+                                                  -> BA## Word8
+                                                  -> IO CInt
+
+foreign import ccall unsafe botan_privkey_export :: BotanStructT -- ^ botan_privkey_t key
+                                                 -> MBA## Word8 -> MBA## CSize -- ^ uint8_t out[], size_t* out_len
+                                                 -> Word32 -- ^ uint32_t flags
+                                                 -> IO CInt
+
+foreign import ccall unsafe botan_privkey_export_pubkey :: MBA## BotanStructT
+                                                        -> BotanStructT
+                                                        -> IO CInt
+
+foreign import ccall unsafe botan_privkey_get_field :: BotanStructT -- ^ botan_mp_t output
+                                                    -> BotanStructT -- ^ botan_privkey_t key
+                                                    -> BA## Word8 -- ^ const char* field_name
+                                                    -> IO CInt
+
+foreign import ccall unsafe "&botan_privkey_destroy" botan_privkey_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe hs_botan_pubkey_load :: MBA## BotanStructT -- ^ botan_pubkey_t* key
+                                                 -> BA## Word8 -> Int -> Int
+                                                 -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_export :: BotanStructT
+                                                -> MBA## Word8 -> MBA## CSize
+                                                -> Word32
+                                                -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_algo_name :: BotanStructT
+                                                   -> MBA## Word8 -> MBA## CSize
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_estimated_strength :: BotanStructT
+                                                            -> MBA## CSize
+                                                            -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_fingerprint :: BotanStructT
+                                                     -> BA## Word8
+                                                     -> MBA## Word8 -> MBA## CSize
+                                                     -> IO CInt
+
+foreign import ccall unsafe "&botan_pubkey_destroy" botan_pubkey_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_pubkey_get_field :: BotanStructT
+                                                   -> BotanStructT
+                                                   -> BA## Word8
+                                                   -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Password Hashing
+
+foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> Int
+                                                  -> BA## Word8
+                                                  -> BotanStructT
+                                                  -> Int
+                                                  -> Word32
+                                                  -> IO CInt

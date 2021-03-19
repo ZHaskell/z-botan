@@ -7,6 +7,8 @@ module Z.Crypto.MPI
   , isNegative, isZero, isOdd, isEven
     -- * MPI specific
   , mulMod, powMod, modInverse
+    -- * Internal
+  , unsafeNewMPI
   ) where
 
 import           Control.Monad
