@@ -42,7 +42,6 @@ library
                             Z.Crypto.Hash
                             Z.Crypto.RNG
                             Z.Crypto.MPI
-                            Z.Crypto.PBKDF
                             Z.Crypto.KDF
                             Z.Crypto
 

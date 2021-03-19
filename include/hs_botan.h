@@ -60,7 +60,17 @@ int hs_botan_mp_set_from_dec(botan_mp_t dest, const char *str, HsInt off, HsInt 
 int hs_botan_mp_from_bin(botan_mp_t mp, const uint8_t* vec, HsInt off, HsInt len);
 int hs_botan_mp_to_bin(botan_mp_t mp, uint8_t* vec, HsInt off);
 
-// Password Hashing
+// KDF & PBKDF
+int hs_botan_pwdhash(const char* algo
+                    ,HsInt p1, HsInt p2, HsInt p3
+                    ,uint8_t out[], HsInt out_len
+                    ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                    ,const uint8_t salt[], HsInt salt_off, HsInt salt_len);
+int hs_botan_pwdhash_timed(const char* algo
+                          ,uint32_t msec
+                          ,uint8_t out[], HsInt out_len
+                          ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                          ,const uint8_t salt[], HsInt salt_off, HsInt salt_len);
 
 // Public Key Creation, Import and Export
 
