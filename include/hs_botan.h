@@ -1,5 +1,4 @@
 #include <HsFFI.h>
-#include <stdlib.h>
 #include <botan/ffi.h>
 
 // Utility Functions
