@@ -56,13 +56,11 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
             (\p -> map ProgramSearchPathDir extraPath ++ p) emptyProgramDb
         overEnv = [("PATH", Just pathEnv) | not (null extraPath)]
         hp@(Platform  arch os) = hostPlatform lbi
-        maybeHostFlag =
-            if hp == buildPlatform
-            then []
-            else ["--cpu=" ++ show (pretty arch), "--os=" ++ show (pretty os)]
-
+        -- use gcc/mingw bunlded with GHC
+        osStr = if os == Windows then "mingw" else (show (pretty os))
+        hostFlag = [ "--cpu=" ++ show (pretty arch), "--os=" ++ osStr]
         -- pass amalgamation to produce botan_all.cpp
-        args = configureFile:"--amalgamation":maybeHostFlag
+        args = configureFile:"--amalgamation":hostFlag
 
     pyConfiguredProg <- forM pyProgs $ \ pyProg ->
         lookupProgram pyProg <$> configureProgram verbosity pyProg progDb
