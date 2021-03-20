@@ -29,7 +29,6 @@ module Z.Crypto.Hash(
   , hashTypeToCBytes
   ) where
 
-import           Data.Word
 import           GHC.Generics
 import           Z.Botan.Exception
 import           Z.Botan.FFI
@@ -178,9 +177,8 @@ newHash typ = do
 copyHash :: HasCallStack => Hash -> IO Hash
 copyHash (Hash bts0 name siz) = do
     s <- newBotanStruct
-        (\ bts -> withCBytesUnsafe name $ \ pt ->
-            withBotanStruct bts0 $ \ pbts0 ->
-            (botan_hash_copy_state bts pbts0))
+        (\ bts -> withBotanStruct bts0 $ \ pbts0 ->
+            botan_hash_copy_state bts pbts0)
         botan_hash_destroy
     return (Hash s name siz)
 
