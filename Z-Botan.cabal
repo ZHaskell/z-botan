@@ -64,7 +64,7 @@ library
     install-includes:       hs_botan.h
 
     c-sources:              cbits/hs_botan.c
-                            third_party/botan/botan_all.cpp
+    cxx-sources:            third_party/botan/botan_all.cpp
 
     cc-options:             -march=native
     cxx-options:            -std=c++11 -march=native
