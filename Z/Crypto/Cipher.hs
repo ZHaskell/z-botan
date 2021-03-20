@@ -1,4 +1,4 @@
-module Z.Botan.Cipher
+module Z.Crypto.Cipher
   ( -- * Block Cipher
     BlockCipher, blockCipherSize, blockCipherKeySpec
   , BlockCipherType(..), StreamCipherType(..)
@@ -16,11 +16,11 @@ import           Control.Monad
 import           GHC.Generics
 import           Z.Botan.Exception
 import           Z.Data.CBytes      as CB
-import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
+import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Foreign
-import           Z.Botan.Hash
+import           Z.Crypto.Hash
 import           Z.Botan.FFI
 import           Z.IO.BIO
 
@@ -152,7 +152,7 @@ data BlockCipherType
       -- A 64-bit cipher popular for its simple implementation. Avoid in new code.
     | XTEA
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, JSON)
 
 blockCipherTypeToCBytes :: BlockCipherType -> CBytes
 blockCipherTypeToCBytes b = case b of
@@ -304,7 +304,7 @@ data StreamCipherType
       -- required for compatibility with existing systems.
     | RC4
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, JSON)
 
 streamCipherTypeToCBytes :: StreamCipherType -> CBytes
 streamCipherTypeToCBytes s = case s of
@@ -426,7 +426,7 @@ data CipherMode
     -- It is also less commonly implemented.
     | CBC_CTS BlockCipherType
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, JSON)
 
 cipherTypeToCBytes :: CipherMode -> CBytes
 cipherTypeToCBytes ct = case ct of

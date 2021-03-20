@@ -1,28 +1,46 @@
-module Z.Botan.Hash where
+{-|
+Module      : Z.Crypto.Hash
+Description : Hash Functions and Checksums
+Copyright   : Dong Han, 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
 
-import           Control.Concurrent.STM
-import           Data.Word
-import           Data.Function
-import           Data.Proxy
-import           Foreign.ForeignPtr
-import           Foreign.Ptr
+Hash functions are one-way functions, which map data of arbitrary size to a fixed output length. Most of the hash functions in Botan are designed to be cryptographically secure, which means that it is computationally infeasible to create a collision (finding two inputs with the same hash) or preimages (given a hash output, generating an arbitrary input with the same hash). But note that not all such hash functions meet their goals, in particular MD4 and MD5 are trivially broken. However they are still included due to their wide adoption in various protocols.
+
+Using a hash function is typically split into three stages: initialization, update, and finalization (often referred to as a IUF interface). The initialization stage is implicit: after creating a 'Hash' function object, it is ready to process data. Then update is called one or more times. Calling update several times is equivalent to calling it once with all of the arguments concatenated. After completing a hash computation (eg using final), the internal state is reset to begin hashing a new message.
+
+-}
+module Z.Crypto.Hash(
+    -- * IUF interface
+    HashType(..)
+  , Hash(..)
+  , newHash
+  , copyHash
+  , clearHash
+  , updateHash
+  , finalHash
+  -- * function interface
+  , hash, hashChunks
+  -- * BIO interface
+  , sinkToHash
+  -- * Internal helper
+  , hashTypeToCBytes
+  ) where
+
 import           GHC.Generics
-import           GHC.TypeNats
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Data.CBytes      as CB
-import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
+import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Foreign
 import           Z.IO.BIO
 import           System.IO.Unsafe
 
-{- | Available Hashs
-
-Hash functions are one-way functions, which map data of arbitrary size to a fixed output length @a@. Most of the hash functions in Botan are designed to be cryptographically secure, which means that it is computationally infeasible to create a collision (finding two inputs with the same hash) or preimages (given a hash output, generating an arbitrary input with the same hash). But note that not all such hash functions meet their goals, in particular MD4 and MD5 are trivially broken. However they are still included due to their wide adoption in various protocols.
-
--}
+-- | Available Hashs
 data HashType
       -- | A recently designed hash function. Very fast on 64-bit processors.
       -- Can output a hash of any length between 1 and 64 bytes,
@@ -95,7 +113,7 @@ data HashType
     | CRC24
     | CRC32
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+  deriving anyclass (T.Print, JSON)
 
 hashTypeToCBytes :: HashType -> CBytes
 hashTypeToCBytes h = case h of
@@ -159,9 +177,8 @@ newHash typ = do
 copyHash :: HasCallStack => Hash -> IO Hash
 copyHash (Hash bts0 name siz) = do
     s <- newBotanStruct
-        (\ bts -> withCBytesUnsafe name $ \ pt ->
-            withBotanStruct bts0 $ \ pbts0 ->
-            (botan_hash_copy_state bts pbts0))
+        (\ bts -> withBotanStruct bts0 $ \ pbts0 ->
+            botan_hash_copy_state bts pbts0)
         botan_hash_destroy
     return (Hash s name siz)
 

@@ -1,18 +1,17 @@
 module Z.Botan.FFI where
 
 import           Data.Word
-import           Foreign.ForeignPtr
 import           Foreign.Ptr
 import           GHC.Generics
-import           GHC.Prim           (mkWeak##)
 import           GHC.Types          (IO (..))
 import           Z.IO.Exception
 import           Z.Botan.Exception
 import           Z.Data.CBytes
-import           Z.Data.JSON         (EncodeJSON, ToValue, FromValue)
+import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Foreign
+import           Z.Foreign.CPtr
 
 #include "hs_botan.h"
 
@@ -25,24 +24,23 @@ foreign import ccall unsafe hs_botan_hex_decode :: BA## Word8 -> Int -> Int -> M
 --------------------------------------------------------------------------------
 
 -- | Internal type to representation botan struct, botan_xxx_t is always pointer type.
-newtype BotanStruct = BotanStruct (ForeignPtr BotanStruct)
-    deriving (Show, Eq, Ord, Generic)
-    deriving anyclass T.Print
 
-type BotanStructT = Ptr BotanStruct
+type BotanStruct = CPtr ()
+type BotanStructT = Ptr ()
 
 withBotanStruct :: BotanStruct -> (BotanStructT -> IO a) -> IO a
-withBotanStruct (BotanStruct fp) = withForeignPtr fp
+withBotanStruct = withCPtr
 
 newBotanStruct :: HasCallStack
                => (MBA## BotanStructT -> IO CInt)  -- ^ init function
                -> FunPtr (BotanStructT -> IO ())     -- ^ destroy function pointer
                -> IO BotanStruct
 newBotanStruct init_ destroy = do
-    (p, _) <- allocPrimUnsafe $ \ pp -> throwBotanIfMinus_ (init_ pp)
-    BotanStruct <$> newForeignPtr destroy p
+    (bts, _) <- newCPtrUnsafe (\ pp -> throwBotanIfMinus_ (init_ pp)) destroy
+    return bts
 
 --------------------------------------------------------------------------------
+-- RNG
 
 foreign import ccall unsafe botan_rng_init :: MBA## BotanStructT -> BA## Word8 -> IO CInt
 foreign import ccall unsafe "&botan_rng_destroy" botan_rng_destroy :: FunPtr (BotanStructT -> IO ())
@@ -51,13 +49,56 @@ foreign import ccall unsafe botan_rng_reseed :: BotanStructT -> CSize -> IO CInt
 foreign import ccall unsafe botan_rng_reseed_from_rng :: BotanStructT -> BotanStructT -> CSize -> IO CInt
 foreign import ccall unsafe hs_botan_rng_add_entropy :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 
+
+--------------------------------------------------------------------------------
+-- MPI
+
+foreign import ccall unsafe botan_mp_init :: MBA## BotanStructT -> IO CInt
+foreign import ccall unsafe "&botan_mp_destroy" botan_mp_destroy :: FunPtr (BotanStructT -> IO ())
+foreign import ccall unsafe botan_mp_set_from_int :: BotanStructT -> CInt -> IO CInt
+foreign import ccall unsafe botan_mp_set_from_mp :: BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_num_bytes :: BotanStructT -> MBA## CSize -> IO CInt
+foreign import ccall unsafe botan_mp_num_bits :: BotanStructT -> MBA## CSize -> IO CInt
+foreign import ccall unsafe hs_botan_mp_to_hex :: BotanStructT -> MBA## Word8 -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_to_dec :: BotanStructT -> MBA## Word8 -> Int -> IO Int
+foreign import ccall unsafe hs_botan_mp_set_from_hex :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_set_from_dec :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_to_bin :: BotanStructT -> MBA## Word8 -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mp_from_bin :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe botan_mp_flip_sign :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_add :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_sub :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_mul :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_div :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_mod_mul :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_equal :: BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_zero :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_odd :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_even :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_positive :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_negative :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_to_uint32 :: BotanStructT -> MBA## Word32 -> IO CInt
+foreign import ccall unsafe botan_mp_cmp :: MBA## CInt -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_swap :: BotanStructT -> BotanStructT -> IO ()
+foreign import ccall unsafe botan_mp_powmod :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_lshift :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_rshift :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_mod_inverse :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_rand_bits :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_rand_range :: BotanStructT -> BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_gcd :: BotanStructT -> BotanStructT -> BotanStructT -> IO CInt
+foreign import ccall unsafe botan_mp_is_prime :: BotanStructT -> BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_get_bit :: BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_set_bit :: BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_mp_clear_bit :: BotanStructT -> CSize -> IO CInt
+
 --------------------------------------------------------------------------------
 
 foreign import ccall unsafe botan_block_cipher_init :: MBA## BotanStructT -> BA## Word8 -> IO CInt
 foreign import ccall unsafe "&botan_block_cipher_destroy"
     botan_block_cipher_destroy :: FunPtr (BotanStructT -> IO ())
 foreign import ccall unsafe botan_block_cipher_block_size :: BotanStructT -> IO CInt
-foreign import ccall unsafe botan_block_cipher_get_keyspec :: BotanStructT 
+foreign import ccall unsafe botan_block_cipher_get_keyspec :: BotanStructT
                                                            -> MBA## Int   -- ^ minimum_keylength
                                                            -> MBA## Int   -- ^ maximum_keylength
                                                            -> MBA## Int   -- ^ keylength_modulo
@@ -66,14 +107,14 @@ foreign import ccall unsafe botan_block_cipher_clear :: BotanStructT -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_set_key
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_encrypt_blocks
-    :: BotanStructT 
+    :: BotanStructT
     -> BA## Word8   -- ^ in_buf
     -> Int          -- ^ in offset
     -> MBA## Word8  -- ^ out buffer
     -> Int          -- ^ number of block
     -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_decrypt_blocks
-    :: BotanStructT 
+    :: BotanStructT
     -> BA## Word8   -- ^ in_buf
     -> Int          -- ^ in offset
     -> MBA## Word8  -- ^ out buffer
@@ -95,7 +136,7 @@ foreign import ccall unsafe botan_hash_final :: BotanStructT -> MBA## Word8 -> I
 
 data CipherDirection = CipherEncrypt | CipherDecrypt
     deriving (Show, Eq, Ord, Generic)
-    deriving anyclass (T.Print, EncodeJSON, ToValue, FromValue)
+    deriving anyclass (T.Print, JSON)
 
 cipherDirectionToFlag ::  CipherDirection -> Word32
 cipherDirectionToFlag CipherEncrypt = #const BOTAN_CIPHER_INIT_FLAG_ENCRYPT
@@ -106,7 +147,7 @@ foreign import ccall unsafe "&botan_cipher_destroy"
     botan_cipher_destroy :: FunPtr (BotanStructT -> IO ())
 foreign import ccall unsafe botan_cipher_clear :: BotanStructT -> IO CInt
 foreign import ccall unsafe botan_cipher_reset :: BotanStructT -> IO CInt
-foreign import ccall unsafe botan_cipher_get_keyspec :: BotanStructT 
+foreign import ccall unsafe botan_cipher_get_keyspec :: BotanStructT
                                                      -> MBA## Int   -- ^ minimum_keylength
                                                      -> MBA## Int   -- ^ maximum_keylength
                                                      -> MBA## Int   -- ^ keylength_modulo
@@ -116,7 +157,7 @@ foreign import ccall unsafe hs_botan_cipher_set_key
 foreign import ccall unsafe hs_botan_cipher_start
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 foreign import ccall unsafe hs_botan_cipher_update
-    :: BotanStructT 
+    :: BotanStructT
     -> Word32       -- ^ flag
     -> MBA## Word8  -- ^ output
     -> Int          -- ^ output size
@@ -135,3 +176,36 @@ foreign import ccall unsafe botan_cipher_get_update_granularity :: BotanStructT 
 foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA## Int -> IO CInt
 
 --------------------------------------------------------------------------------
+-- PBKDF
+
+foreign import ccall unsafe hs_botan_pwdhash :: BA## Word8
+                                             -> Int -> Int -> Int
+                                             -> MBA## Word8 -> Int
+                                             -> BA## Word8 -> Int -> Int
+                                             -> BA## Word8 -> Int -> Int
+                                             -> IO CInt
+
+foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
+                                                   -> Int
+                                                   -> MBA## Word8 -> Int
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> IO CInt
+
+foreign import ccall safe "hs_botan_pwdhash_timed" 
+    hs_botan_pwdhash_timed_safe :: BA## Word8
+                                -> Int
+                                -> MBA## Word8 -> Int
+                                -> BA## Word8 -> Int -> Int
+                                -> BA## Word8 -> Int -> Int
+                                -> IO CInt
+
+--------------------------------------------------------------------------------
+-- KDF
+
+foreign import ccall unsafe hs_botan_kdf :: BA## Word8
+                                         -> MBA## Word8 -> Int
+                                         -> BA## Word8 -> Int -> Int
+                                         -> BA## Word8 -> Int -> Int
+                                         -> BA## Word8 -> Int -> Int
+                                         -> IO CInt

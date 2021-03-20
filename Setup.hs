@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 module Main (main) where
 
+import Control.Monad
 import Distribution.Pretty
 import Distribution.Simple
 import Distribution.Simple.Setup
@@ -55,22 +56,21 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
         spSep = [searchPathSeparator]
         pathEnv = maybe (intercalate spSep extraPath)
                 ((intercalate spSep extraPath ++ spSep)++) $ lookup "PATH" env
-        pyProg = simpleProgram "python"
+        pyProgs = simpleProgram <$> ["python", "python2", "python3"]
         progDb = modifyProgramSearchPath
             (\p -> map ProgramSearchPathDir extraPath ++ p) emptyProgramDb
         overEnv = [("PATH", Just pathEnv) | not (null extraPath)]
         hp@(Platform  arch os) = hostPlatform lbi
-        maybeHostFlag =
-            if hp == buildPlatform
-            then []
-            else ["--cpu=" ++ show (pretty arch), "--os=" ++ show (pretty os)]
-
+        -- use gcc/mingw bunlded with GHC
+        osStr = if os == Windows then "mingw" else (show (pretty os))
+        hostFlag = [ "--cpu=" ++ show (pretty arch), "--os=" ++ osStr]
         -- pass amalgamation to produce botan_all.cpp
-        args = configureFile:"--amalgamation":"--disable-shared":maybeHostFlag
+        args = configureFile:"--amalgamation":hostFlag
 
-    pyConfiguredProg <- lookupProgram pyProg
-                      `fmap` configureProgram  verbosity pyProg progDb
-    case pyConfiguredProg of
+    pyConfiguredProg <- forM pyProgs $ \ pyProg ->
+        lookupProgram pyProg <$> configureProgram verbosity pyProg progDb
+
+    case msum (pyConfiguredProg) of
       Just py -> runProgramInvocation verbosity $
                  (programInvocation (py {programOverrideEnv = overEnv}) args)
                  { progInvokeCwd = Just configFolder }

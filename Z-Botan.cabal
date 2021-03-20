@@ -38,13 +38,17 @@ library
     exposed-modules:        Z.Botan.FFI
                             Z.Botan.Errno
                             Z.Botan.Exception
-                            Z.Botan.Hash
-                            Z.Botan.Cipher
-                            -- Z.IO.TLS
+                            Z.Crypto.Cipher
+                            Z.Crypto.Hash
+                            Z.Crypto.RNG
+                            Z.Crypto.MPI
+                            Z.Crypto.KDF
+                            Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
-                          , Z-Data                  == 0.3.*
-                          , Z-IO                    == 0.3.*
+                          , Z-Data                  >= 0.7.1 && <0.8
+                          , Z-IO                    == 0.7.*
+                          , integer-gmp             == 1.*
                           , ghc-prim                >= 0.5.3
                           , stm                     == 2.5.*
 
@@ -53,19 +57,23 @@ library
                             third_party/botan
                             third_party/botan/build/include
                             third_party/botan/build/include/external
-                            
 
-    cxx-sources:            cbits/hs_botan.cpp
-                            third_party/botan/botan_all.cpp
+    includes:               hs_botan.h
 
-    cxx-options:            -std=c++11
-    extra-libraries:        c++ 
+    install-includes:       hs_botan.h
+
+    c-sources:              cbits/hs_botan.c
+    cxx-sources:            third_party/botan/botan_all.cpp
+
+    cc-options:             -march=native
+    cxx-options:            -std=c++11 -march=native
+    extra-libraries:        c++
 
     default-language:       Haskell2010
     default-extensions:     BangPatterns
                             CApiFFI
                             ConstraintKinds
-                            CPP 
+                            CPP
                             DerivingStrategies
                             DeriveGeneric
                             DeriveAnyClass
@@ -75,20 +83,20 @@ library
                             FlexibleContexts
                             FlexibleInstances
                             GADTs
-                            GeneralizedNewtypeDeriving 
+                            GeneralizedNewtypeDeriving
                             KindSignatures
                             MagicHash
                             MultiParamTypeClasses
                             MultiWayIf
                             PartialTypeSignatures
-                            PatternSynonyms 
+                            PatternSynonyms
                             PolyKinds
                             QuantifiedConstraints
                             QuasiQuotes
                             OverloadedStrings
                             RankNTypes
                             RecordWildCards
-                            ScopedTypeVariables 
+                            ScopedTypeVariables
                             StandaloneDeriving
                             TemplateHaskell
                             TypeApplications
@@ -96,8 +104,8 @@ library
                             TypeFamilies
                             TypeOperators
                             TupleSections
-                            UnboxedTuples 
-                            UnliftedFFITypes 
+                            UnboxedTuples
+                            UnliftedFFITypes
                             ViewPatterns
 
     build-tool-depends:     hsc2hs:hsc2hs, hspec-discover:hspec-discover
@@ -116,7 +124,7 @@ test-suite Z-Botan-Test
                           , QuickCheck              >= 2.10
                           , quickcheck-instances
 
-    other-modules:       
+    other-modules:
 
     ghc-options:            -threaded
     default-language:       Haskell2010
