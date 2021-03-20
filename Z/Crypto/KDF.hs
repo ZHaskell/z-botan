@@ -1,13 +1,36 @@
-module Z.Crypto.KDF where
+{-|
+Module      : Z.Crypto.KDF
+Description : Key Derivation Functions
+Copyright   : Dong Han, 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
 
-import Data.Word (Word8)
+KDF(Key Derivation Function) and PBKDF(Password Based Key Derivation Function).
+
+-}
+module Z.Crypto.KDF (
+  -- * KDF
+    KDFType(..)
+  , HashType(..)
+  , kdf
+  -- * PBKDF
+  , PBKDFType(..)
+  , pbkdf
+  , pbkdfTimed
+  -- * Internal helps
+  , kDFTypeToCBytes
+  , pBKDFTypeToParam
+  ) where
+
 import Z.Crypto.Hash
-import Z.Botan.FFI (hs_botan_kdf, hs_botan_pwdhash, hs_botan_pwdhash_timed)
+import Z.Botan.FFI
 import Z.Data.CBytes (CBytes, withCBytesUnsafe)
 import qualified Z.Data.CBytes as CB
 import qualified Z.Data.Vector as V
-import Z.Foreign (allocPrimVectorUnsafe, withPrimVectorUnsafe, allocPrimArrayUnsafe)
-import Z.Botan.Exception ( throwBotanIfMinus_ )
+import Z.Foreign
+import Z.Botan.Exception
 
 -----------------------------
 -- Key Derivation Function --
@@ -37,20 +60,20 @@ data KDFType
     | SP800_56A HashType
     | SP800_56C HashType
 
-kdfTypeToCBytes :: KDFType -> CBytes
-kdfTypeToCBytes (HKDF ht        ) = CB.concat [ "HKDF(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (HKDF_Extract ht) = CB.concat [ "HKDF-Extract(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (HKDF_Expand ht ) = CB.concat [ "HKDF-Expand(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (KDF2 ht        ) = CB.concat [ "KDF2(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (KDF1_18033 ht  ) = CB.concat [ "KDF1-18033(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (KDF1 ht        ) = CB.concat [ "KDF1(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (TLS_PRF        ) = "TLS-PRF"
-kdfTypeToCBytes (TLS_12_PRF ht  ) = CB.concat [ "TLS-12-PRF(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (SP800_108_Counter  ht) = CB.concat [ "SP800-108-Counter(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (SP800_108_Feedback ht) = CB.concat [ "SP800-108-Feedback(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (SP800_108_Pipeline ht) = CB.concat [ "SP800-108-Pipeline(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (SP800_56A ht         ) = CB.concat [ "SP800-56A(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (SP800_56C ht         ) = CB.concat [ "SP800-56C(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes :: KDFType -> CBytes
+kDFTypeToCBytes (HKDF ht        ) = CB.concat [ "HKDF(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (HKDF_Extract ht) = CB.concat [ "HKDF-Extract(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (HKDF_Expand ht ) = CB.concat [ "HKDF-Expand(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (KDF2 ht        ) = CB.concat [ "KDF2(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (KDF1_18033 ht  ) = CB.concat [ "KDF1-18033(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (KDF1 ht        ) = CB.concat [ "KDF1(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (TLS_PRF        ) = "TLS-PRF"
+kDFTypeToCBytes (TLS_12_PRF ht  ) = CB.concat [ "TLS-12-PRF(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_108_Counter  ht) = CB.concat [ "SP800-108-Counter(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_108_Feedback ht) = CB.concat [ "SP800-108-Feedback(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_108_Pipeline ht) = CB.concat [ "SP800-108-Pipeline(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_56A ht         ) = CB.concat [ "SP800-56A(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_56C ht         ) = CB.concat [ "SP800-56C(" , hashTypeToCBytes ht, ")"]
 
 -- | Derive a key using the given KDF algorithm.
 kdf
@@ -61,11 +84,13 @@ kdf
   -> V.Bytes    -- ^ label
   -> IO V.Bytes
 kdf algo siz secret salt label =
-    withCBytesUnsafe (kdfTypeToCBytes algo) $ \ algoBA ->
+    withCBytesUnsafe (kDFTypeToCBytes algo) $ \ algoBA ->
         withPrimVectorUnsafe secret $ \ secretBA secretOff secretLen ->
             withPrimVectorUnsafe salt $ \ saltBA saltOff saltLen ->
                 withPrimVectorUnsafe label $ \ labelBA labelOff labelLen ->
-                    fst <$> allocPrimVectorUnsafe siz (\ buf ->
+                    fst <$> allocPrimVectorUnsafe siz (\ buf -> do
+                        -- some kdf needs xor output buffer, so we clear it first
+                        clearMBA buf siz
                         throwBotanIfMinus_ $
                             hs_botan_kdf algoBA buf (fromIntegral siz)
                                 secretBA secretOff secretLen
@@ -93,14 +118,14 @@ data PBKDFType
     | OpenPGP_S2K HashType Int -- ^ iterations
     -- ^ The OpenPGP algorithm is weak and strange, and should be avoided unless implementing OpenPGP.
 
-pBKDFType2Param :: PBKDFType -> (CBytes, Int, Int, Int)
-pBKDFType2Param (PBKDF2 ht i     ) = (CB.concat [ "PBKDF2(" , hashTypeToCBytes ht, ")"], i, 0, 0)
-pBKDFType2Param (Scrypt n r p    ) = ("Scrypt", n, r, p)
-pBKDFType2Param (Argon2d i m p   ) = ("Argon2d", i, m, p)
-pBKDFType2Param (Argon2i i m p   ) = ("Argon2i", i, m, p)
-pBKDFType2Param (Argon2id i m p  ) = ("Argon2id", i, m, p)
-pBKDFType2Param (Bcrypt i        ) = ("Bcrypt-PBKDF", i, 0, 0)
-pBKDFType2Param (OpenPGP_S2K ht i) = (CB.concat [ "OpenPGP-S2K(" , hashTypeToCBytes ht, ")"], i, 0, 0)
+pBKDFTypeToParam :: PBKDFType -> (CBytes, Int, Int, Int)
+pBKDFTypeToParam (PBKDF2 ht i     ) = (CB.concat [ "PBKDF2(" , hashTypeToCBytes ht, ")"], i, 0, 0)
+pBKDFTypeToParam (Scrypt n r p    ) = ("Scrypt", n, r, p)
+pBKDFTypeToParam (Argon2d i m p   ) = ("Argon2d", i, m, p)
+pBKDFTypeToParam (Argon2i i m p   ) = ("Argon2i", i, m, p)
+pBKDFTypeToParam (Argon2id i m p  ) = ("Argon2id", i, m, p)
+pBKDFTypeToParam (Bcrypt i        ) = ("Bcrypt-PBKDF", i, 0, 0)
+pBKDFTypeToParam (OpenPGP_S2K ht i) = (CB.concat [ "OpenPGP-S2K(" , hashTypeToCBytes ht, ")"], i, 0, 0)
 
 -- | Derive a key from a passphrase for a number of iterations using the given PBKDF algorithm and params.
 pbkdf :: PBKDFType  -- ^ PBKDF algorithm type
@@ -112,7 +137,8 @@ pbkdf typ siz pwd salt = do
     withCBytesUnsafe algo $ \ algoBA ->
         withPrimVectorUnsafe pwd $ \ pwdBA ppOff ppLen ->
             withPrimVectorUnsafe salt $ \ saltBA saltOff saltLen -> do
-                fst <$> allocPrimVectorUnsafe siz (\ buf ->
+                fst <$> allocPrimVectorUnsafe siz (\ buf -> do
+                    clearMBA buf siz
                     throwBotanIfMinus_ $
                         hs_botan_pwdhash algoBA
                             i1 i2 i3
@@ -120,7 +146,7 @@ pbkdf typ siz pwd salt = do
                             pwdBA ppOff ppLen
                             saltBA saltOff saltLen)
   where
-    (algo, i1, i2, i3) = pBKDFType2Param typ
+    (algo, i1, i2, i3) = pBKDFTypeToParam typ
 
 -- | Derive a key from a passphrase using the given PBKDF algorithm, the iteration params are ignored and PBKDF is run until given milliseconds have passed.
 pbkdfTimed :: PBKDFType  -- ^ the name of the given PBKDF algorithm
@@ -133,10 +159,16 @@ pbkdfTimed typ msec siz pwd s =
     withCBytesUnsafe algo $ \algo' ->
         withPrimVectorUnsafe pwd $ \pwd' ppOff ppLen ->
             withPrimVectorUnsafe s $ \s' sOff sLen ->
-                fst <$> allocPrimVectorUnsafe siz (\ buf ->
+                fst <$> allocPrimVectorUnsafe siz (\ buf -> do
+                    clearMBA buf siz
                     throwBotanIfMinus_ $
-                        hs_botan_pwdhash_timed algo' msec buf (fromIntegral siz)
+                        -- we want run it in new OS thread without stop GC from running
+                        -- if the expected time is too long(>0.1s)
+                        (if msec > 100
+                         then hs_botan_pwdhash_timed_safe
+                         else hs_botan_pwdhash_timed)
+                            algo' msec buf (fromIntegral siz)
                             pwd' ppOff ppLen
                             s' sOff sLen)
   where
-    (algo, _, _, _) = pBKDFType2Param typ
+    (algo, _, _, _) = pBKDFTypeToParam typ
