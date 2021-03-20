@@ -67,7 +67,10 @@ library
 
     cc-options:             -march=native
     cxx-options:            -std=c++11 -march=native
-    extra-libraries:        c++
+    if os(osx)
+        extra-libraries:    c++
+    else
+        extra-libraries:    stdc++
 
     default-language:       Haskell2010
     default-extensions:     BangPatterns
