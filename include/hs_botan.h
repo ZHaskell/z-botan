@@ -49,8 +49,6 @@ int hs_botan_cipher_finish(botan_cipher_t cipher_obj,
                            HsInt input_len,
                            size_t* output_written);
 
-// PBKDF & KDF
-
 // Multiple Precision Integers
 
 int hs_botan_mp_to_hex(botan_mp_t mp, char *out, HsInt off);
@@ -61,6 +59,12 @@ int hs_botan_mp_from_bin(botan_mp_t mp, const uint8_t* vec, HsInt off, HsInt len
 int hs_botan_mp_to_bin(botan_mp_t mp, uint8_t* vec, HsInt off);
 
 // KDF & PBKDF
+int hs_botan_kdf(const char* algo
+                ,uint8_t out[], HsInt out_len
+                ,const uint8_t passwd[], HsInt passwd_off, HsInt passwd_len
+                ,const uint8_t salt[], HsInt salt_off, HsInt salt_len
+                ,const uint8_t label[], HsInt label_off, HsInt label_len);
+
 int hs_botan_pwdhash(const char* algo
                     ,HsInt p1, HsInt p2, HsInt p3
                     ,uint8_t out[], HsInt out_len

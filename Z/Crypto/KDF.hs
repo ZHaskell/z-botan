@@ -18,29 +18,39 @@ data KDFType
     = HKDF HashType
     | HKDF_Extract HashType
     | HKDF_Expand HashType
+    -- ^ Defined in RFC 5869, HKDF uses HMAC to process inputs.
+    -- Also available are variants HKDF-Extract and HKDF-Expand.
+    -- HKDF is the combined Extract+Expand operation.
+    -- Use the combined HKDF unless you need compatibility with some other system.
     | KDF2 HashType
-    -- ^ PBKDF2 is the “standard” password derivation scheme,
-    -- widely implemented in many different libraries. It uses HMAC internally.
+    -- ^ KDF2 comes from IEEE 1363. It uses a hash function.
     | KDF1_18033 HashType
+    -- ^ KDF1 from ISO 18033-2. Very similar to (but incompatible with) KDF2.
     | KDF1 HashType
+    -- ^ KDF1 from IEEE 1363. It can only produce an output at most the length of the hash function used.
     | TLS_PRF
+    -- ^
     | TLS_12_PRF HashType
-    | SP800_108
-    | SP800_56A
-    | SP800_56C
+    | SP800_108_Counter HashType
+    | SP800_108_Feedback HashType
+    | SP800_108_Pipeline HashType
+    | SP800_56A HashType
+    | SP800_56C HashType
 
 kdfTypeToCBytes :: KDFType -> CBytes
 kdfTypeToCBytes (HKDF ht        ) = CB.concat [ "HKDF(" , hashTypeToCBytes ht, ")"]
 kdfTypeToCBytes (HKDF_Extract ht) = CB.concat [ "HKDF-Extract(" , hashTypeToCBytes ht, ")"]
 kdfTypeToCBytes (HKDF_Expand ht ) = CB.concat [ "HKDF-Expand(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (KDF2 ht      ) = CB.concat [ "PBKDF2(" , hashTypeToCBytes ht, ")"]
+kdfTypeToCBytes (KDF2 ht        ) = CB.concat [ "KDF2(" , hashTypeToCBytes ht, ")"]
 kdfTypeToCBytes (KDF1_18033 ht  ) = CB.concat [ "KDF1-18033(" , hashTypeToCBytes ht, ")"]
 kdfTypeToCBytes (KDF1 ht        ) = CB.concat [ "KDF1(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (TLS_PRF        ) = "TLS_PRF"
+kdfTypeToCBytes (TLS_PRF        ) = "TLS-PRF"
 kdfTypeToCBytes (TLS_12_PRF ht  ) = CB.concat [ "TLS-12-PRF(" , hashTypeToCBytes ht, ")"]
-kdfTypeToCBytes (SP800_108      ) = "SP800-108"
-kdfTypeToCBytes (SP800_56A      ) = "SP800-56A"
-kdfTypeToCBytes (SP800_56C      ) = "SP800-56C"
+kdfTypeToCBytes (SP800_108_Counter  ht) = CB.concat [ "SP800-108-Counter(" , hashTypeToCBytes ht, ")"]
+kdfTypeToCBytes (SP800_108_Feedback ht) = CB.concat [ "SP800-108-Feedback(" , hashTypeToCBytes ht, ")"]
+kdfTypeToCBytes (SP800_108_Pipeline ht) = CB.concat [ "SP800-108-Pipeline(" , hashTypeToCBytes ht, ")"]
+kdfTypeToCBytes (SP800_56A ht         ) = CB.concat [ "SP800-56A(" , hashTypeToCBytes ht, ")"]
+kdfTypeToCBytes (SP800_56C ht         ) = CB.concat [ "SP800-56C(" , hashTypeToCBytes ht, ")"]
 
 -- | Derive a key using the given KDF algorithm.
 kdf
@@ -112,7 +122,7 @@ pbkdf typ siz pwd salt = do
   where
     (algo, i1, i2, i3) = pBKDFType2Param typ
 
--- | Derive a key from a passphrase using the given PBKDF algorithm, the param is ignored and PBKDF is run until given milliseconds have passed.
+-- | Derive a key from a passphrase using the given PBKDF algorithm, the iteration params are ignored and PBKDF is run until given milliseconds have passed.
 pbkdfTimed :: PBKDFType  -- ^ the name of the given PBKDF algorithm
            -> Int        -- ^ run until milliseconds have passwd
            -> Int        -- ^ length of output key

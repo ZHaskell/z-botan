@@ -183,14 +183,14 @@ foreign import ccall unsafe hs_botan_pwdhash :: BA## Word8
                                              -> MBA## Word8 -> Int
                                              -> BA## Word8 -> Int -> Int
                                              -> BA## Word8 -> Int -> Int
-                                             -> IO Int
+                                             -> IO CInt
 
 foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> Int
                                                    -> MBA## Word8 -> Int
                                                    -> BA## Word8 -> Int -> Int
                                                    -> BA## Word8 -> Int -> Int
-                                                   -> IO Int
+                                                   -> IO CInt
 
 --------------------------------------------------------------------------------
 -- KDF
@@ -200,4 +200,4 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
                                          -> BA## Word8 -> Int -> Int
                                          -> BA## Word8 -> Int -> Int
                                          -> BA## Word8 -> Int -> Int
-                                         -> IO Int
+                                         -> IO CInt
