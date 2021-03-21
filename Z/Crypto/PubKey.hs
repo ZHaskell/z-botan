@@ -393,7 +393,7 @@ fingerPrint (PubKey pubKey) hash = do
           throwBotanIfMinus_ (botan_pubkey_fingerprint pubKey' hash' buf size)
       return a
 
--- | Read an algorithm specific field from the private key object.
+-- | Read an algorithm specific field from the public key object.
 readPubKey :: PubKey -> CBytes -> MPI
 readPubKey (PubKey pubKey) field = unsafeNewMPI $ \mpi ->
   withBotanStruct pubKey $ \pubKey' ->

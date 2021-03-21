@@ -271,3 +271,42 @@ foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> Int
                                                   -> Int
                                                   -> Word32
                                                   -> IO CInt
+
+--------------------------------------------------------------------------------
+-- RSA specific functions
+
+foreign import ccall unsafe botan_privkey_rsa_get_p :: BotanStructT -- ^ botan_mp_t p
+                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_privkey_rsa_get_q :: BotanStructT -- ^ botan_mp_t q
+                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_privkey_rsa_get_d :: BotanStructT -- ^ botan_mp_t d
+                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_privkey_rsa_get_n :: BotanStructT -- ^ botan_mp_t n
+                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_privkey_rsa_get_e :: BotanStructT -- ^ botan_mp_t e
+                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_rsa_get_e :: BotanStructT -- ^ botan_mp_t e
+                                                   -> BotanStructT -- ^ botan_pubkey_t rsa_key
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_rsa_get_n :: BotanStructT -- ^ botan_mp_t n
+                                                   -> BotanStructT -- ^ botan_pubkey_t rsa_key
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_privkey_load_rsa :: MBA## BotanStructT
+                                                   -> BotanStructT -> BotanStructT -> BotanStructT
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_load_rsa :: MBA## BotanStructT
+                                                  -> BotanStructT -> BotanStructT
+                                                  -> IO CInt

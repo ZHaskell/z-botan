@@ -1,6 +1,6 @@
 module Z.Crypto.MPI
   ( -- * RNG
-    MPI, fromCInt, toWord32, byteSize, bitSize
+    MPI(..), fromCInt, toWord32, byteSize, bitSize
     -- * Builder & Parser
   , toHex, toDecimal, fromHex, fromDecimal
     -- * Predicator
