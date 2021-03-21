@@ -310,3 +310,16 @@ foreign import ccall unsafe botan_privkey_load_rsa :: MBA## BotanStructT
 foreign import ccall unsafe botan_pubkey_load_rsa :: MBA## BotanStructT
                                                   -> BotanStructT -> BotanStructT
                                                   -> IO CInt
+
+--------------------------------------------------------------------------------
+-- DSA specific functions
+
+foreign import ccall unsafe botan_privkey_load_dsa :: MBA## BotanStructT
+                                                   -> BotanStructT -> BotanStructT -> BotanStructT
+                                                   -> BotanStructT
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_load_dsa :: MBA## BotanStructT
+                                                  -> BotanStructT -> BotanStructT -> BotanStructT
+                                                  -> BotanStructT
+                                                  -> IO CInt

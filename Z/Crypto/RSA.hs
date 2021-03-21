@@ -45,6 +45,7 @@ getRSAPub (PubKey pubKey) arg = unsafeNewMPI $ \mpi ->
       mpi
       pubKey'
 
+-- | Initialize a private RSA key using arguments p, q, and e.
 newRSAPriv :: MPI -> MPI -> MPI -> IO PrivKey
 newRSAPriv (MPI p) (MPI q) (MPI e) = do
   withBotanStruct p $ \p' ->
@@ -52,6 +53,7 @@ newRSAPriv (MPI p) (MPI q) (MPI e) = do
       withBotanStruct e $ \e' ->
         PrivKey <$> newBotanStruct (\privKey -> botan_privkey_load_rsa privKey p' q' e') botan_privkey_destroy
 
+-- | Initialize a public RSA key using arguments n and e.
 newRSAPub :: MPI -> MPI -> IO PubKey
 newRSAPub (MPI n) (MPI e) = do
   withBotanStruct n $ \n' ->

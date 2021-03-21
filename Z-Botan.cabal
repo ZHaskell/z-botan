@@ -44,6 +44,7 @@ library
                             Z.Crypto.MPI
                             Z.Crypto.PubKey
                             Z.Crypto.KDF
+                            Z.Crypto.RSA
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
