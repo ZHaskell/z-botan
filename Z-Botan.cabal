@@ -60,17 +60,19 @@ library
                             third_party/botan/build/include
                             third_party/botan/build/include/external
 
-
     includes:               hs_botan.h
 
     install-includes:       hs_botan.h
 
     c-sources:              cbits/hs_botan.c
-                            third_party/botan/botan_all.cpp
+    cxx-sources:            third_party/botan/botan_all.cpp
 
     cc-options:             -march=native
     cxx-options:            -std=c++11 -march=native
-    extra-libraries:        stdc++
+    if os(osx)
+        extra-libraries:    c++
+    else
+        extra-libraries:    stdc++
 
     default-language:       Haskell2010
     default-extensions:     BangPatterns

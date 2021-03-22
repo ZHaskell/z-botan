@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Main (main) where
 
 import Control.Monad
@@ -38,7 +39,11 @@ main = do
 
                 postConf simpleUserHooks args flags pkg_descr lbi
         ,   regHook = \ _ _ _ _ -> return ()
-        } ("--with-gcc=c++":mainArgs)
+#if __GLASGOW_HASKELL__ < 810
+        } (mainArgs)
+#else
+        } mainArgs
+#endif
     else defaultMain
 
 
@@ -56,13 +61,11 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
             (\p -> map ProgramSearchPathDir extraPath ++ p) emptyProgramDb
         overEnv = [("PATH", Just pathEnv) | not (null extraPath)]
         hp@(Platform  arch os) = hostPlatform lbi
-        maybeHostFlag =
-            if hp == buildPlatform
-            then []
-            else ["--cpu=" ++ show (pretty arch), "--os=" ++ show (pretty os)]
-
+        -- use gcc/mingw bunlded with GHC
+        osStr = if os == Windows then "mingw" else (show (pretty os))
+        hostFlag = [ "--cpu=" ++ show (pretty arch), "--os=" ++ osStr]
         -- pass amalgamation to produce botan_all.cpp
-        args = configureFile:"--amalgamation":maybeHostFlag
+        args = configureFile:"--amalgamation":"--disable-shared":hostFlag
 
     pyConfiguredProg <- forM pyProgs $ \ pyProg ->
         lookupProgram pyProg <$> configureProgram verbosity pyProg progDb
