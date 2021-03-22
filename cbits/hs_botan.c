@@ -154,3 +154,13 @@ int hs_botan_pubkey_load (botan_pubkey_t* key
                          ,const uint8_t bits[], HsInt off, HsInt len){
     return botan_pubkey_load(key, bits+off, len);
 }
+
+// Public Key Encryption / Decryption
+
+int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t out[], HsInt *out_len, const uint8_t plaintext[], HsInt plaintext_off, HsInt plaintext_len){
+    return botan_pk_op_encrypt(op, rng, out, out_len, plaintext+plaintext_off, plaintext_len);
+}
+
+int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len){
+    return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
+}

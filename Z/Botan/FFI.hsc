@@ -353,3 +353,58 @@ foreign import ccall unsafe botan_privkey_load_dh :: MBA## BotanStructT
 foreign import ccall unsafe botan_pubkey_load_dh :: MBA## BotanStructT
                                                  -> BotanStructT -> BotanStructT -> BotanStructT
                                                  -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Public Key Encryption / Decryption
+
+foreign import ccall unsafe botan_pk_op_encrypt_create :: MBA## BotanStructT
+                                                       -> BotanStructT
+                                                       -> BA## Word8
+                                                       -> Word32
+                                                       -> IO CInt
+
+foreign import ccall unsafe "&botan_pk_op_encrypt_destroy" botan_pk_op_encrypt_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_pk_op_encrypt_output_length :: BotanStructT
+                                                              -> Int
+                                                              -> MBA## Int
+                                                              -> IO CInt
+
+foreign import ccall unsafe hs_botan_pk_op_encrypt :: BotanStructT
+                                                   -> BotanStructT
+                                                   -> MBA## Word8 -> MBA## Int
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_pk_op_decrypt_create :: MBA## BotanStructT
+                                                       -> BotanStructT
+                                                       -> BA## Word8
+                                                       -> Word32
+                                                       -> IO CInt
+
+foreign import ccall unsafe "&botan_pk_op_decrypt_destroy" botan_pk_op_decrypt_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_pk_op_decrypt_output_length :: BotanStructT
+                                                              -> Int
+                                                              -> MBA## Int
+                                                              -> IO CInt
+
+foreign import ccall unsafe hs_botan_pk_op_decrypt :: BotanStructT
+                                                   -> MBA## Word8 -> MBA## Int
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Signature Generation
+
+foreign import ccall unsafe "&botan_pk_op_sign_destroy" botan_pk_op_sign_destroy :: FunPtr (BotanStructT -> IO ())
+
+--------------------------------------------------------------------------------
+-- Signature Verification
+
+foreign import ccall unsafe "&botan_pk_op_verify_destroy" botan_pk_op_verify_destroy :: FunPtr (BotanStructT -> IO ())
+
+--------------------------------------------------------------------------------
+-- Key Agreement
+
+foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key_agreement_destroy :: FunPtr (BotanStructT -> IO ())
