@@ -75,20 +75,6 @@ int hs_botan_pwdhash_timed(const char* algo
                           ,const char* passwd, HsInt passwd_off, HsInt passwd_len
                           ,const uint8_t salt[], HsInt salt_off, HsInt salt_len);
 
-// MAC
-
-int hs_botan_mac_init(botan_mac_t* mac, const char * mac_name, uint32_t flags);//
-int hs_botan_mac_output_length(botan_mac_t mac, size_t* output_length);//
-int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_len);//
-int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt len);
-int hs_botan_mac_final(botan_mac_t mac, uint8_t out[]);
-int hs_botan_mac_clear(botan_mac_t mac);
-int hs_botan_mac_name(botan_mac_t mac, char* name, size_t* name_len);
-int hs_botan_mac_get_keyspec(botan_mac_t mac,
-
-
-// Password Hashing
-
 // Public Key Creation, Import and Export
 
 // RSA specific functions

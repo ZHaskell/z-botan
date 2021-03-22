@@ -9,8 +9,7 @@ module Z.Crypto.Cipher
   , cipherUpdateGranularity, cipherKeySpec, cipherTagLength, defaultNonceLength
   , newCipher, setCipherKey, clearCipher, resetCipher, setAssociatedData
   , startCipher, updateCipher, finishCipher, cipherBIO
-    -- * Internal helps
-  , blockCipherTypeToCBytes
+
   ) where
 
 import           Control.Monad

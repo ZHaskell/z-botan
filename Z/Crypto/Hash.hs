@@ -200,7 +200,8 @@ finalHash :: HasCallStack => Hash -> IO V.Bytes
 finalHash (Hash bts _ siz) =
     withBotanStruct bts $ \ pbts -> do
         (bs, r) <- allocPrimVectorUnsafe siz $ \ pout ->
-            throwBotanIfMinus_ (botan_hash_final pbts pout)
+            botan_hash_final pbts pout
+        throwBotanIfMinus_ (return r)
         return bs
 
 {-| Trun 'Hash' to a 'V.Bytes' sink, update 'Hash' by write bytes to the sink.

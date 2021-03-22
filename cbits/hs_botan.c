@@ -25,7 +25,6 @@ int hs_botan_rng_add_entropy(botan_rng_t rng, const uint8_t *seed, HsInt off, Hs
 }
 
 // Block cipher
-
 int hs_botan_block_cipher_set_key(botan_block_cipher_t bc, const uint8_t *key, HsInt key_off, HsInt key_len){
     return botan_block_cipher_set_key(bc, key+key_off, key_len);
 }
@@ -39,13 +38,11 @@ int hs_botan_block_cipher_decrypt_blocks(botan_block_cipher_t bc
 }
 
 // Hash
-
 int hs_botan_hash_update(botan_hash_t hash, const uint8_t *input, HsInt off, HsInt len){
     return botan_hash_update(hash, input+off, len);
 }
 
 // Cipher Mode
-
 int hs_botan_cipher_set_associated_data(botan_cipher_t cipher, const uint8_t* ad, HsInt ad_off, HsInt ad_len){
     return botan_cipher_set_associated_data(cipher, ad+ad_off, ad_len);
 }
@@ -166,41 +163,4 @@ int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t ou
 
 int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len){
     return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
-}
-
-// MAC
-
-int hs_botan_mac_init(botan_mac_t* mac, const char * mac_name, uint32_t flags){
-    return botan_mac_init(mac, mac_name, flags);
-}
-int hs_botan_mac_output_length(botan_mac_t mac, size_t* output_length){
-    return botan_mac_output_length(mac, output_length);
-}
-
-int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_len){
-    return botan_mac_set_key(mac, key, key_len);
-}
-int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt len){
-    return botan_mac_update(mac,buf, len);
-}
-
-int hs_botan_mac_final(botan_mac_t mac, uint8_t out[]){
-    return botan_mac_final(mac, out);
-}
-int hs_botan_mac_clear(botan_mac_t mac){
-    return botan_mac_clear(mac);
-}
-
-int hs_botan_mac_name(botan_mac_t mac, char* name, size_t* name_len){
-    return botan_mac_name(mac, name, name_len);
-}
-int hs_botan_mac_get_keyspec(botan_mac_t mac,
-                                                 size_t* out_minimum_keylength,
-                                                 size_t* out_maximum_keylength,
-                                                 size_t* out_keylength_modulo){
-                                                     return botan_mac_get_key_spec(mac, out_minimum_keylength, out_maximum_keylength, out_keylength_modulo);
-                                                 }
-
-int hs_botan_mac_destroy(botan_mac_t mac){
-    return botan_mac_destroy(mac);
 }
