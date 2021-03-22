@@ -170,3 +170,27 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
 int hs_botan_mac_destroy(botan_mac_t mac){
     return botan_mac_destroy(mac);
 }
+
+// Public Key Creation, Import and Export
+
+int hs_botan_privkey_load (botan_privkey_t* key, botan_rng_t rng
+                          ,const uint8_t bits[], HsInt off, HsInt len
+                          ,const char* passwd){
+    if (*passwd == '\0') passwd = NULL;
+    return botan_privkey_load(key, rng, bits+off, len, passwd);
+}
+
+int hs_botan_pubkey_load (botan_pubkey_t* key
+                         ,const uint8_t bits[], HsInt off, HsInt len){
+    return botan_pubkey_load(key, bits+off, len);
+}
+
+// Public Key Encryption / Decryption
+
+int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t out[], HsInt *out_len, const uint8_t plaintext[], HsInt plaintext_off, HsInt plaintext_len){
+    return botan_pk_op_encrypt(op, rng, out, out_len, plaintext+plaintext_off, plaintext_len);
+}
+
+int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len){
+    return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
+}

@@ -1,12 +1,14 @@
 module Z.Crypto.MPI
   ( -- * RNG
-    MPI, fromCInt, toWord32, byteSize, bitSize
+    MPI(..), fromCInt, toWord32, byteSize, bitSize
     -- * Builder & Parser
   , toHex, toDecimal, fromHex, fromDecimal
     -- * Predicator
   , isNegative, isZero, isOdd, isEven
     -- * MPI specific
   , mulMod, powMod, modInverse
+    -- * Internal
+  , unsafeNewMPI
   ) where
 
 import           Control.Monad

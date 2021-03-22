@@ -1,6 +1,6 @@
 module Z.Crypto.RNG
   ( -- * RNG
-    RNGType(..), RNG
+    RNGType(..), RNG(..)
   , newRNG, getRNG, getRandom
   , reseedRNG, reseedRNGFromRNG, addEntropyRNG
   ) where
