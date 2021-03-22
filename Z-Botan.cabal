@@ -42,12 +42,8 @@ library
                             Z.Crypto.Hash
                             Z.Crypto.RNG
                             Z.Crypto.MPI
-                            Z.Crypto.PubKey.PubKey
                             Z.Crypto.KDF
-                            Z.Crypto.PubKey.RSA
-                            Z.Crypto.PubKey.DSA
-                            Z.Crypto.PubKey.ElGamal
-                            Z.Crypto.PubKey.DH
+                            Z.Crypto.PubKey
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
