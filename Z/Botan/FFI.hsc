@@ -214,20 +214,20 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
 ---------------------------------------------------------------------------------
 -- MAC
 
-foreign import ccall unsafe hs_botan_mac_init :: MBA## BotanStructT->BA## Word8->Word32->IO CInt
+foreign import ccall unsafe hs_botan_mac_init :: MBA## BotanStructT -> BA## Word8 -> Word32 -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_output_length ::BotanStructT->MBA## Word8->IO CInt
+foreign import ccall unsafe hs_botan_mac_output_length ::BotanStructT -> MBA## Word8 -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_set_key :: BotanStructT->BA## Word8->Int->IO CInt
+foreign import ccall unsafe hs_botan_mac_set_key :: BotanStructT -> BA## Word8 -> Int -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_update :: BotanStructT->BA## Word8->Int->IO CInt
+foreign import ccall unsafe hs_botan_mac_update :: BotanStructT -> BA## Word8 -> Int -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_final :: BotanStructT->BA## Word8->Int->MBA## Word8->IO　CInt
+foreign import ccall unsafe hs_botan_mac_final :: BotanStructT -> BA## Word8 -> Int -> MBA## Word8 -> IO　CInt
 
-foreign import ccall unsafe hs_botan_mac_clear :: BotanStructT->IO CInt
+foreign import ccall unsafe hs_botan_mac_clear :: BotanStructT -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_name ::  BotanStructT->MBA## Word8->MBA## Int->IO CInt
+foreign import ccall unsafe hs_botan_mac_name ::  BotanStructT -> MBA## Word8 -> MBA## Int -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT->MBA## Int->MBA## Int->MBA## Int->IO CInt
+foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT -> MBA## Int -> MBA## Int -> MBA## Int -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_destroy :: BotanStructT->IO CInt
+foreign import ccall unsafe hs_botan_mac_destroy :: BotanStructT -> IO CInt
