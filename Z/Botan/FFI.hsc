@@ -32,8 +32,8 @@ withBotanStruct :: BotanStruct -> (BotanStructT -> IO a) -> IO a
 withBotanStruct = withCPtr
 
 newBotanStruct :: HasCallStack
-               => (MBA## BotanStructT -> IO CInt)  -- ^ init function
-               -> FunPtr (BotanStructT -> IO ())     -- ^ destroy function pointer
+               => (MBA## BotanStructT -> IO CInt)   -- ^ init function
+               -> FunPtr (BotanStructT -> IO a)    -- ^ destroy function pointer
                -> IO BotanStruct
 newBotanStruct init_ destroy = do
     (bts, _) <- newCPtrUnsafe (\ pp -> throwBotanIfMinus_ (init_ pp)) destroy
@@ -214,11 +214,12 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
 ---------------------------------------------------------------------------------
 -- MAC
 
-foreign import ccall unsafe hs_botan_mac_init :: MBA## BotanStructT -> BA## Word8 -> Word32 -> IO CInt
+foreign import ccall unsafe botan_mac_init :: MBA## BotanStructT -> BA## Word8 -> Word32 -> IO CInt
+foreign import ccall unsafe "&botan_mac_destroy" botan_mac_destroy :: FunPtr (BotanStructT -> IO ())
 
-foreign import ccall unsafe hs_botan_mac_output_length ::BotanStructT -> MBA## Word8 -> IO CInt
+foreign import ccall unsafe botan_mac_output_length ::BotanStructT -> MBA## Word8 -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_set_key :: BotanStructT -> BA## Word8 -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_mac_set_key :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 
 foreign import ccall unsafe hs_botan_mac_update :: BotanStructT -> BA## Word8 -> Int -> IO CInt
 
@@ -230,4 +231,3 @@ foreign import ccall unsafe hs_botan_mac_name ::  BotanStructT -> MBA## Word8 ->
 
 foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT -> MBA## Int -> MBA## Int -> MBA## Int -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_destroy :: BotanStructT -> IO CInt

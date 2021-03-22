@@ -143,15 +143,8 @@ int hs_botan_pwdhash_timed(const char* algo
 
 // MAC
 
-int hs_botan_mac_init(botan_mac_t* mac, const char * mac_name, uint32_t flags){
-    return botan_mac_init(mac, mac_name, flags);
-}
-int hs_botan_mac_output_length(botan_mac_t mac, size_t* output_length){
-    return botan_mac_output_length(mac, output_length);
-}
-
-int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_len){
-    return botan_mac_set_key(mac, key, key_len);
+int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_off, HsInt key_len){
+    return botan_mac_set_key(mac, key+key_off, key_len);
 }
 int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt len){
     return botan_mac_update(mac,buf, len);
@@ -168,11 +161,11 @@ int hs_botan_mac_name(botan_mac_t mac, char* name, size_t* name_len){
     return botan_mac_name(mac, name, name_len);
 }
 int hs_botan_mac_get_keyspec(botan_mac_t mac,
-                                                 size_t* out_minimum_keylength,
-                                                 size_t* out_maximum_keylength,
-                                                 size_t* out_keylength_modulo){
-                                                     return botan_mac_get_key_spec(mac, out_minimum_keylength, out_maximum_keylength, out_keylength_modulo);
-                                                 }
+    size_t* out_minimum_keylength,
+    size_t* out_maximum_keylength,
+    size_t* out_keylength_modulo){
+        return botan_mac_get_keyspec(mac, out_minimum_keylength, out_maximum_keylength, out_keylength_modulo);
+}
 
 int hs_botan_mac_destroy(botan_mac_t mac){
     return botan_mac_destroy(mac);
