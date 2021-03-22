@@ -44,6 +44,7 @@ library
                             Z.Crypto.MPI
                             Z.Crypto.KDF
                             Z.Crypto.MAC
+                            Z.Crypto.PubKey
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
@@ -111,6 +112,8 @@ library
                             UnboxedTuples
                             UnliftedFFITypes
                             ViewPatterns
+                            LambdaCase
+                            RecordWildCards
 
     build-tool-depends:     hsc2hs:hsc2hs, hspec-discover:hspec-discover
 
