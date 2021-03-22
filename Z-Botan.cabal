@@ -43,6 +43,7 @@ library
                             Z.Crypto.RNG
                             Z.Crypto.MPI
                             Z.Crypto.KDF
+                            Z.Crypto.MAC
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
