@@ -192,7 +192,7 @@ foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> BA## Word8 -> Int -> Int
                                                    -> IO CInt
 
-foreign import ccall safe "hs_botan_pwdhash_timed" 
+foreign import ccall safe "hs_botan_pwdhash_timed"
     hs_botan_pwdhash_timed_safe :: BA## Word8
                                 -> Int
                                 -> MBA## Word8 -> Int
@@ -205,6 +205,7 @@ foreign import ccall safe "hs_botan_pwdhash_timed"
 
 foreign import ccall unsafe hs_botan_kdf :: BA## Word8
                                          -> MBA## Word8 -> Int
+                                         -> BA## Word8 -> Int -> Int
                                          -> BA## Word8 -> Int -> Int
                                          -> BA## Word8 -> Int -> Int
                                          -> IO CInt
@@ -330,3 +331,25 @@ foreign import ccall unsafe botan_pubkey_load_dsa :: MBA## BotanStructT
                                                   -> BotanStructT -> BotanStructT -> BotanStructT
                                                   -> BotanStructT
                                                   -> IO CInt
+
+--------------------------------------------------------------------------------
+-- ElGamal specific functions
+
+foreign import ccall unsafe botan_privkey_load_elgamal :: MBA## BotanStructT
+                                                       -> BotanStructT -> BotanStructT -> BotanStructT
+                                                       -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_load_elgamal :: MBA## BotanStructT
+                                                      -> BotanStructT -> BotanStructT -> BotanStructT
+                                                      -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Diffie-Hellman specific functions
+
+foreign import ccall unsafe botan_privkey_load_dh :: MBA## BotanStructT
+                                                  -> BotanStructT -> BotanStructT -> BotanStructT
+                                                  -> IO CInt
+
+foreign import ccall unsafe botan_pubkey_load_dh :: MBA## BotanStructT
+                                                 -> BotanStructT -> BotanStructT -> BotanStructT
+                                                 -> IO CInt

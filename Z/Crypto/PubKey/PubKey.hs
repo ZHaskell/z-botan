@@ -1,4 +1,4 @@
-module Z.Crypto.PubKey where
+module Z.Crypto.PubKey.PubKey where
 
 import Data.Word (Word32)
 import Z.Botan.Exception (throwBotanIfMinus_)

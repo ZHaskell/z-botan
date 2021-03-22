@@ -1,4 +1,4 @@
-module Z.Crypto.RSA where
+module Z.Crypto.PubKey.RSA where
 
 import Z.Botan.FFI
   ( botan_privkey_destroy,
@@ -16,7 +16,7 @@ import Z.Botan.FFI
     withBotanStruct,
   )
 import Z.Crypto.MPI (MPI (..), unsafeNewMPI)
-import Z.Crypto.PubKey (PrivKey (..), PubKey (..))
+import Z.Crypto.PubKey.PubKey (PrivKey (..), PubKey (..))
 
 data RSAPrivArg = RSAPrivP | RSAPrivQ | RSAPrivD | RSAPrivN | RSAPrivE
 
