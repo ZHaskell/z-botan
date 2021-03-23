@@ -7,6 +7,7 @@ import Z.Crypto.Hash
 import Z.Data.CBytes as CB
 import qualified Z.Data.Text as T
 import Z.Foreign
+import qualified Z.Data.Vector as V
 
 data MACType = CMAC BlockCipherType
              | OMAC BlockCipherType
