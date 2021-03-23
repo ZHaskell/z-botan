@@ -78,7 +78,7 @@ int hs_botan_pwdhash_timed(const char* algo
 // MAC
 
 int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_off, HsInt key_len);
-int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt len);
+int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt off, HsInt len);
 int hs_botan_mac_final(botan_mac_t mac, uint8_t out[]);
 int hs_botan_mac_clear(botan_mac_t mac);
 int hs_botan_mac_name(botan_mac_t mac, char* name, size_t* name_len);
@@ -88,7 +88,10 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
     size_t* out_keylength_modulo);
 
 
+
+
 // Password Hashing
+
 
 // Public Key Creation, Import and Export
 
@@ -103,6 +106,14 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
 // Public Key Encryption/Decryption
 
 // Signature Generation & Signature Verification
+int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t * in, HsInt off , HsInt len);
+
+int hs_botan_pk_op_sign_finish(botan_pk_op_sign_t op, botan_rng_t rng,
+                            uint8_t * sig, size_t* sig_len);
+
+
+int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t * in, HsInt off, HsInt in_len);
+int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t * sig, HsInt off, HsInt sig_len);
 
 // Key Agreement
 
