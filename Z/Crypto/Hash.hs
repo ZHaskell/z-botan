@@ -29,16 +29,28 @@ module Z.Crypto.Hash(
   , hashTypeToCBytes
   ) where
 
-import           GHC.Generics
-import           Z.Botan.Exception
-import           Z.Botan.FFI
-import           Z.Data.CBytes      as CB
+import GHC.Generics ( Generic )
+import Z.Botan.Exception ( HasCallStack, throwBotanIfMinus_ )
+import Z.Botan.FFI
+    ( BotanStruct,
+      botan_hash_final,
+      hs_botan_hash_update,
+      botan_hash_output_length,
+      botan_hash_clear,
+      botan_hash_copy_state,
+      botan_hash_destroy,
+      botan_hash_init,
+      withBotanStruct,
+      newBotanStruct )
+import Z.Data.CBytes as CB
+    ( concat, fromText, withCBytesUnsafe, CBytes )
 import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
-import           Z.Foreign
-import           Z.IO.BIO
-import           System.IO.Unsafe
+import Z.Foreign
+    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe )
+import Z.IO.BIO ( Sink, BIO(BIO) )
+import System.IO.Unsafe ( unsafePerformIO )
 
 -- | Available Hashs
 data HashType

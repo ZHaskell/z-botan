@@ -146,8 +146,8 @@ int hs_botan_pwdhash_timed(const char* algo
 int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_off, HsInt key_len){
     return botan_mac_set_key(mac, key+key_off, key_len);
 }
-int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt len){
-    return botan_mac_update(mac,buf, len);
+int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt off ,HsInt len){
+    return botan_mac_update(mac, buf + off, len);
 }
 
 int hs_botan_mac_final(botan_mac_t mac, uint8_t out[]){

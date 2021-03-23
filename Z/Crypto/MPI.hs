@@ -27,7 +27,7 @@ import           GHC.Exts
 import           GHC.Integer.GMP.Internals
 import           GHC.Generics
 import           GHC.Real
-import           System.IO.Unsafe
+import System.IO.Unsafe ( unsafeDupablePerformIO )
 import           Z.Data.ASCII
 import           Z.Botan.FFI
 import           Z.Botan.Exception
@@ -38,7 +38,14 @@ import qualified Z.Data.Parser                      as P
 import qualified Z.Data.Vector.Base                 as V
 import qualified Z.Data.Text                        as T
 import           Z.Crypto.RNG
-import           Z.Foreign
+import Z.Foreign
+    ( CInt,
+      PrimArray(..),
+      newPrimArray,
+      unsafeFreezePrimArray,
+      MutablePrimArray(MutablePrimArray),
+      CSize,
+      allocPrimUnsafe )
 
 -- | Opaque Botan Multiple Precision Integers.
 newtype MPI = MPI BotanStruct
@@ -80,6 +87,7 @@ instance Num MPI where
                 newMPI $ \ btsr -> botan_mp_mul btsr btsa btsb
 
     {-# INLINE negate #-}
+
     negate a = unsafeWithMPI a $ \ btsa ->
         newMPI (\ bts -> do
             throwBotanIfMinus_ (botan_mp_set_from_mp bts btsa)
