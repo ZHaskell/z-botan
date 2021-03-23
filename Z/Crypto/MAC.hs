@@ -13,12 +13,12 @@ import Z.Botan.FFI
       withBotanStruct,
       newBotanStruct )
 import Z.Crypto.Cipher ( blockCipherTypeToCBytes, BlockCipherType )
-import Z.Crypto.Hash ( hashTypeToCBytes, HashType, updateHash, hashChunks )
+import Z.Crypto.Hash (HashType, hashTypeToCBytes)
 import Z.Data.CBytes as CB
     ( concat, fromText, withCBytesUnsafe, CBytes )
 import qualified Z.Data.Text as T
 import Z.Foreign
-    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe, indexPrimArray )
+    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe)
 import qualified Z.Data.Vector as V
 import Z.IO.BIO ( Sink, BIO(BIO) )
 import System.IO.Unsafe ( unsafePerformIO )
@@ -48,7 +48,7 @@ data MAC = MAC {
     getMACStruct :: BotanStruct,
     getMACName :: CBytes,
     getMACSiz :: Int
-}
+}deriving (Show, Eq)
 
 newMAC :: MACType -> IO MAC
 newMAC typ = do
@@ -92,10 +92,11 @@ sinkToMAC m = BIO push_ pull_
     pull_ = return Nothing
 
 -- | Directly compute a message's mac 
-mac :: HasCallStack => MACType -> V.Bytes ->V.Bytes
+mac :: HasCallStack => MACType -> V.Bytes -> V.Bytes ->V.Bytes
 {-# INLINABLE mac #-}
-mac mt inp = unsafePerformIO $ do
+mac mt inp key = unsafePerformIO $ do
     m <- newMAC mt
+    setKeyMAC m key
     updateMAC m inp
     finalMAC m
 
@@ -106,3 +107,4 @@ macChunks mt inp = unsafePerformIO $ do
     m <- newMAC mt 
     mapM_ (updateMAC m) inp
     finalMAC m
+

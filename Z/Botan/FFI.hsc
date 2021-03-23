@@ -433,4 +433,4 @@ foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key
 --------------------------------------------------------------------------------
 -- Password Hashing
 
-foreign import ccall unsafe generate_passhash9 :: 
+-- foreign import ccall unsafe generate_passhash9 :: 
