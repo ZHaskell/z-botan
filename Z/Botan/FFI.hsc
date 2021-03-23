@@ -420,7 +420,7 @@ foreign import ccall unsafe hs_botan_pk_op_decrypt :: BotanStructT
 
 foreign import ccall unsafe botan_pk_op_sign_create :: MBA## BotanStructT
                                                     -> BotanStructT
-                                                    -> BA## Word8 -> Int -> Int
+                                                    -> BA## Word8
                                                     -> Word32
                                                     -> IO CInt
 
@@ -434,7 +434,7 @@ foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT
 
 foreign import ccall unsafe botan_pk_op_sign_finish :: BotanStructT
                                                     -> BotanStructT
-                                                    -> BA## Word8
+                                                    -> MBA## Word8
                                                     -> MBA## Int
                                                     -> IO CInt
 

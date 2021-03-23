@@ -10,6 +10,12 @@ import Z.Botan.FFI
     botan_pk_op_encrypt_create,
     botan_pk_op_encrypt_destroy,
     botan_pk_op_encrypt_output_length,
+    botan_pk_op_sign_create,
+    botan_pk_op_sign_destroy,
+    botan_pk_op_sign_finish,
+    botan_pk_op_sign_output_length,
+    botan_pk_op_verify_create,
+    botan_pk_op_verify_destroy,
     botan_privkey_create,
     botan_privkey_destroy,
     botan_privkey_export,
@@ -37,11 +43,15 @@ import Z.Botan.FFI
     botan_pubkey_rsa_get_n,
     hs_botan_pk_op_decrypt,
     hs_botan_pk_op_encrypt,
+    hs_botan_pk_op_sign_update,
+    hs_botan_pk_op_verify_finish,
+    hs_botan_pk_op_verify_update,
     hs_botan_privkey_load,
     hs_botan_pubkey_load,
     newBotanStruct,
     withBotanStruct,
   )
+import Z.Crypto (Hash)
 import Z.Crypto.MPI (MPI (..), unsafeNewMPI)
 import Z.Crypto.RNG (RNG (..))
 import qualified Z.Data.Builder as B
@@ -53,7 +63,6 @@ import Z.Foreign
     allocPrimVectorUnsafe,
     withPrimVectorUnsafe,
   )
-import Z.Crypto
 
 ---------------
 -- Key Types --
@@ -305,6 +314,9 @@ pattern DSA_BOTAN_3072 = "dsa/botan/3072"
 
 -- | Sets of allowed padding schemes for public key types.
 data PkPadding = EMSA1 | EMSA4 | EMSA3
+
+hashPadToCBytes :: Hash -> PkPadding -> CBytes
+hashPadToCBytes = undefined -- TODO
 
 pkPaddingToCBytes :: PkPadding -> CBytes
 pkPaddingToCBytes = \case
@@ -567,6 +579,8 @@ newDHPub (MPI p) (MPI g) (MPI y) = do
 
 newtype PKEncryption = PKEncryption BotanStruct
 
+-- TODO: use pad
+
 newPKEncryption :: PubKey -> CBytes -> IO PKEncryption
 newPKEncryption (PubKey pubKey) padding = do
   withCBytesUnsafe padding $ \padding' ->
@@ -622,14 +636,64 @@ pkDecrypt enop@(PKDecryption op) ciphertext = do
 
 newtype SignGeneration = SignGeneration BotanStruct
 
-newPKSign :: PrivKey -> HashType -> PkPadding -> IO SignGeneration -- BOTAN_PUBKEY_DER_FORMAT_SIGNATURE = 1
-newPKSign = undefined
+newPKSignGen :: PrivKey -> Hash -> PkPadding -> IO SignGeneration -- BOTAN_PUBKEY_DER_FORMAT_SIGNATURE = 1
+newPKSignGen (PrivKey privKey) hobj pad = do
+  withBotanStruct privKey $ \privKey' ->
+    withCBytesUnsafe (hashPadToCBytes hobj pad) $ \arg ->
+      SignGeneration <$> newBotanStruct (\ret -> botan_pk_op_sign_create ret privKey' arg 1) botan_pk_op_sign_destroy
 
-pkSignLen :: SignGeneration -> IO Int
-pkSignLen = undefined
+pkSignLenGen :: SignGeneration -> IO Int
+pkSignLenGen (SignGeneration op) = do
+  (a, _) <- allocPrimUnsafe $ \len ->
+    withBotanStruct op $ \op' ->
+      throwBotanIfMinus_ $ botan_pk_op_sign_output_length op' len
+  return a
 
-updatePKSign :: SignGeneration -> V.Bytes -> IO ()
-updatePKSign = undefined
+updatePKSignGen :: SignGeneration -> V.Bytes -> IO ()
+updatePKSignGen (SignGeneration op) msg = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe msg $ \msg' off len ->
+      throwBotanIfMinus_ $ hs_botan_pk_op_sign_update op' msg' off len
 
-finPKSign :: SignGeneration -> RNG -> IO V.Bytes
-finPKSign = undefined
+finPKSignGen :: SignGeneration -> RNG -> IO V.Bytes
+finPKSignGen gen@(SignGeneration op) (RNG rng) = do
+  withBotanStruct op $ \op' ->
+    withBotanStruct rng $ \rng' -> do
+      len <- pkSignLenGen gen
+      (a, _) <- allocPrimVectorUnsafe len $ \ret -> do
+        (a', _) <- allocPrimUnsafe @Int $ \len' ->
+          throwBotanIfMinus_ $ botan_pk_op_sign_finish op' rng' ret len'
+        pure a'
+      return a
+
+----------------------------
+-- Signature Verification --
+----------------------------
+
+newtype SignVerification = SignVerification BotanStruct
+
+newPKSignVf :: PubKey -> Hash -> PkPadding -> IO SignVerification
+newPKSignVf (PubKey pubKey) hobj pad = do
+  withBotanStruct pubKey $ \pubKey' ->
+    withCBytesUnsafe (hashPadToCBytes hobj pad) $ \arg ->
+      SignVerification <$> newBotanStruct (\ret -> botan_pk_op_verify_create ret pubKey' arg 1) botan_pk_op_verify_destroy
+
+updatePKSignVf :: SignVerification -> V.Bytes -> IO ()
+updatePKSignVf (SignVerification op) msg = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe msg $ \msg' off len ->
+      throwBotanIfMinus_ $ hs_botan_pk_op_verify_update op' msg' off len
+
+finPKSignVf :: SignVerification -> V.Bytes -> IO ()
+finPKSignVf (SignVerification op) msg = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe msg $ \msg' off len ->
+      throwBotanIfMinus_ $ hs_botan_pk_op_verify_finish op' msg' off len
+--  BOTAN_FFI_SUCCESS = 0,
+--  BOTAN_FFI_INVALID_VERIFIER = 1
+
+-------------------
+-- Key Agreement --
+-------------------
+
+newtype PKAgreement = PKAgreement BotanStruct
