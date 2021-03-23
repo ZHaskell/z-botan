@@ -659,9 +659,9 @@ updatePKSignGen (SignGeneration op) msg = do
       throwBotanIfMinus_ $ hs_botan_pk_op_sign_update op' msg' off len
 
 finPKSignGen :: SignGeneration -> RNG -> IO V.Bytes
-finPKSignGen gen@(SignGeneration op) (RNG rng) = do
+finPKSignGen gen@(SignGeneration op) rng = do
   withBotanStruct op $ \op' ->
-    withBotanStruct rng $ \rng' -> do
+    withRNG rng $ \rng' -> do
       len <- pkSignLenGen gen
       (a, _) <- allocPrimVectorUnsafe len $ \ret -> do
         (a', _) <- allocPrimUnsafe @Int $ \len' ->
