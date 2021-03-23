@@ -1,8 +1,10 @@
 module Z.Crypto.RNG
   ( -- * RNG
-    RNGType(..), RNG(..)
+    RNGType(..), RNG
   , newRNG, getRNG, getRandom
   , reseedRNG, reseedRNGFromRNG, addEntropyRNG
+  -- * Internal
+  , withRNG
   ) where
 
 import           Control.Monad
@@ -39,6 +41,10 @@ newRNG typ = RNG <$> newBotanStruct
     rngTypeCBytes AutoSeededRNG = "user"
     rngTypeCBytes ProcessorRNG = "hwrng"
 
+-- | Use RNG as a `botan_rng_t` object.
+withRNG :: RNG -> (BotanStructT -> IO a) -> IO a
+withRNG (RNG rng) f = withBotanStruct rng f
+
 -- | Get an autoseeded RNG from a global RNG pool divide by haskell capability.
 --
 -- Botan internal use a lock to protect user-space RNG, which may cause contention if shared.
@@ -62,29 +68,29 @@ getRNG = do
 
 -- | Get random bytes from a random number generator.
 getRandom :: RNG -> Int -> IO V.Bytes
-getRandom (RNG bs) siz = withBotanStruct bs $ \ rng -> do
+getRandom r siz =  withRNG r $ \ rng -> do
     (b, _) <- allocPrimVectorUnsafe siz $ \ buf ->
         throwBotanIfMinus_ (botan_rng_get rng buf (fromIntegral siz))
     return b
 
 -- | Reseeds the random number generator with bits number of bits from the 'SystemRNG'.
 reseedRNG :: RNG -> Int -> IO ()
-reseedRNG (RNG bs) siz = withBotanStruct bs $ \ rng -> do
+reseedRNG r siz = withRNG r $ \ rng -> do
     throwBotanIfMinus_ (botan_rng_reseed rng (fromIntegral siz))
 
 -- | Reseeds the random number generator with bits number of bits from the given source RNG.
 reseedRNGFromRNG :: RNG -> RNG -> Int -> IO ()
-reseedRNGFromRNG (RNG bs1) (RNG bs2) siz =
-    withBotanStruct bs1 $ \ rng1 -> do
-        withBotanStruct bs2 $ \ rng2 -> do
+reseedRNGFromRNG r1 r2 siz =
+    withRNG r1 $ \ rng1 -> do
+        withRNG r2 $ \ rng2 -> do
             throwBotanIfMinus_ (botan_rng_reseed_from_rng rng1 rng2 (fromIntegral siz))
 
 -- | Adds the provided seed material to the internal RNG state.
 --
 -- This call may be ignored by certain RNG instances (such as 'ProcessorRNG' or, on some systems, the 'SystemRNG').
 addEntropyRNG :: RNG -> V.Bytes -> IO ()
-addEntropyRNG (RNG bs) seed =
-    withBotanStruct bs $ \ rng -> do
+addEntropyRNG r seed =
+    withRNG r $ \ rng -> do
         withPrimVectorUnsafe seed $ \ pseed offseed lseed -> do
             throwBotanIfMinus_ (hs_botan_rng_add_entropy rng pseed
                     (fromIntegral offseed) (fromIntegral lseed))
