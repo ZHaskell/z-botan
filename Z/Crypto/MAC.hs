@@ -49,7 +49,7 @@ newMAC typ = do
     return (MAC bs name osiz)
 
 updateMAC :: HasCallStack => MAC -> V.Bytes -> IO ()
-updateMAC (MAC bts _ _) bytes = 
+updateMAC (MAC bts _ _) bs = 
     withBotanStruct bts $ \ pbts ->
         withPrimVectorUnsafe bs $ \ pbs off len ->
             throwBotanIfMinus_ (hs_botan_mac_update pbts pbs off len)
@@ -61,12 +61,13 @@ setKeyMAC (MAC bts _ _) bs =
             throwBotanIfMinus_ (hs_botan_mac_set_key pbts pbs off len)
 
 finalMAC :: HasCallStack => MAC ->IO V.Bytes
-{-# INLINABLE finalHash #-}
-finalMAC (MAC bts _ _) = 
+{-# INLINABLE finalMAC #-}
+finalMAC (MAC bts _ siz) = 
     withBotanStruct bts $ \ pbts -> do
         fst <$> allocPrimVectorUnsafe siz (\ pout ->
             throwBotanIfMinus_ (botan_hash_final pbts pout))
 
-clearMAC :: HasCallStack => HasMAC -> IO ()
+clearMAC :: HasCallStack => MAC -> IO ()
 clearMAC (MAC bts _ _) = 
-    throwBotanIfMinus_ (withBotanStruct bts botan_mac_clear)
+    throwBotanIfMinus_ (withBotanStruct bts hs_botan_mac_clear)
+

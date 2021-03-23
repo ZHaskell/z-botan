@@ -78,7 +78,7 @@ int hs_botan_pwdhash_timed(const char* algo
 // MAC
 
 int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_off, HsInt key_len);
-int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt len);
+int hs_botan_mac_update(botan_mac_t mac, const uint8_t* buf, HsInt off, HsInt len);
 int hs_botan_mac_final(botan_mac_t mac, uint8_t out[]);
 int hs_botan_mac_clear(botan_mac_t mac);
 int hs_botan_mac_name(botan_mac_t mac, char* name, size_t* name_len);
