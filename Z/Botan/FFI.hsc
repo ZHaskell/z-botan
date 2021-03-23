@@ -420,6 +420,10 @@ foreign import ccall unsafe hs_botan_pk_op_decrypt :: BotanStructT
 
 foreign import ccall unsafe "&botan_pk_op_sign_destroy" botan_pk_op_sign_destroy :: FunPtr (BotanStructT -> IO ())
 
+foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt 
+foreign import ccall unsafe hs_botan_pk_op_verify_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT ->
+
 --------------------------------------------------------------------------------
 -- Signature Verification
 
@@ -433,5 +437,4 @@ foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key
 --------------------------------------------------------------------------------
 -- Password Hashing
 -- foreign import ccall unsafe generate_passhash9 ::  
-
 

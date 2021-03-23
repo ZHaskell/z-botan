@@ -88,6 +88,8 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
     size_t* out_keylength_modulo);
 
 
+
+
 // Password Hashing
 
 
@@ -104,6 +106,14 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
 // Public Key Encryption/Decryption
 
 // Signature Generation & Signature Verification
+int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t * in, HsInt off , HsInt len);
+
+int hs_botan_pk_op_sign_finish(botan_pk_op_sign_t op, botan_rng_t rng,
+                            uint8_t * sig, size_t* sig_len);
+
+
+int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t * in, HsInt off, HsInt in_len);
+int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t * sig, HsInt off, HsInt sig_len);
 
 // Key Agreement
 

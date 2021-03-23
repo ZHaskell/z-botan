@@ -94,7 +94,7 @@ setKeyMAC (MAC bts _ _) bs =
         withPrimVectorUnsafe bs $ \pbs off len ->
             throwBotanIfMinus_ (hs_botan_mac_set_key pbts pbs off len)
 
-finalMAC :: HasCallStack => MAC ->IO V.Bytes
+finalMAC :: HasCallStack => MAC -> IO V.Bytes
 {-# INLINABLE finalMAC #-}
 finalMAC (MAC bts _ siz) = 
     withBotanStruct bts $ \ pbts -> do
@@ -112,18 +112,24 @@ sinkToMAC m = BIO push_ pull_
     pull_ = return Nothing
 
 -- | Directly compute a message's mac 
-mac :: HasCallStack => MACType -> V.Bytes -> V.Bytes ->V.Bytes
+mac :: HasCallStack => MACType 
+                    -> V.Bytes
+                    -- ^ key 
+                    -> V.Bytes
+                    -- ^ input
+                    -> V.Bytes
 {-# INLINABLE mac #-}
-mac mt inp key = unsafePerformIO $ do
+mac mt key inp = unsafePerformIO $ do
     m <- newMAC mt
     setKeyMAC m key
     updateMAC m inp
     finalMAC m
 
 -- | Directly compute a chunked message's mac.
-macChunks :: HasCallStack => MACType -> [V.Bytes] -> V.Bytes
+macChunks :: HasCallStack => MACType -> V.Bytes -> [V.Bytes] -> V.Bytes
 {-# INLINABLE macChunks #-}
-macChunks mt inp = unsafePerformIO $ do
+macChunks mt key inp = unsafePerformIO $ do
     m <- newMAC mt 
+    setKeyMAC m key
     mapM_ (updateMAC m) inp
     finalMAC m

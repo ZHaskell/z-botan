@@ -194,3 +194,16 @@ int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t ou
 int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len){
     return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
 }
+
+// signature generation
+int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t * in, HsInt off , HsInt len){
+    return botan_pk_op_sign_update(op, in+off, len);
+}
+int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t * in, HsInt off, HsInt in_len){
+    return botan_pk_op_verify_update(op, in+off, in_len);
+}
+int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t * sig, HsInt off, HsInt sig_len){
+    return botan_pk_op_verify_finish(op, sig+off, sig_len);
+}
+
+// hs_botan_pk_op_sign_update  hs_botan_pk_op_verify_update  hs_botan_pk_op_verify_finish
