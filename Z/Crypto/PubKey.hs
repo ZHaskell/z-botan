@@ -53,6 +53,7 @@ import Z.Foreign
     allocPrimVectorUnsafe,
     withPrimVectorUnsafe,
   )
+import Z.Crypto
 
 ---------------
 -- Key Types --
@@ -302,6 +303,41 @@ pattern DSA_BOTAN_2048 = "dsa/botan/2048"
 pattern DSA_BOTAN_3072 :: DLGrp
 pattern DSA_BOTAN_3072 = "dsa/botan/3072"
 
+-- | Sets of allowed padding schemes for public key types.
+data PkPadding = EMSA1 | EMSA4 | EMSA3
+
+pkPaddingToCBytes :: PkPadding -> CBytes
+pkPaddingToCBytes = \case
+  EMSA1 -> "EMSA1"
+  EMSA4 -> "EMSA4"
+  EMSA3 -> "EMSA3"
+
+type PaddingSchemes = [CBytes]
+
+pattern DSAPad :: PaddingSchemes
+pattern DSAPad = ["EMSA1"]
+
+pattern ECDSAPad :: PaddingSchemes
+pattern ECDSAPad = ["EMSA1"]
+
+pattern ECGDSAPad :: PaddingSchemes
+pattern ECGDSAPad = ["EMSA1"]
+
+pattern ECKCDSAPad :: PaddingSchemes
+pattern ECKCDSAPad = ["EMSA1"]
+
+pattern GOST_34_10Pad :: PaddingSchemes
+pattern GOST_34_10Pad = ["EMSA1"]
+
+pattern GOST_34_10_2012_256Pad :: PaddingSchemes
+pattern GOST_34_10_2012_256Pad = ["EMSA1"]
+
+pattern GOST_34_10_2012_512Pad :: PaddingSchemes
+pattern GOST_34_10_2012_512Pad = ["EMSA1"]
+
+pattern RSAPad :: PaddingSchemes
+pattern RSAPad = ["EMSA4", "EMSA3"]
+
 ---------------------------
 -- Private Key Functions --
 ---------------------------
@@ -408,9 +444,9 @@ maxFingerPrintSize :: Int
 maxFingerPrintSize = 4
 
 fingerPrint :: PubKey -> CBytes -> IO V.Bytes
-fingerPrint (PubKey pubKey) hash = do
+fingerPrint (PubKey pubKey) hash'' = do
   withBotanStruct pubKey $ \pubKey' ->
-    withCBytesUnsafe hash $ \hash' -> do
+    withCBytesUnsafe hash'' $ \hash' -> do
       (a, _) <- allocPrimVectorUnsafe maxFingerPrintSize $ \buf ->
         allocPrimUnsafe @CSize $ \size ->
           throwBotanIfMinus_ (botan_pubkey_fingerprint pubKey' hash' buf size)
@@ -579,3 +615,21 @@ pkDecrypt enop@(PKDecryption op) ciphertext = do
           throwBotanIfMinus_ (hs_botan_pk_op_decrypt op' out outLen ciphertext' ciphertextOff ciphertextLen)
         pure a'
       return a
+
+--------------------------
+-- Signature Generation --
+--------------------------
+
+newtype SignGeneration = SignGeneration BotanStruct
+
+newPKSign :: PrivKey -> HashType -> PkPadding -> IO SignGeneration -- BOTAN_PUBKEY_DER_FORMAT_SIGNATURE = 1
+newPKSign = undefined
+
+pkSignLen :: SignGeneration -> IO Int
+pkSignLen = undefined
+
+updatePKSign :: SignGeneration -> V.Bytes -> IO ()
+updatePKSign = undefined
+
+finPKSign :: SignGeneration -> RNG -> IO V.Bytes
+finPKSign = undefined
