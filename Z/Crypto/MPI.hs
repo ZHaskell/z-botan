@@ -11,14 +11,17 @@ module Z.Crypto.MPI
   , unsafeNewMPI
   ) where
 
-import           Control.Monad
-import           Data.Bits          hiding (bitSize)
-import           Data.Word
-import           GHC.Exts
-import           GHC.Integer.GMP.Internals
+import Control.Monad ( void, when )
+import Data.Bits ( Bits(unsafeShiftL) )
+import Data.Word ( Word8, Word32 )
+import GHC.Exts ( build, Int(I#), int2Word#, word2Int# )
+import GHC.Integer.GMP.Internals
+    ( importIntegerFromByteArray,
+      exportIntegerToMutableByteArray,
+      sizeInBaseInteger )
 import           GHC.Generics
 import           GHC.Real
-import           System.IO.Unsafe
+import System.IO.Unsafe ( unsafeDupablePerformIO )
 import           Z.Data.ASCII
 import           Z.Botan.FFI
 import           Z.Botan.Exception
@@ -31,7 +34,14 @@ import qualified Z.Data.Vector.Base as V
 import qualified Z.Data.Text        as T
 import qualified Z.Data.Text.Base   as T
 import           Z.Crypto.RNG
-import           Z.Foreign
+import Z.Foreign
+    ( CInt,
+      PrimArray(..),
+      newPrimArray,
+      unsafeFreezePrimArray,
+      MutablePrimArray(MutablePrimArray),
+      CSize,
+      allocPrimUnsafe )
 
 -- | Opaque Botan Multiple Precision Integers.
 newtype MPI = MPI BotanStruct
@@ -76,7 +86,7 @@ instance Num MPI where
     negate (MPI a) = unsafeDupablePerformIO $ do
         withBotanStruct a $ \ btsa ->
             newMPI (\ bts -> do
-                botan_mp_set_from_mp bts btsa
+                _ <- botan_mp_set_from_mp bts btsa
                 botan_mp_flip_sign bts)
 
     {-# INLINE abs #-}
