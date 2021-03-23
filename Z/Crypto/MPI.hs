@@ -1,38 +1,42 @@
 module Z.Crypto.MPI
   ( -- * RNG
-    MPI(..), fromCInt, toWord32, byteSize, bitSize
+    MPI(..), fromCInt, toWord32, byteSize, Z.Crypto.MPI.bitSize
     -- * Builder & Parser
   , toHex, toDecimal, fromHex, fromDecimal
     -- * Predicator
-  , isNegative, isZero, isOdd, isEven
+  , isNegative, isZero, isOdd, isEven, isPrim
     -- * MPI specific
-  , mulMod, powMod, modInverse
+  , mulMod, powMod, modInverse, Z.Crypto.MPI.gcd
+    -- * Random MPI
+  , randBits, randRange
     -- * Internal
+  , copyMPI
+  , newMPI
   , unsafeNewMPI
+  , newMPI'
+  , unsafeNewMPI'
+  , withMPI
+  , unsafeWithMPI
   ) where
 
-import Control.Monad ( void, when )
-import Data.Bits ( Bits(unsafeShiftL) )
-import Data.Word ( Word8, Word32 )
-import GHC.Exts ( build, Int(I#), int2Word#, word2Int# )
-import GHC.Integer.GMP.Internals
-    ( importIntegerFromByteArray,
-      exportIntegerToMutableByteArray,
-      sizeInBaseInteger )
+import           Control.Monad
+import           Data.Bits
+import           Data.Word
+import qualified Data.Scientific                    as Scientific
+import           GHC.Exts
+import           GHC.Integer.GMP.Internals
 import           GHC.Generics
 import           GHC.Real
 import System.IO.Unsafe ( unsafeDupablePerformIO )
 import           Z.Data.ASCII
 import           Z.Botan.FFI
 import           Z.Botan.Exception
-import           Z.Data.JSON         (JSON)
-import qualified Z.Data.Array       as A
-import qualified Z.Data.Builder     as B
-import qualified Z.Data.Parser      as P
-import qualified Z.Data.Vector      as V
-import qualified Z.Data.Vector.Base as V
-import qualified Z.Data.Text        as T
-import qualified Z.Data.Text.Base   as T
+import           Z.Data.JSON                        (JSON(..), Value(..), withBoundedScientific, fail')
+import qualified Z.Data.Array                       as A
+import qualified Z.Data.Builder                     as B
+import qualified Z.Data.Parser                      as P
+import qualified Z.Data.Vector.Base                 as V
+import qualified Z.Data.Text                        as T
 import           Z.Crypto.RNG
 import Z.Foreign
     ( CInt,
@@ -48,17 +52,17 @@ newtype MPI = MPI BotanStruct
 
 instance Eq MPI where
     {-# INLINE (==) #-}
-    (MPI a) == (MPI b) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            withBotanStruct b $ \ btsb -> do
+    a == b =
+        unsafeWithMPI a $ \ btsa ->
+            withMPI b $ \ btsb -> do
                 r <- botan_mp_equal btsa btsb
                 return $! r == 1
 
 instance Ord MPI where
     {-# INLINE compare #-}
-    (MPI a) `compare` (MPI b) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            withBotanStruct b $ \ btsb -> do
+    a `compare` b =
+        unsafeWithMPI a $ \ btsa ->
+            withMPI b $ \ btsb -> do
                 (r, _) <- allocPrimUnsafe $ \ r -> botan_mp_cmp r btsa btsb
                 return $! case (r :: CInt) of
                     1 -> GT
@@ -67,27 +71,27 @@ instance Ord MPI where
 
 instance Num MPI where
     {-# INLINE (+) #-}
-    (MPI a) + (MPI b) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            withBotanStruct b $ \ btsb ->
+    a + b = unsafeDupablePerformIO $ do
+        withMPI a $ \ btsa ->
+            withMPI b $ \ btsb ->
                 newMPI $ \ btsr -> botan_mp_add btsr btsa btsb
     {-# INLINE (-) #-}
-    (MPI a) - (MPI b) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            withBotanStruct b $ \ btsb ->
+    a - b = unsafeDupablePerformIO $ do
+        withMPI a $ \ btsa ->
+            withMPI b $ \ btsb ->
                 newMPI $ \ btsr -> botan_mp_sub btsr btsa btsb
     {-# INLINE (*) #-}
-    (MPI a) * (MPI b) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            withBotanStruct b $ \ btsb ->
+    a * b = unsafeDupablePerformIO $ do
+        withMPI a $ \ btsa ->
+            withMPI b $ \ btsb ->
                 newMPI $ \ btsr -> botan_mp_mul btsr btsa btsb
 
     {-# INLINE negate #-}
-    negate (MPI a) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            newMPI (\ bts -> do
-                _ <- botan_mp_set_from_mp bts btsa
-                botan_mp_flip_sign bts)
+
+    negate a = unsafeWithMPI a $ \ btsa ->
+        newMPI (\ bts -> do
+            throwBotanIfMinus_ (botan_mp_set_from_mp bts btsa)
+            botan_mp_flip_sign bts)
 
     {-# INLINE abs #-}
     abs mp | isNegative mp = negate mp
@@ -128,6 +132,20 @@ instance Enum MPI where
     enumFromThen x y       = enumDeltaMPI   x (y-x)
     enumFromTo x lim       = enumDeltaToMPI x 1     lim
     enumFromThenTo x y lim = enumDeltaToMPI x (y-x) lim
+
+instance JSON MPI where
+    {-# INLINE fromValue #-}
+    fromValue = withBoundedScientific "Z.Crypto.MPI.MPI" $ \ n ->
+        case Scientific.floatingOrInteger n :: Either Double Integer of
+            Right x -> pure (fromInteger x)
+            Left _  -> fail' . B.unsafeBuildText $ do
+                "converting Integer failed, unexpected floating number "
+                B.scientific n
+    {-# INLINE toValue #-}
+    toValue = Number . fromIntegral
+    {-# INLINE encodeJSON #-}
+    encodeJSON = toDecimal
+
 
 -- These RULES are copied from GHC.Enum
 {-# RULES
@@ -212,24 +230,79 @@ dn_list x0 delta lim = go (x0 :: MPI)
 
 instance Integral MPI where
     {-# INLINE quotRem #-}
-    (MPI a) `quotRem` (MPI b) = unsafeDupablePerformIO $ do
-        withBotanStruct a $ \ btsa ->
-            withBotanStruct b $ \ btsb ->
+    a `quotRem` b =
+        unsafeWithMPI a $ \ btsa ->
+            withMPI b $ \ btsb ->
                 newMPI' $ \ q ->
                     newMPI $ \ r ->
                         botan_mp_div q r btsa btsb
 
     {-# INLINE toInteger #-}
-    toInteger mp@(MPI a)
+    toInteger mp
         | isZero mp = 0
         | otherwise = unsafeWithMPI mp $ \ bts -> do
             mpa@(MutablePrimArray mba#) <- newPrimArray siz
-            hs_botan_mp_to_bin bts mba# 0
+            throwBotanIfMinus_ (hs_botan_mp_to_bin bts mba# 0)
             (PrimArray ba# :: PrimArray Word8) <- unsafeFreezePrimArray mpa
             let r = importIntegerFromByteArray ba# 0## (int2Word# siz#) 1#
             return $! if mp < 0 then negate r else r
       where
-        siz@(I# siz#) = (byteSize mp)
+        !siz@(I# siz#) = (byteSize mp)
+
+-- | The 'testBit' implementation ignore sign.
+instance Bits MPI where
+    x .&. y = fromInteger $ (toInteger x) .&. (toInteger y)
+    {-# INLINE (.&.) #-}
+    x .|. y = fromInteger $ (toInteger x) .|. (toInteger y)
+    {-# INLINE (.|.) #-}
+    x `xor` y = fromInteger $ (toInteger x) `xor` (toInteger y)
+    {-# INLINE xor #-}
+    complement = fromInteger . complement . toInteger
+    {-# INLINE complement #-}
+    shift x i
+        | i >= 0 =
+            unsafeWithMPI x $ \ btsx ->
+                newMPI $ \ btsr ->
+                    botan_mp_lshift btsr btsx (fromIntegral i)
+        | otherwise =
+            unsafeWithMPI x $ \ btsx ->
+                newMPI $ \ btsr ->
+                    botan_mp_rshift btsr btsx (fromIntegral (-i))
+    {-# INLINE shift #-}
+
+    testBit x i =
+        unsafeWithMPI x $ \ btsx -> do
+            r <- botan_mp_get_bit btsx (fromIntegral i)
+            return $! r == 1
+    {-# INLINE testBit #-}
+
+    zeroBits   = 0
+    bit = setBit 0
+    {-# INLINE bit #-}
+
+    setBit a i =
+        unsafeWithMPI a $ \ btsa ->
+            newMPI (\ btsr -> do
+                throwBotanIfMinus_ (botan_mp_set_from_mp btsr btsa)
+                botan_mp_set_bit btsr (fromIntegral i))
+    {-# INLINE setBit #-}
+
+    clearBit a i =
+        unsafeWithMPI a $ \ btsa ->
+            newMPI (\ btsr -> do
+                throwBotanIfMinus_ (botan_mp_set_from_mp btsr btsa)
+                botan_mp_clear_bit btsr (fromIntegral i))
+    {-# INLINE clearBit #-}
+
+    popCount = popCount . toInteger
+    {-# INLINE popCount #-}
+
+    rotate x i = shift x i   -- since an MPI never wraps around
+    {-# INLINE rotate #-}
+
+    bitSizeMaybe _ = Nothing
+    bitSize _  = error "Z.Crypto.MPI.bitSize(MPI)"
+    isSigned _ = True
 
 instance Show MPI where
     show = T.toString
@@ -244,7 +317,7 @@ zero = unsafeNewMPI (\ _ -> return ())
 newMPI :: (BotanStructT -> IO a) -> IO MPI
 newMPI f = do
     mp <- newBotanStruct (\ bts -> botan_mp_init bts) botan_mp_destroy
-    withBotanStruct mp f
+    _ <- withBotanStruct mp f
     return (MPI mp)
 
 newMPI' :: (BotanStructT -> IO a) -> IO (MPI, a)
@@ -258,13 +331,16 @@ copyMPI (MPI a) = do
     withBotanStruct a $ \ btsa -> do
         newMPI (\ bts -> botan_mp_set_from_mp bts btsa)
 
+withMPI :: MPI -> (BotanStructT -> IO a) -> IO a
+withMPI (MPI bts) f = withBotanStruct bts f
+
 unsafeWithMPI :: MPI -> (BotanStructT -> IO a) -> a
 unsafeWithMPI (MPI bts) f = unsafeDupablePerformIO (withBotanStruct bts f)
 
 unsafeNewMPI :: (BotanStructT -> IO a) -> MPI
 unsafeNewMPI f = unsafeDupablePerformIO $ do
     mp <- newBotanStruct (\ bts -> botan_mp_init bts) botan_mp_destroy
-    withBotanStruct mp f
+    _ <- withBotanStruct mp f
     return (MPI mp)
 
 unsafeNewMPI' :: (BotanStructT -> IO a) -> (MPI, a)
@@ -295,11 +371,11 @@ toWord32 mp = fst . unsafeWithMPI mp $ \ bts ->
 
 -- | Write a 'MPI' in decimal format, with negative sign if < 0.
 toDecimal :: MPI -> B.Builder ()
-toDecimal mp@(MPI bts) = do
+toDecimal mp = do
     when (isNegative mp) (B.word8 MINUS)
     -- botan write \NUL terminator
     B.ensureN (byteSize mp * 3 + 1) $ \ (MutablePrimArray mba#) off ->
-        withBotanStruct bts $ \ btst -> do
+        withMPI mp $ \ btst -> do
             hs_botan_mp_to_dec btst mba# off
 
 -- | Parse a 'MPI' in decimal format, parse leading minus sign.
@@ -319,11 +395,11 @@ fromDecimal = do
 
 -- | Write a 'MPI' in hexadecimal format(without '0x' prefix), the sign is ignored.
 toHex :: MPI -> B.Builder ()
-toHex mp@(MPI bts) =
+toHex mp =
     -- botan write \NUL terminator
     let !siz = byteSize mp `unsafeShiftL` 1
     in B.ensureN (siz + 1) $ \ (MutablePrimArray mba#) off ->
-        withBotanStruct bts $ \ btst -> do
+        withMPI mp $ \ btst -> do
             _ <- hs_botan_mp_to_hex btst mba# off
             return (off+siz)
 
@@ -360,29 +436,69 @@ isEven mp = unsafeWithMPI mp $ \ bts -> do
 
 -- | mulMod x y mod = x times y modulo mod
 mulMod :: MPI -> MPI -> MPI -> MPI
-mulMod (MPI x) (MPI y) (MPI m) =
+mulMod x y m =
     unsafeNewMPI $ \ btsr ->
-        withBotanStruct x $ \ btsx ->
-            withBotanStruct y $ \ btsy ->
-                withBotanStruct m $ \ btsm ->
+        withMPI x $ \ btsx ->
+            withMPI y $ \ btsy ->
+                withMPI m $ \ btsm ->
                     botan_mp_mod_mul btsr btsx btsy btsm
 
 
 -- | Modular exponentiation. powMod base exp mod = base power exp module mod
 powMod :: MPI -> MPI -> MPI -> MPI
-powMod (MPI x) (MPI y) (MPI m) =
+powMod x y m =
     unsafeNewMPI $ \ btsr ->
-        withBotanStruct x $ \ btsx ->
-            withBotanStruct y $ \ btsy ->
-                withBotanStruct m $ \ btsm ->
+        withMPI x $ \ btsx ->
+            withMPI y $ \ btsy ->
+                withMPI m $ \ btsm ->
                     botan_mp_powmod btsr btsx btsy btsm
 
 -- | Modular inverse, find an integer x so that @a⋅x ≡ 1  mod m@
 --
 -- If no modular inverse exists (for instance because in and modulus are not relatively prime), return 0.
 modInverse :: MPI -> MPI -> MPI
-modInverse (MPI x) (MPI y) =
+modInverse x y =
     unsafeNewMPI $ \ btsr ->
-        withBotanStruct x $ \ btsx ->
-            withBotanStruct y $ \ btsy ->
+        withMPI x $ \ btsx ->
+            withMPI y $ \ btsy ->
                     botan_mp_mod_inverse btsr btsx btsy
+
+-- | Create a random 'MPI' of the specified bit size.
+randBits :: RNG -> Int -> IO MPI
+randBits rng x = do
+    newMPI $ \ bts ->
+        withRNG rng $ \ bts_rng ->
+            throwBotanIfMinus_ (botan_mp_rand_bits bts bts_rng (fromIntegral (max x 0)))
+
+-- | Create a random 'MPI' within the provided range.
+randRange :: RNG
+          -> MPI     -- ^ lower bound
+          -> MPI     -- ^ upper bound
+          -> IO MPI
+randRange rng lower upper = do
+    newMPI $ \ bts ->
+        withRNG rng $ \ bts_rng ->
+            withMPI lower $ \ bts_lower ->
+                withMPI upper $ \ bts_upper ->
+                    throwBotanIfMinus_ (botan_mp_rand_range bts bts_rng bts_lower bts_upper)
+
+-- | Compute the greatest common divisor of x and y.
+gcd :: MPI -> MPI -> MPI
+gcd x y = unsafeNewMPI $ \ bts ->
+    withMPI x $ \ bts_x ->
+        withMPI y $ \ bts_y ->
+            throwBotanIfMinus_ (botan_mp_gcd bts bts_x bts_y)
+
+-- | Test if n is prime.
+--
+-- The algorithm used (Miller-Rabin) is probabilistic,
+-- set test_prob to the desired assurance level.
+-- For example if test_prob is 64, then sufficient Miller-Rabin iterations will run to
+-- assure there is at most a 1/2**64 chance that n is composite.
+isPrim :: RNG -> MPI -> Int -> IO Bool
+isPrim rng x prob = do
+    withRNG rng $ \ bts_rng ->
+        withMPI x $ \ bts_x -> do
+            r <- throwBotanIfMinus (botan_mp_is_prime bts_x bts_rng
+                (fromIntegral (max 0 prob)))
+            return $! r == 1

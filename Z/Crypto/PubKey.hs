@@ -42,8 +42,8 @@ import Z.Botan.FFI
     newBotanStruct,
     withBotanStruct,
   )
-import Z.Crypto.MPI (MPI (..), unsafeNewMPI)
-import Z.Crypto.RNG (RNG (..))
+import Z.Crypto.MPI (MPI, withMPI, unsafeWithMPI, unsafeNewMPI)
+import Z.Crypto.RNG (RNG, withRNG)
 import qualified Z.Data.Builder as B
 import Z.Data.CBytes (CBytes, append, buildCBytes, withCBytesUnsafe)
 import qualified Z.Data.Vector as V
@@ -315,8 +315,8 @@ newtype PrivKey = PrivKey BotanStruct
 -- | Creating a new private key requires two things: a source of random numbers and some algorithm specific arguments that define the security level of the resulting key.
 newPrivKey :: PrivKeyType -- ^ Algorithm name and some algorithm specific arguments.
            -> RNG -> IO PrivKey
-newPrivKey (PrivKeyType privKeyType) (RNG rng) = do
-  withBotanStruct rng $ \rng' ->
+newPrivKey (PrivKeyType privKeyType) rng = do
+  withRNG rng $ \rng' ->
     let (algo, args) = h privKeyType
      in withCBytesUnsafe algo $ \algo' ->
           withCBytesUnsafe args $ \args' ->
@@ -338,8 +338,8 @@ newPrivKey (PrivKeyType privKeyType) (RNG rng) = do
 loadPrivKey :: RNG -> V.Bytes
             -> CBytes -- ^ Password.
             -> IO PrivKey
-loadPrivKey (RNG rng) buf passwd = do
-  withBotanStruct rng $ \rng' ->
+loadPrivKey rng buf passwd = do
+  withRNG rng $ \rng' ->
     withPrimVectorUnsafe buf $ \buf' off len ->
       withCBytesUnsafe passwd $ \passwd' ->
         PrivKey <$> newBotanStruct (\privKey -> hs_botan_privkey_load privKey rng' buf' off len passwd') botan_privkey_destroy
@@ -455,74 +455,72 @@ getRSAPub (PubKey pubKey) arg = unsafeNewMPI $ \mpi ->
       pubKey'
 
 -- | Initialize a private RSA key using arguments p, q, and e.
-newRSAPriv :: MPI -> MPI -> MPI -> IO PrivKey
-newRSAPriv (MPI p) (MPI q) (MPI e) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct q $ \q' ->
-      withBotanStruct e $ \e' ->
+newRSAPriv :: MPI -> MPI -> MPI -> PrivKey
+newRSAPriv p q e = do
+  unsafeWithMPI p $ \p' ->
+    withMPI q $ \q' ->
+      withMPI e $ \e' ->
         PrivKey <$> newBotanStruct (\privKey -> botan_privkey_load_rsa privKey p' q' e') botan_privkey_destroy
 
 -- | Initialize a public RSA key using arguments n and e.
-newRSAPub :: MPI -> MPI -> IO PubKey
-newRSAPub (MPI n) (MPI e) = do
-  withBotanStruct n $ \n' ->
-    withBotanStruct e $ \e' ->
+newRSAPub :: MPI -> MPI -> PubKey
+newRSAPub n e = do
+  unsafeWithMPI n $ \n' ->
+    withMPI e $ \e' ->
       PubKey <$> newBotanStruct (\pubKey -> botan_pubkey_load_rsa pubKey n' e') botan_pubkey_destroy
 
 ----------------------------
 -- DSA specific functions --
 ----------------------------
 
-newDSAPriv :: MPI -> MPI -> MPI -> MPI -> IO PrivKey
-newDSAPriv (MPI p) (MPI q) (MPI g) (MPI x) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct q $ \q' ->
-      withBotanStruct g $ \g' ->
-        withBotanStruct x $ \x' ->
+newDSAPriv :: MPI -> MPI -> MPI -> MPI -> PrivKey
+newDSAPriv p q g x = do
+  unsafeWithMPI p $ \p' ->
+    withMPI q $ \q' ->
+      withMPI g $ \g' ->
+        withMPI x $ \x' ->
           PrivKey <$> newBotanStruct (\privKey -> botan_privkey_load_dsa privKey p' q' g' x') botan_privkey_destroy
 
-newDSAPub :: MPI -> MPI -> MPI -> MPI -> IO PubKey
-newDSAPub (MPI p) (MPI q) (MPI g) (MPI y) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct q $ \q' ->
-      withBotanStruct g $ \g' ->
-        withBotanStruct y $ \y' ->
+newDSAPub :: MPI -> MPI -> MPI -> MPI -> PubKey
+newDSAPub p q g y = do
+  unsafeWithMPI p $ \p' ->
+    withMPI q $ \q' ->
+      withMPI g $ \g' ->
+        withMPI y $ \y' ->
           PubKey <$> newBotanStruct (\pubKey -> botan_pubkey_load_dsa pubKey p' q' g' y') botan_pubkey_destroy
 
 --------------------------------
 -- ElGamal specific functions --
 --------------------------------
 
-newElGamalPriv :: MPI -> MPI -> MPI -> IO PrivKey
-newElGamalPriv (MPI p) (MPI g) (MPI x) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct g $ \g' ->
-      withBotanStruct x $ \x' ->
+newElGamalPriv :: MPI -> MPI -> MPI -> PrivKey
+newElGamalPriv p g x = do
+  unsafeWithMPI p $ \p' ->
+    withMPI g $ \g' ->
+      withMPI x $ \x' ->
         PrivKey <$> newBotanStruct (\privKey -> botan_privkey_load_elgamal privKey p' g' x') botan_privkey_destroy
 
-newElGamalPub :: MPI -> MPI -> MPI -> IO PubKey
-newElGamalPub (MPI p) (MPI g) (MPI y) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct g $ \g' ->
-      withBotanStruct y $ \y' ->
+newElGamalPub :: MPI -> MPI -> MPI -> PubKey
+newElGamalPub p g y = do
+  unsafeWithMPI p $ \p' ->
+    withMPI g $ \g' ->
+      withMPI y $ \y' ->
         PubKey <$> newBotanStruct (\pubKey -> botan_pubkey_load_elgamal pubKey p' g' y') botan_pubkey_destroy
 
 ---------------------------------------
 -- Diffie-Hellman specific functions --
 ---------------------------------------
 
-newDHPriv :: MPI -> MPI -> MPI -> IO PrivKey
-newDHPriv (MPI p) (MPI g) (MPI x) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct g $ \g' ->
-      withBotanStruct x $ \x' ->
-        PrivKey <$> newBotanStruct (\privKey -> botan_privkey_load_dh privKey p' g' x') botan_privkey_destroy
+newDHPriv :: MPI -> MPI -> MPI -> PrivKey
+newDHPriv p g x = do
+  unsafeWithMPI p $ \p' -> withMPI g $ \g' -> withMPI x $ \x' ->
+    PrivKey <$> newBotanStruct (\privKey -> botan_privkey_load_dh privKey p' g' x') botan_privkey_destroy
 
-newDHPub :: MPI -> MPI -> MPI -> IO PubKey
-newDHPub (MPI p) (MPI g) (MPI y) = do
-  withBotanStruct p $ \p' ->
-    withBotanStruct g $ \g' ->
-      withBotanStruct y $ \y' ->
+newDHPub :: MPI -> MPI -> MPI -> PubKey
+newDHPub p g y = do
+  unsafeWithMPI p $ \p' ->
+    withMPI g $ \g' ->
+      withMPI y $ \y' ->
         PubKey <$> newBotanStruct (\pubKey -> botan_pubkey_load_dh pubKey p' g' y') botan_pubkey_destroy
 
 ----------------------------------------
@@ -544,9 +542,9 @@ pkEncryptLen (PKEncryption op) len = do
     return a
 
 pkEncrypt :: PKEncryption -> RNG -> V.Bytes -> IO V.Bytes
-pkEncrypt enop@(PKEncryption op) (RNG rng) ptext = do
+pkEncrypt enop@(PKEncryption op) rng ptext = do
   withBotanStruct op $ \op' ->
-    withBotanStruct rng $ \rng' ->
+    withRNG rng $ \rng' ->
       withPrimVectorUnsafe ptext $ \ptext' ptextOff ptextLen -> do
         len <- pkEncryptLen enop ptextLen
         (a, _) <- allocPrimVectorUnsafe len $ \out -> do
