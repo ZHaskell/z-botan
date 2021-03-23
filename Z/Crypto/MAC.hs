@@ -13,13 +13,15 @@ import Z.Botan.FFI
       withBotanStruct,
       newBotanStruct )
 import Z.Crypto.Cipher ( blockCipherTypeToCBytes, BlockCipherType )
-import Z.Crypto.Hash ( hashTypeToCBytes, HashType )
+import Z.Crypto.Hash ( hashTypeToCBytes, HashType, updateHash, hashChunks )
 import Z.Data.CBytes as CB
     ( concat, fromText, withCBytesUnsafe, CBytes )
 import qualified Z.Data.Text as T
 import Z.Foreign
-    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe )
+    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe, indexPrimArray )
 import qualified Z.Data.Vector as V
+import Z.IO.BIO ( Sink, BIO(BIO) )
+import System.IO.Unsafe ( unsafePerformIO )
 
 data MACType = CMAC BlockCipherType
              | OMAC BlockCipherType
@@ -83,3 +85,24 @@ clearMAC :: HasCallStack => MAC -> IO ()
 clearMAC (MAC bts _ _) = 
     throwBotanIfMinus_ (withBotanStruct bts hs_botan_mac_clear)
 
+sinkToMAC :: HasCallStack => MAC -> Sink V.Bytes
+sinkToMAC m = BIO push_ pull_
+  where
+    push_ x = updateMAC m x >> return Nothing
+    pull_ = return Nothing
+
+-- | Directly compute a message's mac 
+mac :: HasCallStack => MACType -> V.Bytes ->V.Bytes
+{-# INLINABLE mac #-}
+mac mt inp = unsafePerformIO $ do
+    m <- newMAC mt
+    updateMAC m inp
+    finalMAC m
+
+-- | Directly compute a chunked message's mac.
+macChunks :: HasCallStack => MACType -> [V.Bytes] -> V.Bytes
+{-# INLINABLE macChunks #-}
+macChunks mt inp = unsafePerformIO $ do
+    m <- newMAC mt 
+    mapM_ (updateMAC m) inp
+    finalMAC m
