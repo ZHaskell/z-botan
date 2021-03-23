@@ -24,13 +24,33 @@ import Z.IO.BIO ( Sink, BIO(BIO) )
 import System.IO.Unsafe ( unsafePerformIO )
 
 data MACType = CMAC BlockCipherType
+                -- ^ A modern CBC-MAC variant that avoids the security problems of plain CBC-MAC. 
+                -- Approved by NIST. Also sometimes called OMAC.
              | OMAC BlockCipherType
+               -- ^ 
              | GMAC BlockCipherType
+               -- ^ GMAC is related to the GCM authenticated cipher mode. 
+               -- It is quite slow unless hardware support for carryless multiplications is available.
+               --  A new nonce must be used with each message authenticated, or otherwise all security is lost.
              | CBC_MAC BlockCipherType
+              -- ^ An older authentication code based on a block cipher. 
+              -- Serious security problems, 
+              -- in particular insecure if messages of several different lengths are authenticated.
+              --  Avoid unless required for compatibility.
              | HMAC HashType
+              -- ^ A message authentication code based on a hash function. Very commonly used.
              | Poly1305
+             -- ^ A polynomial mac (similar to GMAC). Very fast, but tricky to use safely.
+             -- Forms part of the ChaCha20Poly1305 AEAD mode. 
+             -- A new key must be used for each message, or all security is lost.
              | SipHash Int Int
+             -- ^ A modern and very fast PRF. Produces only a 64-bit output. 
+             -- Defaults to “SipHash(2,4)” which is the recommended configuration, 
+             -- using 2 rounds for each input block and 4 rounds for finalization.
              | X9'19_MAC
+             -- ^ A CBC-MAC variant sometimes used in finance. Always uses DES. 
+             -- Sometimes called the “DES retail MAC”, also standardized in ISO 9797-1. 
+             -- It is slow and has known attacks. Avoid unless required.
 
 mACTypeToCBytes :: MACType -> CBytes
 mACTypeToCBytes (CMAC bc   ) = CB.concat ["CMAC(", blockCipherTypeToCBytes bc, ")"]
@@ -107,4 +127,3 @@ macChunks mt inp = unsafePerformIO $ do
     m <- newMAC mt 
     mapM_ (updateMAC m) inp
     finalMAC m
-

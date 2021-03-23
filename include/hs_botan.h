@@ -90,6 +90,7 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
 
 // Password Hashing
 
+
 // Public Key Creation, Import and Export
 
 // RSA specific functions
