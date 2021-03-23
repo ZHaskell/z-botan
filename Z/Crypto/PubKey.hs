@@ -10,6 +10,9 @@ import Z.Botan.FFI
     botan_pk_op_encrypt_create,
     botan_pk_op_encrypt_destroy,
     botan_pk_op_encrypt_output_length,
+    botan_pk_op_key_agreement_create,
+    botan_pk_op_key_agreement_destroy,
+    botan_pk_op_key_agreement_export_public,
     botan_pk_op_sign_create,
     botan_pk_op_sign_destroy,
     botan_pk_op_sign_finish,
@@ -43,6 +46,7 @@ import Z.Botan.FFI
     botan_pubkey_rsa_get_n,
     hs_botan_pk_op_decrypt,
     hs_botan_pk_op_encrypt,
+    hs_botan_pk_op_key_agreement,
     hs_botan_pk_op_sign_update,
     hs_botan_pk_op_verify_finish,
     hs_botan_pk_op_verify_update,
@@ -697,3 +701,32 @@ finPKSignVf (SignVerification op) msg = do
 -------------------
 
 newtype PKAgreement = PKAgreement BotanStruct
+
+newPKAgree :: PrivKey -> CBytes -> IO PKAgreement
+newPKAgree (PrivKey privKey) kdf = do
+  withBotanStruct privKey $ \privKey' ->
+    withCBytesUnsafe kdf $ \kdf' ->
+      PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf' 0) botan_pk_op_key_agreement_destroy
+
+maxAgreeSize :: Int
+maxAgreeSize = undefined
+
+exportPKAgree :: PrivKey -> IO V.Bytes
+exportPKAgree (PrivKey privKey) = do
+  withBotanStruct privKey $ \privKey' -> do
+    (a, _) <- allocPrimVectorUnsafe maxAgreeSize $ \ret -> do
+      (a', _) <- allocPrimUnsafe @Int $ \len ->
+        throwBotanIfMinus_ $ botan_pk_op_key_agreement_export_public privKey' ret len
+      pure a'
+    return a
+
+pkAgree :: PKAgreement -> V.Bytes -> V.Bytes -> IO V.Bytes
+pkAgree (PKAgreement op) others salt = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe others $ \others' others_off others_len ->
+      withPrimVectorUnsafe salt $ \salt' salt_off salt_len -> do
+        (a, _) <- allocPrimVectorUnsafe maxAgreeSize $ \ret -> do
+          (a', _) <- allocPrimUnsafe @Int $ \len ->
+            throwBotanIfMinus_ $ hs_botan_pk_op_key_agreement op' ret len others' others_off others_len salt' salt_off salt_len
+          pure a'
+        return a

@@ -462,7 +462,39 @@ foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT
 --------------------------------------------------------------------------------
 -- Key Agreement
 
+foreign import ccall unsafe botan_pk_op_key_agreement_create :: MBA## BotanStructT
+                                                             -> BotanStructT
+                                                             -> BA## Word8
+                                                             -> Word32
+                                                             -> IO CInt
+
 foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key_agreement_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_pk_op_key_agreement_export_public :: BotanStructT
+                                                                    -> MBA## Word8 -> MBA## Int
+                                                                    -> IO CInt
+
+foreign import ccall unsafe hs_botan_pk_op_key_agreement :: BotanStructT
+                                                         -> MBA## Word8 -> MBA## Int
+                                                         -> BA## Word8 -> Int -> Int
+                                                         -> BA## Word8 -> Int -> Int
+                                                         -> IO CInt
+
+{-
+foreign import ccall unsafe hs_botan_mceies_encrypt :: BotanStructT -> BotanStructT
+                                                    -> BA## Word8
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> MBA## Word8 -> MBA## Int
+                                                    -> IO CInt
+
+foreign import ccall unsafe hs_botan_mceies_decrypt :: BotanStructT
+                                                    -> BA## Word8
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> MBA## Word8 -> MBA## Int
+                                                    -> IO CInt
+-}
 
 --------------------------------------------------------------------------------
 -- X.509 Certificates
