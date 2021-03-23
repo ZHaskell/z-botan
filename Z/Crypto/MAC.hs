@@ -1,12 +1,24 @@
 module Z.Crypto.MAC where
 
-import Z.Botan.Exception
+import Z.Botan.Exception ( HasCallStack, throwBotanIfMinus_ )
 import Z.Botan.FFI
-import Z.Crypto.Cipher
-import Z.Crypto.Hash
+    ( BotanStruct,
+      hs_botan_mac_clear,
+      hs_botan_mac_update,
+      hs_botan_mac_set_key,
+      botan_mac_output_length,
+      botan_mac_destroy,
+      botan_mac_init,
+      botan_hash_final,
+      withBotanStruct,
+      newBotanStruct )
+import Z.Crypto.Cipher ( blockCipherTypeToCBytes, BlockCipherType )
+import Z.Crypto.Hash ( hashTypeToCBytes, HashType )
 import Z.Data.CBytes as CB
+    ( concat, fromText, withCBytesUnsafe, CBytes )
 import qualified Z.Data.Text as T
 import Z.Foreign
+    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe )
 import qualified Z.Data.Vector as V
 
 data MACType = CMAC BlockCipherType
