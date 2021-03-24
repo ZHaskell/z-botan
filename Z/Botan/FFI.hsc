@@ -418,23 +418,98 @@ foreign import ccall unsafe hs_botan_pk_op_decrypt :: BotanStructT
 --------------------------------------------------------------------------------
 -- Signature Generation
 
+foreign import ccall unsafe botan_pk_op_sign_create :: MBA## BotanStructT
+                                                    -> BotanStructT
+                                                    -> BA## Word8
+                                                    -> Word32
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_pk_op_sign_output_length :: BotanStructT
+                                                           -> MBA## Int
+                                                           -> IO CInt
+
+foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT
+                                                       -> BA## Word8 -> Int -> Int
+                                                       -> IO CInt
+
+foreign import ccall unsafe botan_pk_op_sign_finish :: BotanStructT
+                                                    -> BotanStructT
+                                                    -> MBA## Word8
+                                                    -> MBA## Int
+                                                    -> IO CInt
+
 foreign import ccall unsafe "&botan_pk_op_sign_destroy" botan_pk_op_sign_destroy :: FunPtr (BotanStructT -> IO ())
 
-foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt 
-foreign import ccall unsafe hs_botan_pk_op_verify_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
-foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT ->
+-- foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+-- foreign import ccall unsafe hs_botan_pk_op_verify_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+-- foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT ->
 
 --------------------------------------------------------------------------------
 -- Signature Verification
 
+foreign import ccall unsafe botan_pk_op_verify_create :: MBA## BotanStructT
+                                                      -> BotanStructT
+                                                      -> BA## Word8
+                                                      -> Word32
+                                                      -> IO CInt
+
 foreign import ccall unsafe "&botan_pk_op_verify_destroy" botan_pk_op_verify_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe hs_botan_pk_op_verify_update :: BotanStructT
+                                                         -> BA## Word8 -> Int -> Int
+                                                         -> IO CInt
+
+foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT
+                                                         -> BA## Word8 -> Int -> Int
+                                                         -> IO CInt
 
 --------------------------------------------------------------------------------
 -- Key Agreement
 
+foreign import ccall unsafe botan_pk_op_key_agreement_create :: MBA## BotanStructT
+                                                             -> BotanStructT
+                                                             -> BA## Word8
+                                                             -> Word32
+                                                             -> IO CInt
+
 foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key_agreement_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_pk_op_key_agreement_export_public :: BotanStructT
+                                                                    -> MBA## Word8 -> MBA## Int
+                                                                    -> IO CInt
+
+foreign import ccall unsafe hs_botan_pk_op_key_agreement :: BotanStructT
+                                                         -> MBA## Word8 -> MBA## Int
+                                                         -> BA## Word8 -> Int -> Int
+                                                         -> BA## Word8 -> Int -> Int
+                                                         -> IO CInt
+
+{-
+foreign import ccall unsafe hs_botan_mceies_encrypt :: BotanStructT -> BotanStructT
+                                                    -> BA## Word8
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> MBA## Word8 -> MBA## Int
+                                                    -> IO CInt
+
+foreign import ccall unsafe hs_botan_mceies_decrypt :: BotanStructT
+                                                    -> BA## Word8
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> MBA## Word8 -> MBA## Int
+                                                    -> IO CInt
+-}
+
+--------------------------------------------------------------------------------
+-- X.509 Certificates
+
+foreign import ccall unsafe "&botan_x509_cert_destroy" botan_x509_cert_destroy :: FunPtr (BotanStructT -> IO ())
+
+--------------------------------------------------------------------------------
+-- X.509 Certificate Revocation Lists
+
+foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
 
 --------------------------------------------------------------------------------
 -- Password Hashing
--- foreign import ccall unsafe generate_passhash9 ::  
-
+-- foreign import ccall unsafe generate_passhash9 ::

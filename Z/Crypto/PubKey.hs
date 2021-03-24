@@ -10,6 +10,15 @@ import Z.Botan.FFI
     botan_pk_op_encrypt_create,
     botan_pk_op_encrypt_destroy,
     botan_pk_op_encrypt_output_length,
+    botan_pk_op_key_agreement_create,
+    botan_pk_op_key_agreement_destroy,
+    botan_pk_op_key_agreement_export_public,
+    botan_pk_op_sign_create,
+    botan_pk_op_sign_destroy,
+    botan_pk_op_sign_finish,
+    botan_pk_op_sign_output_length,
+    botan_pk_op_verify_create,
+    botan_pk_op_verify_destroy,
     botan_privkey_create,
     botan_privkey_destroy,
     botan_privkey_export,
@@ -37,11 +46,17 @@ import Z.Botan.FFI
     botan_pubkey_rsa_get_n,
     hs_botan_pk_op_decrypt,
     hs_botan_pk_op_encrypt,
+    hs_botan_pk_op_key_agreement,
+    hs_botan_pk_op_sign_update,
+    hs_botan_pk_op_verify_finish,
+    hs_botan_pk_op_verify_update,
     hs_botan_privkey_load,
     hs_botan_pubkey_load,
     newBotanStruct,
     withBotanStruct,
   )
+
+import Z.Crypto (Hash)
 import Z.Crypto.MPI (MPI, withMPI, unsafeWithMPI, unsafeNewMPI)
 import Z.Crypto.RNG (RNG, withRNG)
 import qualified Z.Data.Builder as B
@@ -302,6 +317,44 @@ pattern DSA_BOTAN_2048 = "dsa/botan/2048"
 pattern DSA_BOTAN_3072 :: DLGrp
 pattern DSA_BOTAN_3072 = "dsa/botan/3072"
 
+-- | Sets of allowed padding schemes for public key types.
+data PkPadding = EMSA1 | EMSA4 | EMSA3
+
+hashPadToCBytes :: Hash -> PkPadding -> CBytes
+hashPadToCBytes = undefined -- TODO
+
+pkPaddingToCBytes :: PkPadding -> CBytes
+pkPaddingToCBytes = \case
+  EMSA1 -> "EMSA1"
+  EMSA4 -> "EMSA4"
+  EMSA3 -> "EMSA3"
+
+type PaddingSchemes = [CBytes]
+
+pattern DSAPad :: PaddingSchemes
+pattern DSAPad = ["EMSA1"]
+
+pattern ECDSAPad :: PaddingSchemes
+pattern ECDSAPad = ["EMSA1"]
+
+pattern ECGDSAPad :: PaddingSchemes
+pattern ECGDSAPad = ["EMSA1"]
+
+pattern ECKCDSAPad :: PaddingSchemes
+pattern ECKCDSAPad = ["EMSA1"]
+
+pattern GOST_34_10Pad :: PaddingSchemes
+pattern GOST_34_10Pad = ["EMSA1"]
+
+pattern GOST_34_10_2012_256Pad :: PaddingSchemes
+pattern GOST_34_10_2012_256Pad = ["EMSA1"]
+
+pattern GOST_34_10_2012_512Pad :: PaddingSchemes
+pattern GOST_34_10_2012_512Pad = ["EMSA1"]
+
+pattern RSAPad :: PaddingSchemes
+pattern RSAPad = ["EMSA4", "EMSA3"]
+
 ---------------------------
 -- Private Key Functions --
 ---------------------------
@@ -408,9 +461,9 @@ maxFingerPrintSize :: Int
 maxFingerPrintSize = 4
 
 fingerPrint :: PubKey -> CBytes -> IO V.Bytes
-fingerPrint (PubKey pubKey) hash = do
+fingerPrint (PubKey pubKey) hash'' = do
   withBotanStruct pubKey $ \pubKey' ->
-    withCBytesUnsafe hash $ \hash' -> do
+    withCBytesUnsafe hash'' $ \hash' -> do
       (a, _) <- allocPrimVectorUnsafe maxFingerPrintSize $ \buf ->
         allocPrimUnsafe @CSize $ \size ->
           throwBotanIfMinus_ (botan_pubkey_fingerprint pubKey' hash' buf size)
@@ -529,6 +582,8 @@ newDHPub p g y = do
 
 newtype PKEncryption = PKEncryption BotanStruct
 
+-- TODO: use pad
+
 newPKEncryption :: PubKey -> CBytes -> IO PKEncryption
 newPKEncryption (PubKey pubKey) padding = do
   withCBytesUnsafe padding $ \padding' ->
@@ -577,3 +632,100 @@ pkDecrypt enop@(PKDecryption op) ciphertext = do
           throwBotanIfMinus_ (hs_botan_pk_op_decrypt op' out outLen ciphertext' ciphertextOff ciphertextLen)
         pure a'
       return a
+
+--------------------------
+-- Signature Generation --
+--------------------------
+
+newtype SignGeneration = SignGeneration BotanStruct
+
+newPKSignGen :: PrivKey -> Hash -> PkPadding -> IO SignGeneration -- BOTAN_PUBKEY_DER_FORMAT_SIGNATURE = 1
+newPKSignGen (PrivKey privKey) hobj pad = do
+  withBotanStruct privKey $ \privKey' ->
+    withCBytesUnsafe (hashPadToCBytes hobj pad) $ \arg ->
+      SignGeneration <$> newBotanStruct (\ret -> botan_pk_op_sign_create ret privKey' arg 1) botan_pk_op_sign_destroy
+
+pkSignLenGen :: SignGeneration -> IO Int
+pkSignLenGen (SignGeneration op) = do
+  (a, _) <- allocPrimUnsafe $ \len ->
+    withBotanStruct op $ \op' ->
+      throwBotanIfMinus_ $ botan_pk_op_sign_output_length op' len
+  return a
+
+updatePKSignGen :: SignGeneration -> V.Bytes -> IO ()
+updatePKSignGen (SignGeneration op) msg = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe msg $ \msg' off len ->
+      throwBotanIfMinus_ $ hs_botan_pk_op_sign_update op' msg' off len
+
+finPKSignGen :: SignGeneration -> RNG -> IO V.Bytes
+finPKSignGen gen@(SignGeneration op) rng = do
+  withBotanStruct op $ \op' ->
+    withRNG rng $ \rng' -> do
+      len <- pkSignLenGen gen
+      (a, _) <- allocPrimVectorUnsafe len $ \ret -> do
+        (a', _) <- allocPrimUnsafe @Int $ \len' ->
+          throwBotanIfMinus_ $ botan_pk_op_sign_finish op' rng' ret len'
+        pure a'
+      return a
+
+----------------------------
+-- Signature Verification --
+----------------------------
+
+newtype SignVerification = SignVerification BotanStruct
+
+newPKSignVf :: PubKey -> Hash -> PkPadding -> IO SignVerification
+newPKSignVf (PubKey pubKey) hobj pad = do
+  withBotanStruct pubKey $ \pubKey' ->
+    withCBytesUnsafe (hashPadToCBytes hobj pad) $ \arg ->
+      SignVerification <$> newBotanStruct (\ret -> botan_pk_op_verify_create ret pubKey' arg 1) botan_pk_op_verify_destroy
+
+updatePKSignVf :: SignVerification -> V.Bytes -> IO ()
+updatePKSignVf (SignVerification op) msg = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe msg $ \msg' off len ->
+      throwBotanIfMinus_ $ hs_botan_pk_op_verify_update op' msg' off len
+
+finPKSignVf :: SignVerification -> V.Bytes -> IO ()
+finPKSignVf (SignVerification op) msg = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe msg $ \msg' off len ->
+      throwBotanIfMinus_ $ hs_botan_pk_op_verify_finish op' msg' off len
+--  BOTAN_FFI_SUCCESS = 0,
+--  BOTAN_FFI_INVALID_VERIFIER = 1
+
+-------------------
+-- Key Agreement --
+-------------------
+
+newtype PKAgreement = PKAgreement BotanStruct
+
+newPKAgree :: PrivKey -> CBytes -> IO PKAgreement
+newPKAgree (PrivKey privKey) kdf = do
+  withBotanStruct privKey $ \privKey' ->
+    withCBytesUnsafe kdf $ \kdf' ->
+      PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf' 0) botan_pk_op_key_agreement_destroy
+
+maxAgreeSize :: Int
+maxAgreeSize = undefined
+
+exportPKAgree :: PrivKey -> IO V.Bytes
+exportPKAgree (PrivKey privKey) = do
+  withBotanStruct privKey $ \privKey' -> do
+    (a, _) <- allocPrimVectorUnsafe maxAgreeSize $ \ret -> do
+      (a', _) <- allocPrimUnsafe @Int $ \len ->
+        throwBotanIfMinus_ $ botan_pk_op_key_agreement_export_public privKey' ret len
+      pure a'
+    return a
+
+pkAgree :: PKAgreement -> V.Bytes -> V.Bytes -> IO V.Bytes
+pkAgree (PKAgreement op) others salt = do
+  withBotanStruct op $ \op' ->
+    withPrimVectorUnsafe others $ \others' others_off others_len ->
+      withPrimVectorUnsafe salt $ \salt' salt_off salt_len -> do
+        (a, _) <- allocPrimVectorUnsafe maxAgreeSize $ \ret -> do
+          (a', _) <- allocPrimUnsafe @Int $ \len ->
+            throwBotanIfMinus_ $ hs_botan_pk_op_key_agreement op' ret len others' others_off others_len salt' salt_off salt_len
+          pure a'
+        return a

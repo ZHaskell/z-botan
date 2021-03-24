@@ -195,15 +195,30 @@ int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_l
     return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
 }
 
-// signature generation
-int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t * in, HsInt off , HsInt len){
+// Signature Generation
+
+int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t in[], HsInt off, HsInt len){
     return botan_pk_op_sign_update(op, in+off, len);
 }
-int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t * in, HsInt off, HsInt in_len){
-    return botan_pk_op_verify_update(op, in+off, in_len);
-}
-int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t * sig, HsInt off, HsInt sig_len){
-    return botan_pk_op_verify_finish(op, sig+off, sig_len);
+
+// Signature Verification
+
+int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t in[], HsInt off, HsInt len){
+    return botan_pk_op_verify_update(op, in+off, len);
 }
 
-// hs_botan_pk_op_sign_update  hs_botan_pk_op_verify_update  hs_botan_pk_op_verify_finish
+int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t sig[], HsInt off, HsInt len){
+    return botan_pk_op_verify_finish(op, sig+off, len);
+}
+
+// Key Agreement
+
+int hs_botan_pk_op_key_agreement(botan_pk_op_ka_t op, uint8_t out[], HsInt *out_len, const uint8_t other_key[], HsInt other_key_off, HsInt other_key_len, const uint8_t salt[], HsInt salt_off, HsInt salt_len){
+    return botan_pk_op_key_agreement(op, out, out_len, other_key+other_key_off, other_key_len, salt+salt_off, salt_len);
+}
+
+/*
+int hs_botan_mceies_encrypt(botan_pubkey_t mce_key, botan_rng_t rng, const char *aead, const uint8_t pt[], HsInt pt_off, HsInt pt_len, const uint8_t ad[], HsInt ad_off, HsInt ad_len, uint8_t ct[], HsInt *ct_len){
+    return botan_mceies_encrypt(mce_key, rng, aead, pt+pt_off, pt_len, ad+ad_off, ad_len, ct, ct_len);
+}
+*/
