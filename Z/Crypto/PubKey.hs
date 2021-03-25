@@ -1,3 +1,6 @@
+-- |
+-- This module is used for Public Key Cryptography.
+-- Public key cryptography (also called asymmetric cryptography) is a collection of techniques allowing for encryption, signatures, and key agreement.
 module Z.Crypto.PubKey where
 
 import Data.Word (Word32)
@@ -55,9 +58,9 @@ import Z.Botan.FFI
     newBotanStruct,
     withBotanStruct,
   )
-
-import Z.Crypto (Hash)
-import Z.Crypto.MPI (MPI, withMPI, unsafeWithMPI, unsafeNewMPI)
+import Z.Crypto (HashType, hashTypeToCBytes)
+import Z.Crypto.KDF (KDFType, kDFTypeToCBytes)
+import Z.Crypto.MPI (MPI, unsafeNewMPI, unsafeWithMPI, withMPI)
 import Z.Crypto.RNG (RNG, withRNG)
 import qualified Z.Data.Builder as B
 import Z.Data.CBytes (CBytes, append, buildCBytes, withCBytesUnsafe)
@@ -82,9 +85,13 @@ newtype PubKeyType = PubKeyType KeyType
 -- | The public and private keys are represented by the type `KeyType`. Two newtype wrappers are given.
 data KeyType
   = Curve25519
-  | RSA Word32 -- ^ an RSA key of the given size, n bits
-  | McEliece Word32 -- ^ n
-             Word32 -- ^ t
+  | -- | an RSA key of the given size, namely n bits
+    RSA Word32
+  | McEliece
+      Word32
+      -- ^ n
+      Word32
+      -- ^ t
   | XMSS XMSSType
   | Ed25519
   | ECC ECCType ECGrp
@@ -320,8 +327,11 @@ pattern DSA_BOTAN_3072 = "dsa/botan/3072"
 -- | Sets of allowed padding schemes for public key types.
 data PkPadding = EMSA1 | EMSA4 | EMSA3
 
-hashPadToCBytes :: Hash -> PkPadding -> CBytes
-hashPadToCBytes = undefined -- TODO
+hashPadToCBytes :: HashType -> PkPadding -> CBytes
+hashPadToCBytes hty pad =
+  let hty' = hashTypeToCBytes hty
+      pad' = pkPaddingToCBytes pad
+   in hty' `append` "(" `append` pad' `append` ")"
 
 pkPaddingToCBytes :: PkPadding -> CBytes
 pkPaddingToCBytes = \case
@@ -366,8 +376,11 @@ maxKeySize = 16
 newtype PrivKey = PrivKey BotanStruct
 
 -- | Creating a new private key requires two things: a source of random numbers and some algorithm specific arguments that define the security level of the resulting key.
-newPrivKey :: PrivKeyType -- ^ Algorithm name and some algorithm specific arguments.
-           -> RNG -> IO PrivKey
+newPrivKey ::
+  -- | Algorithm name and some algorithm specific arguments.
+  PrivKeyType ->
+  RNG ->
+  IO PrivKey
 newPrivKey (PrivKeyType privKeyType) rng = do
   withRNG rng $ \rng' ->
     let (algo, args) = h privKeyType
@@ -388,9 +401,12 @@ newPrivKey (PrivKeyType privKeyType) rng = do
     cast' = buildCBytes . B.int
 
 -- | Load a private key. If the key is encrypted, password will be used to attempt decryption.
-loadPrivKey :: RNG -> V.Bytes
-            -> CBytes -- ^ Password.
-            -> IO PrivKey
+loadPrivKey ::
+  RNG ->
+  V.Bytes ->
+  -- | Password.
+  CBytes ->
+  IO PrivKey
 loadPrivKey rng buf passwd = do
   withRNG rng $ \rng' ->
     withPrimVectorUnsafe buf $ \buf' off len ->
@@ -404,6 +420,7 @@ keyExportFMTToWord32 = \case
   DER -> 0
   PEM -> 1
 
+-- | Export a private key.
 exportPrivKey :: PrivKey -> KeyExportFMT -> IO V.Bytes
 exportPrivKey (PrivKey privKey) fmt = do
   withBotanStruct privKey $ \privKey' -> do
@@ -412,6 +429,7 @@ exportPrivKey (PrivKey privKey) fmt = do
         throwBotanIfMinus_ (botan_privkey_export privKey' buf size (keyExportFMTToWord32 fmt))
     return a
 
+-- | Export a public key from a given private key.
 privToPub :: PrivKey -> IO PubKey
 privToPub (PrivKey priv) = do
   withBotanStruct priv $ \priv' ->
@@ -427,11 +445,13 @@ readPrivKey (PrivKey privKey) field = unsafeNewMPI $ \mpi ->
 -- | A newtype wrapper.
 newtype PubKey = PubKey BotanStruct
 
+-- | Load a publickey.
 loadPubKey :: V.Bytes -> IO PubKey
 loadPubKey buf = do
   withPrimVectorUnsafe buf $ \buf' off len ->
     PubKey <$> newBotanStruct (\pubKey -> hs_botan_pubkey_load pubKey buf' off len) botan_pubkey_destroy
 
+-- | Export a public key.
 exportPubKey :: PubKey -> KeyExportFMT -> IO V.Bytes
 exportPubKey (PubKey pubKey) fmt = do
   withBotanStruct pubKey $ \pubKey' -> do
@@ -460,6 +480,7 @@ estStr (PubKey pubKey) = do
 maxFingerPrintSize :: Int
 maxFingerPrintSize = 4
 
+-- | Finger print using a given publickey.
 fingerPrint :: PubKey -> CBytes -> IO V.Bytes
 fingerPrint (PubKey pubKey) hash'' = do
   withBotanStruct pubKey $ \pubKey' ->
@@ -582,13 +603,12 @@ newDHPub p g y = do
 
 newtype PKEncryption = PKEncryption BotanStruct
 
--- TODO: use pad
-
-newPKEncryption :: PubKey -> CBytes -> IO PKEncryption
+newPKEncryption :: PubKey -> PkPadding -> IO PKEncryption
 newPKEncryption (PubKey pubKey) padding = do
-  withCBytesUnsafe padding $ \padding' ->
-    withBotanStruct pubKey $ \pubKey' ->
-      PKEncryption <$> newBotanStruct (\op -> botan_pk_op_encrypt_create op pubKey' padding' 0) botan_pk_op_encrypt_destroy
+  let padding' = pkPaddingToCBytes padding
+   in withCBytesUnsafe padding' $ \padding'' ->
+        withBotanStruct pubKey $ \pubKey' ->
+          PKEncryption <$> newBotanStruct (\op -> botan_pk_op_encrypt_create op pubKey' padding'' 0) botan_pk_op_encrypt_destroy -- Flags should be 0 in this version.
 
 pkEncryptLen :: PKEncryption -> Int -> IO Int
 pkEncryptLen (PKEncryption op) len = do
@@ -614,7 +634,7 @@ newPKDecryption :: PrivKey -> CBytes -> IO PKDecryption
 newPKDecryption (PrivKey privKey) padding = do
   withCBytesUnsafe padding $ \padding' ->
     withBotanStruct privKey $ \privKey' ->
-      PKDecryption <$> newBotanStruct (\op -> botan_pk_op_decrypt_create op privKey' padding' 0) botan_pk_op_decrypt_destroy
+      PKDecryption <$> newBotanStruct (\op -> botan_pk_op_decrypt_create op privKey' padding' 0) botan_pk_op_decrypt_destroy -- Flags should be 0 in this version.
 
 pkDecryptLen :: PKDecryption -> Int -> IO Int
 pkDecryptLen (PKDecryption op) len = do
@@ -639,11 +659,18 @@ pkDecrypt enop@(PKDecryption op) ciphertext = do
 
 newtype SignGeneration = SignGeneration BotanStruct
 
-newPKSignGen :: PrivKey -> Hash -> PkPadding -> IO SignGeneration -- BOTAN_PUBKEY_DER_FORMAT_SIGNATURE = 1
-newPKSignGen (PrivKey privKey) hobj pad = do
+data KeyOPFMT = DER_SEQUENCE | IEEE_1363
+
+keyOPFMTToWord32 :: KeyOPFMT -> Word32
+keyOPFMTToWord32 = \case
+  DER_SEQUENCE -> 0
+  IEEE_1363 -> 1
+
+newPKSignGen :: PrivKey -> HashType -> PkPadding -> KeyOPFMT -> IO SignGeneration
+newPKSignGen (PrivKey privKey) hobj pad fmt = do
   withBotanStruct privKey $ \privKey' ->
     withCBytesUnsafe (hashPadToCBytes hobj pad) $ \arg ->
-      SignGeneration <$> newBotanStruct (\ret -> botan_pk_op_sign_create ret privKey' arg 1) botan_pk_op_sign_destroy
+      SignGeneration <$> newBotanStruct (\ret -> botan_pk_op_sign_create ret privKey' arg (keyOPFMTToWord32 fmt)) botan_pk_op_sign_destroy
 
 pkSignLenGen :: SignGeneration -> IO Int
 pkSignLenGen (SignGeneration op) = do
@@ -675,11 +702,11 @@ finPKSignGen gen@(SignGeneration op) rng = do
 
 newtype SignVerification = SignVerification BotanStruct
 
-newPKSignVf :: PubKey -> Hash -> PkPadding -> IO SignVerification
-newPKSignVf (PubKey pubKey) hobj pad = do
+newPKSignVf :: PubKey -> HashType -> PkPadding -> KeyOPFMT -> IO SignVerification
+newPKSignVf (PubKey pubKey) hobj pad fmt = do
   withBotanStruct pubKey $ \pubKey' ->
     withCBytesUnsafe (hashPadToCBytes hobj pad) $ \arg ->
-      SignVerification <$> newBotanStruct (\ret -> botan_pk_op_verify_create ret pubKey' arg 1) botan_pk_op_verify_destroy
+      SignVerification <$> newBotanStruct (\ret -> botan_pk_op_verify_create ret pubKey' arg (keyOPFMTToWord32 fmt)) botan_pk_op_verify_destroy
 
 updatePKSignVf :: SignVerification -> V.Bytes -> IO ()
 updatePKSignVf (SignVerification op) msg = do
@@ -692,6 +719,7 @@ finPKSignVf (SignVerification op) msg = do
   withBotanStruct op $ \op' ->
     withPrimVectorUnsafe msg $ \msg' off len ->
       throwBotanIfMinus_ $ hs_botan_pk_op_verify_finish op' msg' off len
+
 --  BOTAN_FFI_SUCCESS = 0,
 --  BOTAN_FFI_INVALID_VERIFIER = 1
 
@@ -701,14 +729,16 @@ finPKSignVf (SignVerification op) msg = do
 
 newtype PKAgreement = PKAgreement BotanStruct
 
-newPKAgree :: PrivKey -> CBytes -> IO PKAgreement
-newPKAgree (PrivKey privKey) kdf = do
+-- | Create a new key agreement operation with a given private key and KDF algorithm.
+newPKAgree :: PrivKey -> KDFType -> KeyOPFMT -> IO PKAgreement
+newPKAgree (PrivKey privKey) kdf fmt = do
   withBotanStruct privKey $ \privKey' ->
-    withCBytesUnsafe kdf $ \kdf' ->
-      PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf' 0) botan_pk_op_key_agreement_destroy
+    let kdf' = kDFTypeToCBytes kdf
+     in withCBytesUnsafe kdf' $ \kdf'' ->
+          PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf'' (keyOPFMTToWord32 fmt)) botan_pk_op_key_agreement_destroy
 
 maxAgreeSize :: Int
-maxAgreeSize = undefined
+maxAgreeSize = 16
 
 exportPKAgree :: PrivKey -> IO V.Bytes
 exportPKAgree (PrivKey privKey) = do
@@ -719,7 +749,14 @@ exportPKAgree (PrivKey privKey) = do
       pure a'
     return a
 
-pkAgree :: PKAgreement -> V.Bytes -> V.Bytes -> IO V.Bytes
+-- | How key agreement works is that you trade public values with some other party, and then each of you runs a computation with the other’s value and your key (this should return the same result to both parties).
+pkAgree ::
+  PKAgreement ->
+  -- | other key
+  V.Bytes ->
+  -- | salt
+  V.Bytes ->
+  IO V.Bytes
 pkAgree (PKAgreement op) others salt = do
   withBotanStruct op $ \op' ->
     withPrimVectorUnsafe others $ \others' others_off others_len ->
