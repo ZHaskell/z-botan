@@ -222,3 +222,9 @@ int hs_botan_mceies_encrypt(botan_pubkey_t mce_key, botan_rng_t rng, const char 
     return botan_mceies_encrypt(mce_key, rng, aead, pt+pt_off, pt_len, ad+ad_off, ad_len, ct, ct_len);
 }
 */
+
+// X.509 Certificates
+
+int hs_botan_x509_cert_load(botan_x509_cert_t *cert_obj, const uint8_t cert[], HsInt cert_off, HsInt cert_len){
+    return botan_x509_cert_load(cert_obj, cert+cert_off, cert_len);
+}

@@ -45,6 +45,7 @@ library
                             Z.Crypto.KDF
                             Z.Crypto.MAC
                             Z.Crypto.PubKey
+                            Z.Crypto.X509
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
