@@ -59,6 +59,7 @@ import Z.Botan.FFI
     withBotanStruct,
   )
 import Z.Crypto (HashType, hashTypeToCBytes)
+import Z.Crypto.KDF (KDFType, kDFTypeToCBytes)
 import Z.Crypto.MPI (MPI, unsafeNewMPI, unsafeWithMPI, withMPI)
 import Z.Crypto.RNG (RNG, withRNG)
 import qualified Z.Data.Builder as B
@@ -728,11 +729,13 @@ finPKSignVf (SignVerification op) msg = do
 
 newtype PKAgreement = PKAgreement BotanStruct
 
-newPKAgree :: PrivKey -> CBytes -> KeyOPFMT -> IO PKAgreement
+-- | Create a new key agreement operation with a given private key and KDF algorithm.
+newPKAgree :: PrivKey -> KDFType -> KeyOPFMT -> IO PKAgreement
 newPKAgree (PrivKey privKey) kdf fmt = do
   withBotanStruct privKey $ \privKey' ->
-    withCBytesUnsafe kdf $ \kdf' ->
-      PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf' (keyOPFMTToWord32 fmt)) botan_pk_op_key_agreement_destroy
+    let kdf' = kDFTypeToCBytes kdf
+     in withCBytesUnsafe kdf' $ \kdf'' ->
+          PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf'' (keyOPFMTToWord32 fmt)) botan_pk_op_key_agreement_destroy
 
 maxAgreeSize :: Int
 maxAgreeSize = 16
@@ -746,7 +749,14 @@ exportPKAgree (PrivKey privKey) = do
       pure a'
     return a
 
-pkAgree :: PKAgreement -> V.Bytes -> V.Bytes -> IO V.Bytes
+-- | How key agreement works is that you trade public values with some other party, and then each of you runs a computation with the other’s value and your key (this should return the same result to both parties).
+pkAgree ::
+  PKAgreement ->
+  -- | other key
+  V.Bytes ->
+  -- | salt
+  V.Bytes ->
+  IO V.Bytes
 pkAgree (PKAgreement op) others salt = do
   withBotanStruct op $ \op' ->
     withPrimVectorUnsafe others $ \others' others_off others_len ->
