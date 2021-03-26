@@ -505,9 +505,6 @@ foreign import ccall unsafe hs_botan_mceies_decrypt :: BotanStructT
 
 foreign import ccall unsafe "&botan_x509_cert_destroy" botan_x509_cert_destroy :: FunPtr (BotanStructT -> IO ())
 
---------------------------------------------------------------------------------
--- X.509 Certificate Revocation Lists
-
 foreign import ccall unsafe hs_botan_x509_cert_load :: MBA## BotanStructT -- ^ botan_x509_cert_t* cert_obj
                                                     -> BA## Word8 -> Int -> Int
                                                     -> IO CInt
@@ -519,8 +516,6 @@ foreign import ccall unsafe botan_x509_cert_load_file :: MBA## BotanStructT
 foreign import ccall unsafe botan_x509_cert_dup :: MBA## BotanStructT
                                                 -> BotanStructT
                                                 -> IO CInt
-
-foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_x509_cert_gen_selfsigned :: MBA## BotanStructT
                                                            -> BotanStructT -> BotanStructT
@@ -598,6 +593,19 @@ foreign import ccall unsafe hs_botan_x509_cert_verify_with_crl :: MBA## Word32
                                                                -> IO CInt
 
 foreign import ccall unsafe botan_x509_cert_validation_status :: CInt -> CString
+
+--------------------------------------------------------------------------------
+-- X.509 Certificate Revocation Lists
+
+foreign import ccall unsafe hs_botan_x509_crl_load :: MBA## BotanStructT
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_x509_crl_load_file :: MBA## BotanStructT -> BA## Word8 -> IO CInt
+
+foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStructT -> IO CInt
 
 --------------------------------------------------------------------------------
 -- Password Hashing

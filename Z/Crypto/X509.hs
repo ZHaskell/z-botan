@@ -4,6 +4,13 @@
 -- which is placed there by some authority (the issuer) that at least claims that it knows the subject named in the certificate really “owns” the private key corresponding to the public key in the certificate.
 --
 -- The major certificate format in use today is X.509v3, used for instance in the Transport Layer Security (TLS) protocol. A X.509 certificate is represented by the type X509_Certificate.
+--
+-- It will occasionally happen that a certificate must be revoked before its expiration date.
+-- Examples of this happening include the private key being compromised, or the user to which it has been assigned leaving an organization.
+-- Certificate revocation lists are an answer to this problem (though online certificate validation techniques are starting to become somewhat more popular).
+-- Every once in a while the CA will release a new CRL, listing all certificates that have been revoked.
+-- Also included is various pieces of information like what time a particular certificate was revoked, and for what reason.
+-- In most systems, it is wise to support some form of certificate revocation, and CRLs handle this easily.
 module Z.Crypto.X509 where
 
 import Foreign (Word32, Word64)
@@ -11,6 +18,7 @@ import Z.Botan.Exception (throwBotanIfMinus_)
 import Z.Botan.FFI
   ( BotanStruct,
     botan_pubkey_destroy,
+    botan_x509_cert_allowed_usage,
     botan_x509_cert_destroy,
     botan_x509_cert_dup,
     botan_x509_cert_gen_selfsigned,
@@ -29,7 +37,11 @@ import Z.Botan.FFI
     botan_x509_cert_not_before,
     botan_x509_cert_to_string,
     botan_x509_cert_validation_status,
+    botan_x509_crl_destroy,
+    botan_x509_crl_load_file,
+    botan_x509_is_revoked,
     hs_botan_x509_cert_load,
+    hs_botan_x509_crl_load,
     newBotanStruct,
     withBotanStruct,
   )
@@ -44,6 +56,10 @@ import Z.Foreign
     allocPrimVectorUnsafe,
     withPrimVectorUnsafe,
   )
+
+------------------------
+-- X.509 Certificates --
+------------------------
 
 -- | An opaque newtype wrapper for an X.509 certificate.
 newtype X509Cert = X509Cert BotanStruct
@@ -241,8 +257,8 @@ data X509CertKeyConstraint
   | EncipherOnly
   | DecipherOnly
 
-constraintToWord32 :: X509CertKeyConstraint -> Word32 -- unsigned int key_usage
-constraintToWord32 = \case
+x509KeyConstraintToWord32 :: X509CertKeyConstraint -> Word32 -- unsigned int key_usage
+x509KeyConstraintToWord32 = \case
   NoConstraints -> 0
   DigitalSignatrue -> 32768
   NonRepudiation -> 16384
@@ -256,6 +272,40 @@ constraintToWord32 = \case
 
 type X509CertUsage = (X509Cert, X509CertKeyConstraint)
 
+x509CertUsage :: X509Cert -> X509CertKeyConstraint -> IO ()
+x509CertUsage (X509Cert cert) usage = do
+  withBotanStruct cert $ \cert' ->
+    throwBotanIfMinus_ $ botan_x509_cert_allowed_usage cert' (x509KeyConstraintToWord32 usage)
+
 -- | Return a (statically allocated) CString associated with the verification result.
 readX509CertValidateStatus :: CInt -> CString
-readX509CertValidateStatus = botan_x509_cert_validation_status
+readX509CertValidateStatus = botan_x509_cert_validation_status -- TODO: maybe unsafeDupablePerformIO
+
+----------------------------------------
+-- X.509 Certificate Revocation Lists --
+----------------------------------------
+
+-- | An opaque newtype wrapper for an X.509 Certificate Revocation Lists.
+newtype X509CRL = X509CRL BotanStruct
+
+-- | Load a CRL from the DER or PEM representation.
+loadX509CRL :: V.Bytes -> IO X509CRL
+loadX509CRL src = do
+  withPrimVectorUnsafe src $ \src' off len ->
+    X509CRL <$> newBotanStruct (\ret -> hs_botan_x509_crl_load ret src' off len) botan_x509_crl_destroy
+
+-- | Load a CRL from a file.
+loadX509CRLFile :: CBytes -> IO X509CRL
+loadX509CRLFile src = do
+  withCBytesUnsafe src $ \src' ->
+    X509CRL <$> newBotanStruct (`botan_x509_crl_load_file` src') botan_x509_cert_destroy
+
+-- | Check whether a given crl contains a given cert. Return True when the certificate is revoked, False otherwise.
+isRevokedX509CRL :: X509CRL -> X509Cert -> IO (Maybe Bool) -- TODO: maybe Bool
+isRevokedX509CRL (X509CRL xs) (X509Cert cert) =
+  withBotanStruct xs $ \xs' ->
+    withBotanStruct cert $ \cert' -> do
+      ret <- botan_x509_is_revoked xs' cert'
+      if ret == 0
+        then return (Just True)
+        else if ret == -1 then return (Just False) else return Nothing
