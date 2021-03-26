@@ -13,6 +13,8 @@ import Z.Botan.FFI
     botan_x509_cert_destroy,
     botan_x509_cert_dup,
     botan_x509_cert_gen_selfsigned,
+    botan_x509_cert_get_fingerprint,
+    botan_x509_cert_get_serial_number,
     botan_x509_cert_get_time_expires,
     botan_x509_cert_get_time_starts,
     botan_x509_cert_load_file,
@@ -22,8 +24,8 @@ import Z.Botan.FFI
     newBotanStruct,
     withBotanStruct,
   )
-import Z.Crypto.Hash (HashType)
-import Z.Crypto.PubKey (PrivKey (..))
+import Z.Crypto.Hash (HashType, hashTypeToCBytes)
+import Z.Crypto.PubKey (PrivKey (..), maxFingerPrintSize)
 import Z.Crypto.RNG (RNG, withRNG)
 import Z.Data.CBytes (CBytes, fromBytes, withCBytesUnsafe)
 import qualified Z.Data.Vector as V
@@ -111,5 +113,27 @@ readX509CertNotAfter (X509Cert cert) = do
       botan_x509_cert_not_after cert' time
     return a
 
-readX509CertFingerPrint :: X509Cert -> IO HashType
-readX509CertFingerPrint = undefined
+-- | Return the finger print of the certificate.
+readX509CertFingerPrint :: X509Cert -> HashType -> IO V.Bytes
+readX509CertFingerPrint (X509Cert cert) hty = do
+  withBotanStruct cert $ \cert' ->
+    let hty' = hashTypeToCBytes hty
+     in withCBytesUnsafe hty' $ \hty'' -> do
+          (a, _) <- allocPrimVectorUnsafe maxFingerPrintSize $ \ret -> do
+            (a', _) <- allocPrimUnsafe @Int $ \len ->
+              throwBotanIfMinus_ $ botan_x509_cert_get_fingerprint cert' hty'' ret len
+            pure a'
+          return a
+
+maxSerialSize :: Int
+maxSerialSize = 32
+
+-- | Return the serial number of the certificate.
+readX509CertSerialNumber :: X509Cert -> IO V.Bytes
+readX509CertSerialNumber (X509Cert cert) = do
+  withBotanStruct cert $ \cert' -> do
+    (a, _) <- allocPrimVectorUnsafe maxSerialSize $ \ret -> do
+      (a', _) <- allocPrimUnsafe @Int $ \len ->
+        throwBotanIfMinus_ $ botan_x509_cert_get_serial_number cert' ret len
+      pure a'
+    return a
