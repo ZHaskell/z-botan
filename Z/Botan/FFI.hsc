@@ -579,6 +579,26 @@ foreign import ccall unsafe botan_x509_cert_to_string :: BotanStructT
 
 foreign import ccall unsafe botan_x509_cert_allowed_usage :: BotanStructT -> Word32 -> IO CInt
 
+foreign import ccall unsafe hs_botan_x509_cert_verify :: MBA## Word32 -- ^ int *validation_result
+                                                      -> BotanStructT
+                                                      -> BA## BotanStructT -> Int -> Int
+                                                      -> BA## BotanStructT -> Int -> Int
+                                                      -> BA## Word8
+                                                      -> Int
+                                                      -> BA## Word8
+                                                      -> Word64
+                                                      -> IO CInt
+
+foreign import ccall unsafe hs_botan_x509_cert_verify_with_crl :: MBA## Word32
+                                                               -> BotanStructT
+                                                               -> BA## BotanStructT -> Int -> Int
+                                                               -> BA## BotanStructT -> Int -> Int
+                                                               -> BA## BotanStructT -> Int -> Int
+                                                               -> BA## Word8 -> Int -> BA## Word8 -> Word64
+                                                               -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_validation_status :: CInt -> CString
+
 --------------------------------------------------------------------------------
 -- Password Hashing
 -- foreign import ccall unsafe generate_passhash9 ::

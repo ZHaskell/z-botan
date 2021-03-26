@@ -228,3 +228,11 @@ int hs_botan_mceies_encrypt(botan_pubkey_t mce_key, botan_rng_t rng, const char 
 int hs_botan_x509_cert_load(botan_x509_cert_t *cert_obj, const uint8_t cert[], HsInt cert_off, HsInt cert_len){
     return botan_x509_cert_load(cert_obj, cert+cert_off, cert_len);
 }
+
+int hs_botan_x509_cert_verify(int *validation_result, botan_x509_cert_t cert, const botan_x509_cert_t *intermediates, HsInt intermediates_off, HsInt intermediates_len, const botan_x509_cert_t *trusted, HsInt trusted_off, HsInt trusted_len, const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
+    return botan_x509_cert_verify(validation_result, cert, intermediates+intermediates_off, intermediates_len, trusted+trusted_off, trusted_len, trusted_path, required_strength, hostname, reference_time);
+}
+
+int hs_botan_x509_cert_verify_with_crl(int *validation_result, botan_x509_cert_t cert, const botan_x509_cert_t *intermediates, HsInt intermediates_off, HsInt intermediates_len, const botan_x509_cert_t *trusted, HsInt trusted_off, HsInt trusted_len, const botan_x509_crl_t *crls, HsInt crls_off, HsInt crls_len, const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
+    return botan_x509_cert_verify_with_crl(validation_result, cert, intermediates+intermediates_off, intermediates_len, trusted+trusted_off, trusted_len, crls+crls_off, crls_len, trusted_path, required_strength, hostname, reference_time);
+}

@@ -28,6 +28,7 @@ import Z.Botan.FFI
     botan_x509_cert_not_after,
     botan_x509_cert_not_before,
     botan_x509_cert_to_string,
+    botan_x509_cert_validation_status,
     hs_botan_x509_cert_load,
     newBotanStruct,
     withBotanStruct,
@@ -35,10 +36,11 @@ import Z.Botan.FFI
 import Z.Crypto.Hash (HashType, hashTypeToCBytes)
 import Z.Crypto.PubKey (PrivKey (..), PubKey (..), maxFingerPrintSize)
 import Z.Crypto.RNG (RNG, withRNG)
-import Z.Data.CBytes (CBytes, fromBytes, withCBytesUnsafe)
+import Z.Data.CBytes (CBytes, CString, fromBytes, withCBytesUnsafe)
 import qualified Z.Data.Vector as V
 import Z.Foreign
-  ( allocPrimUnsafe,
+  ( CInt,
+    allocPrimUnsafe,
     allocPrimVectorUnsafe,
     withPrimVectorUnsafe,
   )
@@ -253,3 +255,7 @@ constraintToWord32 = \case
   DecipherOnly -> 128
 
 type X509CertUsage = (X509Cert, X509CertKeyConstraint)
+
+-- | Return a (statically allocated) CString associated with the verification result.
+readX509CertValidateStatus :: CInt -> CString
+readX509CertValidateStatus = botan_x509_cert_validation_status
