@@ -41,6 +41,8 @@ import Z.Botan.FFI
     botan_x509_crl_load_file,
     botan_x509_is_revoked,
     hs_botan_x509_cert_load,
+    hs_botan_x509_cert_verify,
+    hs_botan_x509_cert_verify_with_crl,
     hs_botan_x509_crl_load,
     newBotanStruct,
     withBotanStruct,
@@ -253,7 +255,7 @@ data X509CertKeyConstraint
   | DataEncipherment
   | KeyAgreement
   | KeyCertSign
-  | CrlSign
+  | CRLSign
   | EncipherOnly
   | DecipherOnly
 
@@ -266,7 +268,7 @@ x509KeyConstraintToWord32 = \case
   DataEncipherment -> 4096
   KeyAgreement -> 2048
   KeyCertSign -> 1024
-  CrlSign -> 512
+  CRLSign -> 512
   EncipherOnly -> 256
   DecipherOnly -> 128
 
@@ -280,6 +282,68 @@ x509CertUsage (X509Cert cert) usage = do
 -- | Return a (statically allocated) CString associated with the verification result.
 readX509CertValidateStatus :: CInt -> CString
 readX509CertValidateStatus = botan_x509_cert_validation_status -- TODO: maybe unsafeDupablePerformIO
+
+-- | Verify a certificate. Returns (Just True) if validation was successful, (Just False) if unsuccessful, or Nothing on error.
+verifyX509Cert ::
+  -- | The certificate to be verified.
+  X509Cert ->
+  -- | Intermediate certificates, set to NULL if not needed.
+  V.Bytes ->
+  -- | Trusted certificates, set to NULL if not needed.
+  V.Bytes ->
+  -- | The trusted path which refers to a directory where one or more trusted CA certificates are stored. It may be NULL if not needed.
+  CBytes ->
+  -- | Set required strength to indicate the minimum key and hash strength that is allowed.
+  Int ->
+  -- | Hostname.
+  CBytes ->
+  -- | Set reference time to be the time which the certificate chain is validated against. Use zero to use the current system clock.
+  Word64 ->
+  IO (Maybe Bool) -- TODO: maybe Bool, [X509Cert]
+verifyX509Cert (X509Cert cert) intermediates trusted path strength hostname refTime = do
+  withBotanStruct cert $ \cert' ->
+    withPrimVectorUnsafe intermediates $ \intermediates' intermediatesOff intermediatesLen ->
+      withPrimVectorUnsafe trusted $ \trusted' trustedOff trustedLen ->
+        withCBytesUnsafe path $ \path' ->
+          withCBytesUnsafe hostname $ \hostname' -> do
+            (a, _) <- allocPrimUnsafe @CInt $ \ret ->
+              throwBotanIfMinus_ $ hs_botan_x509_cert_verify ret cert' intermediates' intermediatesOff intermediatesLen trusted' trustedOff trustedLen path' strength hostname' refTime
+            if a == 0
+              then return (Just True)
+              else if a == 1 then return (Just False) else return Nothing
+
+-- | Certificate path validation supporting Certificate Revocation Lists.
+-- Verify a certificate. Returns (Just True) if validation was successful, (Just False) if unsuccessful, or Nothing on error.
+verifyX509CertCRL ::
+  -- | The certificate to be verified.
+  X509Cert ->
+  -- | Intermediate certificates, set to NULL if not needed.
+  V.Bytes ->
+  -- | Trusted certificates, set to NULL if not needed.
+  V.Bytes ->
+  -- | Certificate Revocation Lists, set to NULL if not needed.
+  V.Bytes ->
+  -- | The trusted path which refers to a directory where one or more trusted CA certificates are stored. It may be NULL if not needed.
+  CBytes ->
+  -- | Set required strength to indicate the minimum key and hash strength that is allowed.
+  Int ->
+  -- | Hostname.
+  CBytes ->
+  -- | Set reference time to be the time which the certificate chain is validated against. Use zero to use the current system clock.
+  Word64 ->
+  IO (Maybe Bool)
+verifyX509CertCRL (X509Cert cert) intermediates trusted crls path strength hostname refTime = do
+  withBotanStruct cert $ \cert' ->
+    withPrimVectorUnsafe intermediates $ \intermediates' intermediatesOff intermediatesLen ->
+      withPrimVectorUnsafe trusted $ \trusted' trustedOff trustedLen ->
+        withPrimVectorUnsafe crls $ \crls' crlsOff crlsLen ->
+          withCBytesUnsafe path $ \path' ->
+            withCBytesUnsafe hostname $ \hostname' -> do
+              (a, _) <- allocPrimUnsafe @CInt $ \ret ->
+                throwBotanIfMinus_ $ hs_botan_x509_cert_verify_with_crl ret cert' intermediates' intermediatesOff intermediatesLen trusted' trustedOff trustedLen crls' crlsOff crlsLen path' strength hostname' refTime
+              if a == 0
+                then return (Just True)
+                else if a == 1 then return (Just False) else return Nothing
 
 ----------------------------------------
 -- X.509 Certificate Revocation Lists --
