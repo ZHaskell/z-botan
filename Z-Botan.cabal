@@ -128,6 +128,7 @@ test-suite Z-Botan-Test
     build-depends:          base
                           , Z-IO
                           , Z-Data
+                          , Z-Botan
                           , hspec                   >= 2.5.4
                           , HUnit
                           , QuickCheck              >= 2.10

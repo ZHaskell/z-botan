@@ -63,7 +63,10 @@ data HashType
       -- | Alias for @Blake2b 64@
     | BLAKE2b512
       -- | An older (and incompatible) variant of SHA-3, but sometimes used. Prefer SHA-3 in new code.
-    | Keccak1600
+    | Keccak1600_224
+    | Keccak1600_256
+    | Keccak1600_384
+    | Keccak1600_512
       -- | An old hash function that is now known to be trivially breakable.
       -- It is very fast, and may still be suitable as a (non-cryptographic) checksum.
     | MD4
@@ -120,6 +123,9 @@ data HashType
       --   For example “Parallel SHA256 SHA512 outputs a 256+512 bit hash created by hashing the input
       --   with both SHA256 and SHA512 and concatenating the outputs.
     | Parallel HashType HashType
+      -- | This combines two cryptographic hashes in such a way that preimage and collision attacks are
+      --   provably at least as hard as a preimage or collision attack on the strongest hash.
+    | Comb4P HashType HashType
       -- | Checksums, not suitable for cryptographic use, but can be used for error checking purposes.
     | Adler32
     | CRC24
@@ -132,7 +138,10 @@ hashTypeToCBytes h = case h of
     BLAKE2b siz  -> CB.concat [ "Blake2b(" , sizeCBytes siz, ")"]
     BLAKE2b256   -> "Blake2b(256)"
     BLAKE2b512   -> "Blake2b(512)"
-    Keccak1600   -> "Keccak1600"
+    Keccak1600_224 -> "Keccak-1600(224)"
+    Keccak1600_256 -> "Keccak-1600(256)"
+    Keccak1600_384 -> "Keccak-1600(384)"
+    Keccak1600_512 -> "Keccak-1600(512)"
     MD4          -> "MD4"
     MD5          -> "MD5"
     RIPEMD160    -> "RIPEMD-160"
@@ -154,6 +163,11 @@ hashTypeToCBytes h = case h of
     Streebog512  -> "Streebog-512"
     Whirlpool    -> "Whirlpool"
     Parallel h1 h2 -> CB.concat [ "Parallel("
+                              , hashTypeToCBytes h1
+                              , ","
+                              , hashTypeToCBytes h2
+                              , ")"]
+    Comb4P h1 h2 -> CB.concat [ "Comb4P("
                               , hashTypeToCBytes h1
                               , ","
                               , hashTypeToCBytes h2
