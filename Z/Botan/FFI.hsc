@@ -232,6 +232,18 @@ foreign import ccall unsafe hs_botan_mac_name ::  BotanStructT -> MBA## Word8 ->
 foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT -> MBA## Int -> MBA## Int -> MBA## Int -> IO CInt
 
 --------------------------------------------------------------------------------
+-- Password Hashing
+
+foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> MBA## Int
+                                                  -> BA## Word8
+                                                  -> BotanStructT
+                                                  -> Int
+                                                  -> Word32
+                                                  -> IO CInt
+
+foreign import ccall unsafe botan_bcrypt_is_valid :: BA## Word8 -> BA## Word8 -> IO CInt
+
+--------------------------------------------------------------------------------
 -- Public Key Creation, Import and Export (at Z.Crypto.PubKey)
 
 foreign import ccall unsafe botan_privkey_create :: MBA## BotanStructT -- ^ botan_privkey_t* key
@@ -290,16 +302,6 @@ foreign import ccall unsafe botan_pubkey_get_field :: BotanStructT
                                                    -> BotanStructT
                                                    -> BA## Word8
                                                    -> IO CInt
-
---------------------------------------------------------------------------------
--- Password Hashing
-
-foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> Int
-                                                  -> BA## Word8
-                                                  -> BotanStructT
-                                                  -> Int
-                                                  -> Word32
-                                                  -> IO CInt
 
 --------------------------------------------------------------------------------
 -- RSA specific functions
