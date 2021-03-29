@@ -77,7 +77,7 @@ parseKDFVec path = do
         P.skipWord8
         return n
     kdfLines acc = do
-        P.skipWhile (\ w -> w /= LETTER_I && w /= BRACKET_LEFT && w /= HASH)
+        P.skipWhile (\ w -> w /= LETTER_S && w /= BRACKET_LEFT && w /= HASH)
         w <- P.peekMaybe
         case w of
             Nothing -> return (acc, True)
@@ -96,4 +96,33 @@ parseKDFVec path = do
                 output <- P.bytes "Output = " >> P.takeWhile (/= NEWLINE) <|> (P.bytes "Output =" >> return V.empty)
                 kdfLines $ (hexDecode' salt, hexDecode' label, hexDecode' secret, hexDecode' output) : acc
 
--- TODO: a typeclass for vector like structures
+parsePasswdHashVec :: CBytes -> IO [(V.Bytes, V.Bytes)]
+parsePasswdHashVec path = do
+  withResource (FS.initFile path FS.O_RDONLY FS.DEFAULT_FILE_MODE) $ \f -> do
+    bi <- newBufferedInput f
+    let loopRead = do
+          (lines, eof) <- runParse bi
+          if eof
+            then return lines
+            else do
+              rest <- loopRead
+              return $ lines ++ rest
+    loopRead
+  where
+    initParse = passwdHashLines []
+    runParse = readParser initParse
+    passwdHashLines acc = do
+      P.skipWhile $ \c -> c /= LETTER_P && c /= BRACKET_LEFT && c /= HASH
+      c <- P.peekMaybe
+      case c of
+        Nothing -> return (acc, True)
+        Just HASH -> do
+          P.skipWhile (/= NEWLINE)
+          P.skipWord8
+          passwdHashLines acc
+        Just BRACKET_LEFT -> return (acc, False)
+        _ -> do
+          passwd <- (P.bytes "Password = " >> P.takeWhile (/= NEWLINE)) <|> (P.bytes "Password = " >> return V.empty)
+          P.skipWord8
+          passhash <- P.bytes "Passhash = " >> P.takeWhile (/= NEWLINE) <|> (P.bytes "Passhash =" >> return V.empty)
+          passwdHashLines $ (hexDecode' passwd, hexDecode' passhash) : acc

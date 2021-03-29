@@ -18,7 +18,7 @@ spec :: Spec
 spec = describe "Crypto.KDF" $ do
   forM_ [("hkdf", "hkdf.vec", "HKDF(HMAC(SHA-160))", HKDF SHA160)] $ \(label', file, algoName, kdfType) ->
     it label' $ do
-      tvMap <- parseKDFVec =<< "./third_party/botan/src/tests/data/hash/" `FS.join` file
+      tvMap <- parseKDFVec =<< "./third_party/botan/src/tests/data/kdf/" `FS.join` file
       tvs <- unwrap' "ENOTFOUND" "no algo found" $ lookup algoName tvMap
       forM_ tvs $ \(salt, label, secret, output) -> do
         res <- kdf kdfType maxKDFSize secret salt label
