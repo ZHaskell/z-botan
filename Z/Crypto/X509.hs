@@ -21,7 +21,6 @@ import Z.Botan.FFI
     botan_x509_cert_allowed_usage,
     botan_x509_cert_destroy,
     botan_x509_cert_dup,
-    botan_x509_cert_gen_selfsigned,
     botan_x509_cert_get_authority_key_id,
     botan_x509_cert_get_fingerprint,
     botan_x509_cert_get_issuer_dn,
@@ -48,8 +47,7 @@ import Z.Botan.FFI
     withBotanStruct,
   )
 import Z.Crypto.Hash (HashType, hashTypeToCBytes)
-import Z.Crypto.PubKey (PrivKey (..), PubKey (..), maxFingerPrintSize)
-import Z.Crypto.RNG (RNG, withRNG)
+import Z.Crypto.PubKey (PubKey (..), maxFingerPrintSize)
 import Z.Data.CBytes (CBytes, CString, fromBytes, withCBytesUnsafe)
 import qualified Z.Data.Vector as V
 import Z.Foreign
@@ -84,6 +82,7 @@ dupX509Cert (X509Cert cert) = do
   withBotanStruct cert $ \cert' ->
     X509Cert <$> newBotanStruct (`botan_x509_cert_dup` cert') botan_x509_cert_destroy
 
+{-
 -- | Create a new self-signed X.509 certificate.
 -- Generating a new self-signed certificate can often be useful, for example when setting up a new root CA, or for use in specialized protocols.
 newX509CertSelfsigned ::
@@ -101,6 +100,7 @@ newX509CertSelfsigned (PrivKey key) rng common org = do
       withCBytesUnsafe common $ \common' ->
         withCBytesUnsafe org $ \org' ->
           X509Cert <$> newBotanStruct (\ret -> botan_x509_cert_gen_selfsigned ret key' rng' common' org') botan_x509_cert_destroy
+-}
 
 maxTDSize :: Int
 maxTDSize = 16

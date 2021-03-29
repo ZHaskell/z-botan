@@ -519,10 +519,12 @@ foreign import ccall unsafe botan_x509_cert_dup :: MBA## BotanStructT
                                                 -> BotanStructT
                                                 -> IO CInt
 
+{-
 foreign import ccall unsafe botan_x509_cert_gen_selfsigned :: MBA## BotanStructT
                                                            -> BotanStructT -> BotanStructT
                                                            -> BA## Word8 -> BA## Word8
                                                            -> IO CInt
+-}
 
 foreign import ccall unsafe botan_x509_cert_get_time_starts :: BotanStructT
                                                             -> MBA## Word8
