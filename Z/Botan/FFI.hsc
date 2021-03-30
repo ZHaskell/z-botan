@@ -442,10 +442,6 @@ foreign import ccall unsafe botan_pk_op_sign_finish :: BotanStructT
 
 foreign import ccall unsafe "&botan_pk_op_sign_destroy" botan_pk_op_sign_destroy :: FunPtr (BotanStructT -> IO ())
 
--- foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
--- foreign import ccall unsafe hs_botan_pk_op_verify_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
--- foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT ->
-
 --------------------------------------------------------------------------------
 -- Signature Verification
 
@@ -518,13 +514,6 @@ foreign import ccall unsafe botan_x509_cert_load_file :: MBA## BotanStructT
 foreign import ccall unsafe botan_x509_cert_dup :: MBA## BotanStructT
                                                 -> BotanStructT
                                                 -> IO CInt
-
-{-
-foreign import ccall unsafe botan_x509_cert_gen_selfsigned :: MBA## BotanStructT
-                                                           -> BotanStructT -> BotanStructT
-                                                           -> BA## Word8 -> BA## Word8
-                                                           -> IO CInt
--}
 
 foreign import ccall unsafe botan_x509_cert_get_time_starts :: BotanStructT
                                                             -> MBA## Word8
@@ -610,7 +599,3 @@ foreign import ccall unsafe botan_x509_crl_load_file :: MBA## BotanStructT -> BA
 foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStructT -> IO CInt
-
---------------------------------------------------------------------------------
--- Password Hashing
--- foreign import ccall unsafe generate_passhash9 ::
