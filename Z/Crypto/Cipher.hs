@@ -1,3 +1,19 @@
+{-|
+Module      : Z.Crypto.Cipher
+Description : Block Cipher and Cipher modes
+Copyright   : Dong Han, 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
+
+This module provides raw block cipher and various cipher mode.
+
+Block ciphers are a n-bit permutation for some small n, typically 64 or 128 bits. They are a cryptographic primitive used to generate higher level operations such as authenticated encryption.
+
+A block cipher by itself, is only able to securely encrypt a single data block. To be able to securely encrypt data of arbitrary length, a mode of operation applies the block cipher’s single block operation repeatedly to encrypt an entire message.
+
+-}
 module Z.Crypto.Cipher
   ( -- * Block Cipher
     BlockCipher, blockCipherSize, blockCipherKeySpec
@@ -14,12 +30,14 @@ module Z.Crypto.Cipher
   ) where
 
 import           Control.Monad
+import           Data.IORef
 import           GHC.Generics
 import           Z.Botan.Exception
-import           Z.Data.CBytes      as CB
-import           Z.Data.JSON         (JSON)
-import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text        as T
+import           Z.Data.CBytes          as CB
+import           Z.Data.JSON            (JSON)
+import qualified Z.Data.Vector          as V
+import qualified Z.Data.Vector.Extra    as V
+import qualified Z.Data.Text            as T
 import           Z.Foreign
 import           Z.Crypto.Hash
 import           Z.Botan.FFI
@@ -88,11 +106,6 @@ data BlockCipherType
     | DES
     | DESX
     | TripleDES
-      -- | GOST-28147-89
-      --
-      -- Aka "Magma". An old 64-bit Russian cipher. Possible security issues, avoid unless compatibility is needed.
-      -- Warning: Support for this cipher is deprecated and will be removed in a future major release.
-    | GOST_28147_89
       -- | IDEA
       --
       -- An older but still unbroken 64-bit cipher with a 128-bit key.
@@ -108,7 +121,7 @@ data BlockCipherType
       -- A "block cipher construction" which can encrypt blocks of nearly arbitrary length.
       -- Built from a stream cipher and a hash function.
       -- Useful in certain protocols where being able to encrypt large or arbitrary length blocks is necessary.
-    | Lion Int StreamCipherType HashType
+    | Lion HashType StreamCipherType Int
       -- | MISTY1
       --
       -- A 64-bit Japanese cipher standardized by NESSIE and ISO.
@@ -183,13 +196,12 @@ blockCipherTypeToCBytes b = case b of
     SEED             ->    "SEED"
     SM4              ->    "SM4"
     XTEA             ->    "XTEA"
-    GOST_28147_89    ->    "GOST-28147-89"
     Cascade b1 b2    ->    CB.concat [ "Cascade("
                                      , blockCipherTypeToCBytes b1
                                      , ","
                                      , blockCipherTypeToCBytes b2
                                      , ")"]
-    Lion siz st hasht -> CB.concat [ "Lion("
+    Lion hasht st siz -> CB.concat [ "Lion("
                                   , hashTypeToCBytes hasht
                                   , ","
                                   , streamCipherTypeToCBytes st
@@ -198,6 +210,12 @@ blockCipherTypeToCBytes b = case b of
                                   , ")"]
 
 -- | A Botan block cipher.
+--
+-- In almost all cases, a bare block cipher is not what you should be using.
+-- You probably want an authenticated cipher mode instead (see 'CipherMode'),
+-- This interface is used to build higher level operations (such as cipher modes or MACs),
+-- or in the very rare situation where ECB is required, eg for compatibility with an existing system.
+--
 data BlockCipher = BlockCipher
     { blockCipher :: BotanStruct
     , blockCipherSize :: Int
@@ -232,7 +250,7 @@ setBlockCipherKey (BlockCipher bc _ _) key =
     withBotanStruct bc $ \ pbc -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
             throwBotanIfMinus_ (hs_botan_block_cipher_set_key
-                pbc pkey (fromIntegral key_off) (fromIntegral key_len))
+                pbc pkey key_off key_len)
 
 -- | Clear the internal state (such as keys) of this cipher object.
 clearBlockCipher :: HasCallStack => BlockCipher -> IO ()
@@ -248,15 +266,14 @@ encryptBlocks :: HasCallStack
               -> Int        -- ^ number of blocks
               -> IO V.Bytes
 encryptBlocks (BlockCipher bc blockSiz _) blocks n = do
+    let inputLen = V.length blocks
     when (inputLen /= blockSiz * n) $
         throwBotanError BOTAN_FFI_ERROR_INVALID_INPUT
     withBotanStruct bc $ \ pbc -> do
         withPrimVectorUnsafe blocks $ \ pb pboff _ ->
-            fst <$> allocPrimVectorUnsafe (V.length blocks) (\ pbuf ->
+            fst <$> allocPrimVectorUnsafe inputLen (\ pbuf ->
                 throwBotanIfMinus_ (hs_botan_block_cipher_encrypt_blocks
                     pbc pb pboff pbuf n))
-  where
-    inputLen = V.length blocks
 
 -- | Decrypt blocks of data.
 --
@@ -267,6 +284,7 @@ decryptBlocks :: HasCallStack
               -> Int        -- ^ number of blocks
               -> IO V.Bytes
 decryptBlocks (BlockCipher bc blockSiz _) blocks n = do
+    let inputLen = V.length blocks
     when (inputLen /= blockSiz * n) $
         throwBotanError BOTAN_FFI_ERROR_INVALID_INPUT
     withBotanStruct bc $ \ pbc -> do
@@ -274,8 +292,6 @@ decryptBlocks (BlockCipher bc blockSiz _) blocks n = do
             fst <$> allocPrimVectorUnsafe inputLen (\ pbuf ->
                 throwBotanIfMinus_ (hs_botan_block_cipher_decrypt_blocks
                     pbc pb pboff pbuf n))
-  where
-    inputLen = V.length blocks
 
 --------------------------------------------------------------------------------
 
@@ -327,7 +343,7 @@ streamCipherTypeToCBytes s = case s of
 -- To be able to securely encrypt data of arbitrary length, a mode of operation applies
 -- the block cipher’s single block operation repeatedly to encrypt an entire message.
 --
--- Notes on the AEAD type tag:
+-- Notes on the AEAD modes(CCM, ChaCha20Poly1305, EAX, GCM, OCB, SIV):
 --
 -- AEAD (Authenticated Encryption with Associated Data) modes provide message encryption,
 -- message authentication, and the ability to authenticate additional data that is not included
@@ -426,6 +442,10 @@ data CipherMode
     -- however using CTS requires the input be at least one full block plus one byte.
     -- It is also less commonly implemented.
     | CBC_CTS BlockCipherType
+    -- | No padding CBC
+    --
+    -- Only use this mode when input length is a multipler of cipher block size.
+    | CBC_NoPadding BlockCipherType
   deriving (Show, Read, Eq, Ord, Generic)
   deriving anyclass (T.Print, JSON)
 
@@ -444,6 +464,7 @@ cipherTypeToCBytes ct = case ct of
     CBC_X9'23       bct -> blockCipherTypeToCBytes bct <> "/CBC/X9.23"
     CBC_ESP         bct -> blockCipherTypeToCBytes bct <> "/CBC/ESP"
     CBC_CTS         bct -> blockCipherTypeToCBytes bct <> "/CBC/CTS"
+    CBC_NoPadding   bct -> blockCipherTypeToCBytes bct <> "/CBC/NoPadding"
 
 -- | A Botan cipher.
 data Cipher = Cipher
@@ -465,26 +486,23 @@ newCipher typ dir = do
             botan_cipher_init bts pb (cipherDirectionToFlag dir))
         botan_cipher_destroy
 
-    (g, _) <- withBotanStruct ci $ \ pci ->
-        allocPrimUnsafe $ \ pg ->
+    withBotanStruct ci $ \ pci -> do
+        (g, _) <- allocPrimUnsafe $ \ pg ->
             botan_cipher_get_update_granularity pci pg
 
-    (a, (b, (c, _))) <- withBotanStruct ci $ \ pci ->
-        allocPrimUnsafe $ \ pa ->
+        (a, (b, (c, _))) <- allocPrimUnsafe $ \ pa ->
             allocPrimUnsafe $ \ pb ->
                 allocPrimUnsafe $ \ pc ->
                     throwBotanIfMinus_
                         (botan_cipher_get_keyspec pci pa pb pc)
 
-    (t, _) <- withBotanStruct ci $ \ pci ->
-        allocPrimUnsafe $ \ pt ->
+        (t, _) <- allocPrimUnsafe $ \ pt ->
             botan_cipher_get_tag_length pci pt
 
-    (n, _) <- withBotanStruct ci $ \ pci ->
-        allocPrimUnsafe $ \ pn ->
+        (n, _) <- allocPrimUnsafe $ \ pn ->
             botan_cipher_get_default_nonce_length pci pn
 
-    return (Cipher ci g (a,b,c) t n)
+        return (Cipher ci g (a,b,c) t n)
 
 -- | Clear the internal state (such as keys) of this cipher object.
 --
@@ -510,7 +528,7 @@ setCipherKey (Cipher ci _ _ _ _) key =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_key
-                pci pkey (fromIntegral key_off) (fromIntegral key_len))
+                pci pkey key_off key_len)
 
 -- | Set the associated data. Will fail if cipher is not an AEAD.
 --
@@ -519,7 +537,7 @@ setAssociatedData (Cipher ci _ _ _ _) ad =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_associated_data
-                pci pad (fromIntegral ad_off) (fromIntegral ad_len))
+                pci pad ad_off ad_len)
 
 -- | Begin processing a new message using the provided nonce.
 --
@@ -531,23 +549,61 @@ startCipher (Cipher ci _ _ _ _) nonce =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_start
-                pci pnonce (fromIntegral nonce_off) (fromIntegral nonce_len))
+                pci pnonce nonce_off nonce_len)
 
--- | Update cipher with some data, the data size must be multiplier of 'cipherUpdateGranularity'.
+-- | Update cipher with some data.
+--
+-- If the input size is not a multiplier of 'cipherUpdateGranularity', there'll
+-- be some trailing input.
 updateCipher :: HasCallStack
              => Cipher
              -> V.Bytes
-             -> IO (V.Bytes, Int)
-updateCipher (Cipher ci _ _ _ _) bs = undefined
+             -> IO (V.Bytes, V.Bytes)   -- ^ trailing input, output
+updateCipher (Cipher ci _ _ _ _) input =
+    withBotanStruct ci $ \ pci -> do
+        withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
+            (out, r) <- allocPrimVectorUnsafe in_len $ \ out_p ->
+                throwBotanIfMinus (hs_botan_cipher_update pci
+                    out_p in_p in_off in_len)
+            return (V.unsafeDrop r input, V.unsafeTake r out)
 
 -- | Finish cipher with some data.
+--
+-- You can directly call this function to encrypt a whole message,
+-- Note some cipher modes have a minimal input length requirement for last chunk(CTS, XTS, etc.).
 finishCipher :: HasCallStack
              => Cipher
              -> V.Bytes
-             -> IO (V.Bytes, Int)
-finishCipher (Cipher ci _ _ _ _) bs = undefined
+             -> IO V.Bytes
+finishCipher (Cipher ci ug _ tag_len _) input =
+    withBotanStruct ci $ \ pci -> do
+        withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
+            let !out_len = max in_len ug + tag_len
+            (out, r) <- allocPrimVectorUnsafe out_len $ \ out_p ->
+                throwBotanIfMinus (hs_botan_cipher_finish pci
+                    out_p out_len in_p in_off in_len)
+            return (V.unsafeTake r out)
 
 -- | Wrap a cipher into a 'BIO' node.
-cipherBIO :: Cipher -> BIO V.Bytes V.Bytes
-cipherBIO = undefined
-
+--
+-- The cipher should have already started by setting key, nounce, etc.
+--
+-- Note some cipher modes have a minimal input length requirement for last chunk(CBC_CTS, XTS, etc.),
+-- which may not be suitable for arbitrary bytes streams.
+--
+cipherBIO :: Cipher -> IO (BIO V.Bytes V.Bytes)
+cipherBIO c = do
+    trailingRef <- newIORef V.empty
+    return (BIO (push_ trailingRef) (pull_ trailingRef))
+  where
+    push_ trailingRef bs = do
+        trailing <- readIORef trailingRef
+        let chunk =  trailing `V.append` bs
+        (rest, out) <- updateCipher c chunk
+        writeIORef trailingRef rest
+        if V.null out
+        then return Nothing
+        else return (Just out)
+    pull_ trailingRef = do
+        trailing <- readIORef trailingRef
+        Just <$!> finishCipher c trailing

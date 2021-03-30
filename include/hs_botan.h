@@ -30,23 +30,20 @@ int hs_botan_cipher_start(botan_cipher_t cipher, const uint8_t* nonce, HsInt non
 // output buffer length should be at least equal to input length, 
 // which must be larger than botan_cipher_get_update_granularity
 // input_consumed == output_written
-int hs_botan_cipher_update(botan_cipher_t cipher_obj,
-                           uint8_t* output,
-                           HsInt output_len,
-                           const uint8_t* input,
-                           HsInt input_off,
-                           HsInt input_len,
-                           size_t* input_consumed);
+HsInt hs_botan_cipher_update(botan_cipher_t cipher_obj,
+                               uint8_t* output,
+                               const uint8_t* input,
+                               HsInt input_off,
+                               HsInt input_len);
 // output buffer length should be at least equal to following call's result
 // botan_cipher_output_length(cipher, input_length, &output_length)
 // output_written may differ
-int hs_botan_cipher_finish(botan_cipher_t cipher_obj,
+HsInt hs_botan_cipher_finish(botan_cipher_t cipher_obj,
                            uint8_t* output,
                            HsInt output_len,
                            const uint8_t* input,
                            HsInt input_off,
-                           HsInt input_len,
-                           size_t* output_written);
+                           HsInt input_len);
 
 // Multiple Precision Integers
 

@@ -55,29 +55,35 @@ int hs_botan_cipher_start(botan_cipher_t cipher, const uint8_t* nonce, HsInt non
     return botan_cipher_start(cipher, nonce+nonce_off, nonce_len);
 }
 
-int hs_botan_cipher_update(botan_cipher_t cipher,
+HsInt hs_botan_cipher_update(botan_cipher_t cipher,
                            uint8_t* output,
-                           HsInt output_len,
                            const uint8_t* input,
                            HsInt input_off,
-                           HsInt input_len,
-                           size_t* input_consumed){
-    // we dont care, because it equals to input_consumed
-    size_t output_written;
-    return botan_cipher_update(cipher, 0, output, output_len
-        , &output_written, input+input_off, input_len, input_consumed);
+                           HsInt input_len){
+    size_t input_consumed, output_written;
+    int r = botan_cipher_update(cipher, 0, output, input_len
+        , &output_written, input+input_off, input_len, &input_consumed);
+    if (r < 0){
+        return (HsInt)r;
+    } else {
+        return (HsInt)output_written;
+    }
 }
-int hs_botan_cipher_finish(botan_cipher_t cipher,
+
+HsInt hs_botan_cipher_finish(botan_cipher_t cipher,
                            uint8_t* output,
                            HsInt output_len,
                            const uint8_t* input,
                            HsInt input_off,
-                           HsInt input_len,
-                           size_t* output_written){
-    // we dont care, because it's the last call
-    size_t input_consumed;
-    return botan_cipher_update(cipher, BOTAN_CIPHER_UPDATE_FLAG_FINAL, output, output_len
-        , output_written, input+input_off, input_len, &input_consumed);
+                           HsInt input_len){
+    size_t input_consumed, output_written;
+    int r = botan_cipher_update(cipher, BOTAN_CIPHER_UPDATE_FLAG_FINAL, output, output_len
+        , &output_written, input+input_off, input_len, &input_consumed);
+    if (r < 0){
+        return (HsInt)r;
+    } else {
+        return (HsInt)output_written;
+    }
 }
 
 // Multiple Precision Integers
