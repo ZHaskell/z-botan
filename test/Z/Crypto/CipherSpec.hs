@@ -65,8 +65,11 @@ spec = do
     forM_
         [ ("cbc", "cbc.vec", "DES/CBC/NoPadding", CBC_NoPadding DES)
         , ("cbc", "cbc.vec", "CAST-128/CBC/PKCS7", CBC_PKCS7 CAST128)
-
-
+        , ("cbc", "cbc.vec", "DES/CBC/PKCS7", CBC_PKCS7 DES)
+        , ("cbc", "cbc.vec", "DES/CBC/PKCS7", CBC_PKCS7 DES)
+        , ("cbc", "cbc.vec", "DES/CBC/OneAndZeros", CBC_OneAndZeros DES)
+        , ("cbc", "cbc.vec", "DES/CBC/CTS", CBC_CTS DES)
+        , ("cfb", "cfb.vec", "DES/CFB", CFB DES)
         ] $ \ (label, file, algoName, cipherType) ->
             it label $ do
                 tvMap <- parseCipherModeTestVector =<< "./third_party/botan/src/tests/data/modes/" `FS.join` file
