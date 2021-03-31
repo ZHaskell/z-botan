@@ -7,8 +7,9 @@ import Control.Monad (forM_)
 import Test.HUnit ((@=?))
 import Test.Hspec (Spec, describe, it)
 import Utils' (parsePasswdHashVec)
-import Z.Crypto.PasswdHash (newBcrypt)
+import Z.Crypto.PasswdHash (isValidBcrypt, newBcrypt)
 import Z.Crypto.RNG (RNGType (SystemRNG), newRNG)
+import Z.Data.CBytes (fromBytes)
 
 spec :: Spec
 spec = describe "Crypto.PasswdHash" $ do
@@ -17,4 +18,5 @@ spec = describe "Crypto.PasswdHash" $ do
     forM_ tvMap $ \(passwd, passhash) -> do
       rng <- newRNG SystemRNG
       ret <- newBcrypt passwd rng 8
-      ret @=? passhash
+      b <- isValidBcrypt passwd (fromBytes passhash)
+      b @=? True
