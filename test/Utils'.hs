@@ -12,7 +12,7 @@ import Z.Data.ASCII
     pattern NEWLINE,
     pattern SPACE,
   )
-import Z.Data.CBytes (CBytes)
+import Z.Data.CBytes (CBytes, fromBytes)
 import qualified Z.Data.Parser as P
 import qualified Z.Data.Vector as V
 import Z.IO
@@ -98,7 +98,7 @@ parsePasswdHashVec ::
   HasCallStack =>
   -- | path
   CBytes ->
-  IO [(V.Bytes, V.Bytes)]
+  IO [(CBytes, V.Bytes)]
 parsePasswdHashVec = parseVec $ h []
   where
     h acc = do
@@ -116,4 +116,4 @@ parsePasswdHashVec = parseVec $ h []
           passwd <- parseKeyValLn "Password"
           P.skipWord8
           passhash <- parseKeyValLn "Passhash"
-          h $ (passwd, passhash) : acc
+          h $ (fromBytes passwd, passhash) : acc

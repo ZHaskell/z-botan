@@ -34,7 +34,7 @@ This package is part of [ZHaskell](https://z.haskell.world) project, providing c
 ## Example usage
 
 ```haskell
-> import Z.Crypto 
+> import Z.Crypto
 >
 ```
 
@@ -42,13 +42,13 @@ This package is part of [ZHaskell](https://z.haskell.world) project, providing c
 
 ```bash
 # get code
-git clone --recursive git@github.com:ZHaskell/z-botan.git 
+git clone --recursive git@github.com:ZHaskell/z-botan.git
 cd z-botan
 # build
 cabal build
 # test
-cabal test --test-show-details=direct
-# install 
+cabal test --enable-tests --test-show-details=direct
+# install
 cabal install
 # generate document
 cabal haddock
