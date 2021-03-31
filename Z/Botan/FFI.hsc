@@ -158,15 +158,21 @@ foreign import ccall unsafe hs_botan_cipher_start
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 foreign import ccall unsafe hs_botan_cipher_update
     :: BotanStructT
-    -> Word32       -- ^ flag
     -> MBA## Word8  -- ^ output
-    -> Int          -- ^ output size
-    -> MBA## CSize  -- ^ output written
     -> BA## Word8   -- ^ input
     -> Int          -- ^ input offset
     -> Int          -- ^ input len
-    -> MBA## CSize  -- ^ input consumed
-    -> IO CInt
+    -> IO Int       -- ^ output written
+
+foreign import ccall unsafe hs_botan_cipher_finish
+    :: BotanStructT
+    -> MBA## Word8  -- ^ output
+    -> Int          -- ^ output size
+    -> BA## Word8   -- ^ input
+    -> Int          -- ^ input offset
+    -> Int          -- ^ input len
+    -> IO Int       -- ^ output written
+
 foreign import ccall unsafe hs_botan_cipher_set_associated_data
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 
