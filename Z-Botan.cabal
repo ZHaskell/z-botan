@@ -45,10 +45,12 @@ library
                             Z.Crypto.KDF
                             Z.Crypto.MAC
                             Z.Crypto.PubKey
+                            Z.Crypto.PasswdHash
+                            Z.Crypto.X509
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
-                          , Z-Data                  >= 0.7.1 && <0.8
+                          , Z-Data                  >= 0.7.3 && <0.8
                           , Z-IO                    == 0.7.*
                           , integer-gmp             == 1.*
                           , ghc-prim                >= 0.5.3

@@ -238,6 +238,18 @@ foreign import ccall unsafe hs_botan_mac_name ::  BotanStructT -> MBA## Word8 ->
 foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT -> MBA## Int -> MBA## Int -> MBA## Int -> IO CInt
 
 --------------------------------------------------------------------------------
+-- Password Hashing
+
+foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> MBA## Int
+                                                  -> BA## Word8
+                                                  -> BotanStructT
+                                                  -> Int
+                                                  -> Word32
+                                                  -> IO CInt
+
+foreign import ccall unsafe botan_bcrypt_is_valid :: BA## Word8 -> BA## Word8 -> IO CInt
+
+--------------------------------------------------------------------------------
 -- Public Key Creation, Import and Export (at Z.Crypto.PubKey)
 
 foreign import ccall unsafe botan_privkey_create :: MBA## BotanStructT -- ^ botan_privkey_t* key
@@ -296,16 +308,6 @@ foreign import ccall unsafe botan_pubkey_get_field :: BotanStructT
                                                    -> BotanStructT
                                                    -> BA## Word8
                                                    -> IO CInt
-
---------------------------------------------------------------------------------
--- Password Hashing
-
-foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> Int
-                                                  -> BA## Word8
-                                                  -> BotanStructT
-                                                  -> Int
-                                                  -> Word32
-                                                  -> IO CInt
 
 --------------------------------------------------------------------------------
 -- RSA specific functions
@@ -446,10 +448,6 @@ foreign import ccall unsafe botan_pk_op_sign_finish :: BotanStructT
 
 foreign import ccall unsafe "&botan_pk_op_sign_destroy" botan_pk_op_sign_destroy :: FunPtr (BotanStructT -> IO ())
 
--- foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
--- foreign import ccall unsafe hs_botan_pk_op_verify_update :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
--- foreign import ccall unsafe hs_botan_pk_op_verify_finish :: BotanStructT ->
-
 --------------------------------------------------------------------------------
 -- Signature Verification
 
@@ -511,11 +509,99 @@ foreign import ccall unsafe hs_botan_mceies_decrypt :: BotanStructT
 
 foreign import ccall unsafe "&botan_x509_cert_destroy" botan_x509_cert_destroy :: FunPtr (BotanStructT -> IO ())
 
+foreign import ccall unsafe hs_botan_x509_cert_load :: MBA## BotanStructT -- ^ botan_x509_cert_t* cert_obj
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_load_file :: MBA## BotanStructT
+                                                      -> BA## Word8
+                                                      -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_dup :: MBA## BotanStructT
+                                                -> BotanStructT
+                                                -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_time_starts :: BotanStructT
+                                                            -> MBA## Word8
+                                                            -> MBA## Int
+                                                            -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_time_expires :: BotanStructT
+                                                             -> MBA## Word8
+                                                             -> MBA## Int
+                                                             -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_not_before :: BotanStructT
+                                                       -> MBA## Word64
+                                                       -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_not_after :: BotanStructT
+                                                      -> MBA## Word64
+                                                      -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_fingerprint :: BotanStructT
+                                                            -> BA## Word8
+                                                            -> MBA## Word8 -> MBA## Int
+                                                            -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_serial_number :: BotanStructT
+                                                              -> MBA## Word8
+                                                              -> MBA## Int
+                                                              -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_authority_key_id :: BotanStructT
+                                                                 -> MBA## Word8 -> MBA## Int
+                                                                 -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_subject_key_id :: BotanStructT -> MBA## Word8 -> MBA## Int -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_public_key_bits :: BotanStructT -> MBA## Word8 -> MBA## Int -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_public_key :: BotanStructT -> MBA## BotanStructT -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_issuer_dn :: BotanStructT -> BA## Word8 -> Int -> MBA## Word8 -> MBA## Int -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_get_subject_dn :: BotanStructT
+                                                           -> BA## Word8
+                                                           -> Int
+                                                           -> MBA## Word8 -> MBA## Int
+                                                           -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_to_string :: BotanStructT
+                                                      -> MBA## Word8 -> MBA## Int
+                                                      -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_allowed_usage :: BotanStructT -> Word32 -> IO CInt
+
+foreign import ccall unsafe hs_botan_x509_cert_verify :: MBA## Word32 -- ^ int *validation_result
+                                                      -> BotanStructT
+                                                      -> BA## BotanStructT -> Int -> Int
+                                                      -> BA## BotanStructT -> Int -> Int
+                                                      -> BA## Word8
+                                                      -> Int
+                                                      -> BA## Word8
+                                                      -> Word64
+                                                      -> IO CInt
+
+foreign import ccall unsafe hs_botan_x509_cert_verify_with_crl :: MBA## Word32
+                                                               -> BotanStructT
+                                                               -> BA## BotanStructT -> Int -> Int
+                                                               -> BA## BotanStructT -> Int -> Int
+                                                               -> BA## BotanStructT -> Int -> Int
+                                                               -> BA## Word8 -> Int -> BA## Word8 -> Word64
+                                                               -> IO CInt
+
+foreign import ccall unsafe botan_x509_cert_validation_status :: CInt -> CString
+
 --------------------------------------------------------------------------------
 -- X.509 Certificate Revocation Lists
 
+foreign import ccall unsafe hs_botan_x509_crl_load :: MBA## BotanStructT
+                                                   -> BA## Word8 -> Int -> Int
+                                                   -> IO CInt
+
+foreign import ccall unsafe botan_x509_crl_load_file :: MBA## BotanStructT -> BA## Word8 -> IO CInt
+
 foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
 
---------------------------------------------------------------------------------
--- Password Hashing
--- foreign import ccall unsafe generate_passhash9 ::
+foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStructT -> IO CInt

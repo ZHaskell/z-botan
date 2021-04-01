@@ -11,6 +11,7 @@ import           Z.Data.Vector.Hex
 import qualified Z.Data.Parser      as P
 import           Z.Data.CBytes      (CBytes)
 import qualified Z.Data.Vector      as V
+import           Prelude            hiding (lines)
 
 parseTestVector :: HasCallStack => P.Parser (x, Bool) -> CBytes -> IO [(V.Bytes, x)]
 parseTestVector p path  = do
