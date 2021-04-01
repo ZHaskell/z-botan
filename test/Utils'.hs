@@ -90,30 +90,3 @@ parseKeyValLn key = do
   P.skipWhile (== SPACE) -- skip @\ @ of any length
   P.takeWhile (/= NEWLINE) -- get value
 
--- | Parse test data vectors of the form:
---    -- @Password = @
---    -- @Passhash = @
--- See `./third_party/botan/src/tests/data/passhash/bcrypt.vec`.
-parsePasswdHashVec ::
-  HasCallStack =>
-  -- | path
-  CBytes ->
-  IO [(CBytes, V.Bytes)]
-parsePasswdHashVec = parseVec $ h []
-  where
-    h acc = do
-      P.skipWhile $ \c ->
-        c /= LETTER_P -- goto @Password = @ or @Passhash = @
-          && c /= HASH -- deal with comment
-      c <- P.peekMaybe
-      case c of
-        Nothing -> pure (acc, True) -- end of file
-        Just HASH -> do
-          P.skipWhile (/= NEWLINE) -- line comment
-          P.skipWord8 -- skip @\n@
-          h acc
-        _ -> do
-          passwd <- parseKeyValLn "Password"
-          P.skipWord8
-          passhash <- parseKeyValLn "Passhash"
-          h $ (fromBytes passwd, passhash) : acc

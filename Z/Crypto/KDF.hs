@@ -26,7 +26,7 @@ module Z.Crypto.KDF (
 
 import Z.Crypto.Hash
 import Z.Botan.FFI
-import Z.Data.CBytes (CBytes, withCBytesUnsafe)
+import Z.Data.CBytes (CBytes, withCBytesUnsafe, withCBytes)
 import qualified Z.Data.CBytes as CB
 import qualified Z.Data.Vector as V
 import Z.Foreign
@@ -156,17 +156,26 @@ pbkdfTimed :: PBKDFType  -- ^ the name of the given PBKDF algorithm
            -> V.Bytes    -- ^ salt
            -> IO V.Bytes
 pbkdfTimed typ msec siz pwd s =
-    withCBytesUnsafe algo $ \algo' ->
+    -- we want run it in new OS thread without stop GC from running
+    -- if the expected time is too long(>0.1s)
+    if msec > 100
+    then withCBytes algo $ \algo' ->
+        withPrimVectorSafe pwd $ \pwd' ppLen ->
+            withPrimVectorSafe s $ \s' sLen ->
+                fst <$> allocPrimVectorSafe siz (\ buf -> do
+                    clearPtr buf siz
+                    throwBotanIfMinus_ $
+                        hs_botan_pwdhash_timed_safe
+                            algo' msec buf (fromIntegral siz)
+                            pwd' 0 ppLen
+                            s' 0 sLen)
+    else withCBytesUnsafe algo $ \algo' ->
         withPrimVectorUnsafe pwd $ \pwd' ppOff ppLen ->
             withPrimVectorUnsafe s $ \s' sOff sLen ->
                 fst <$> allocPrimVectorUnsafe siz (\ buf -> do
                     clearMBA buf siz
                     throwBotanIfMinus_ $
-                        -- we want run it in new OS thread without stop GC from running
-                        -- if the expected time is too long(>0.1s)
-                        (if msec > 100
-                         then hs_botan_pwdhash_timed_safe
-                         else hs_botan_pwdhash_timed)
+                        hs_botan_pwdhash_timed
                             algo' msec buf (fromIntegral siz)
                             pwd' ppOff ppLen
                             s' sOff sLen)

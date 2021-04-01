@@ -6,58 +6,6 @@ module Z.Crypto.PubKey where
 import Data.Word (Word32)
 import Z.Botan.Exception (throwBotanIfMinus_)
 import Z.Botan.FFI
-  ( BotanStruct,
-    botan_pk_op_decrypt_create,
-    botan_pk_op_decrypt_destroy,
-    botan_pk_op_decrypt_output_length,
-    botan_pk_op_encrypt_create,
-    botan_pk_op_encrypt_destroy,
-    botan_pk_op_encrypt_output_length,
-    botan_pk_op_key_agreement_create,
-    botan_pk_op_key_agreement_destroy,
-    botan_pk_op_key_agreement_export_public,
-    botan_pk_op_sign_create,
-    botan_pk_op_sign_destroy,
-    botan_pk_op_sign_finish,
-    botan_pk_op_sign_output_length,
-    botan_pk_op_verify_create,
-    botan_pk_op_verify_destroy,
-    botan_privkey_create,
-    botan_privkey_destroy,
-    botan_privkey_export,
-    botan_privkey_export_pubkey,
-    botan_privkey_get_field,
-    botan_privkey_load_dh,
-    botan_privkey_load_dsa,
-    botan_privkey_load_elgamal,
-    botan_privkey_load_rsa,
-    botan_privkey_rsa_get_d,
-    botan_privkey_rsa_get_e,
-    botan_privkey_rsa_get_n,
-    botan_privkey_rsa_get_p,
-    botan_privkey_rsa_get_q,
-    botan_pubkey_algo_name,
-    botan_pubkey_destroy,
-    botan_pubkey_estimated_strength,
-    botan_pubkey_fingerprint,
-    botan_pubkey_get_field,
-    botan_pubkey_load_dh,
-    botan_pubkey_load_dsa,
-    botan_pubkey_load_elgamal,
-    botan_pubkey_load_rsa,
-    botan_pubkey_rsa_get_e,
-    botan_pubkey_rsa_get_n,
-    hs_botan_pk_op_decrypt,
-    hs_botan_pk_op_encrypt,
-    hs_botan_pk_op_key_agreement,
-    hs_botan_pk_op_sign_update,
-    hs_botan_pk_op_verify_finish,
-    hs_botan_pk_op_verify_update,
-    hs_botan_privkey_load,
-    hs_botan_pubkey_load,
-    newBotanStruct,
-    withBotanStruct,
-  )
 import Z.Crypto (HashType, hashTypeToCBytes)
 import Z.Crypto.KDF (KDFType, kDFTypeToCBytes)
 import Z.Crypto.MPI (MPI, unsafeNewMPI, unsafeWithMPI, withMPI)
@@ -94,8 +42,8 @@ data KeyType
       -- ^ t
   | XMSS XMSSType
   | Ed25519
-  | ECC ECCType ECGrp
-  | DL DLType DLGrp
+  | ECC ECCType ECGroup
+  | DL DLType DLGroup
 
 pattern RSADefault :: KeyType
 pattern RSADefault = RSA 3072
@@ -161,89 +109,89 @@ eccToCBytes = \case
   GOST_34_10_2012_512 -> "GOST-34.10-2012-512"
 
 -- | A type wrapper.
-type ECGrp = CBytes
+type ECGroup = CBytes
 
 -- TODO: default_ec_group_for
 
-pattern Secp160k1 :: ECGrp
+pattern Secp160k1 :: ECGroup
 pattern Secp160k1 = "secp160k1"
 
-pattern Secp160r1 :: ECGrp
+pattern Secp160r1 :: ECGroup
 pattern Secp160r1 = "secp160r1"
 
-pattern Secp160r2 :: ECGrp
+pattern Secp160r2 :: ECGroup
 pattern Secp160r2 = "secp160r2"
 
-pattern Secp192k1 :: ECGrp
+pattern Secp192k1 :: ECGroup
 pattern Secp192k1 = "secp192k1"
 
-pattern Secp192r1 :: ECGrp
+pattern Secp192r1 :: ECGroup
 pattern Secp192r1 = "secp192r1"
 
-pattern Secp224k1 :: ECGrp
+pattern Secp224k1 :: ECGroup
 pattern Secp224k1 = "secp224k1"
 
-pattern Secp224r1 :: ECGrp
+pattern Secp224r1 :: ECGroup
 pattern Secp224r1 = "secp224r1"
 
-pattern Secp256k1 :: ECGrp
+pattern Secp256k1 :: ECGroup
 pattern Secp256k1 = "secp256k1"
 
-pattern Secp256r1 :: ECGrp
+pattern Secp256r1 :: ECGroup
 pattern Secp256r1 = "secp256r1"
 
-pattern Secp384r1 :: ECGrp
+pattern Secp384r1 :: ECGroup
 pattern Secp384r1 = "secp384r1"
 
-pattern Secp521r1 :: ECGrp
+pattern Secp521r1 :: ECGroup
 pattern Secp521r1 = "secp521r1"
 
-pattern Brainpool160r1 :: ECGrp
+pattern Brainpool160r1 :: ECGroup
 pattern Brainpool160r1 = "brainpool160r1"
 
-pattern Brainpool192r1 :: ECGrp
+pattern Brainpool192r1 :: ECGroup
 pattern Brainpool192r1 = "brainpool192r1"
 
-pattern Brainpool224r1 :: ECGrp
+pattern Brainpool224r1 :: ECGroup
 pattern Brainpool224r1 = "brainpool224r1"
 
-pattern Brainpool256r1 :: ECGrp
+pattern Brainpool256r1 :: ECGroup
 pattern Brainpool256r1 = "brainpool256r1"
 
-pattern Brainpool320r1 :: ECGrp
+pattern Brainpool320r1 :: ECGroup
 pattern Brainpool320r1 = "brainpool320r1"
 
-pattern Brainpool384r1 :: ECGrp
+pattern Brainpool384r1 :: ECGroup
 pattern Brainpool384r1 = "brainpool384r1"
 
-pattern Brainpool512r1 :: ECGrp
+pattern Brainpool512r1 :: ECGroup
 pattern Brainpool512r1 = "brainpool512r1"
 
-pattern X962_p192v2 :: ECGrp
+pattern X962_p192v2 :: ECGroup
 pattern X962_p192v2 = "x962_p192v2"
 
-pattern X962_p192v3 :: ECGrp
+pattern X962_p192v3 :: ECGroup
 pattern X962_p192v3 = "x962_p192v3"
 
-pattern X962_p239v1 :: ECGrp
+pattern X962_p239v1 :: ECGroup
 pattern X962_p239v1 = "x962_p239v1"
 
-pattern X962_p239v2 :: ECGrp
+pattern X962_p239v2 :: ECGroup
 pattern X962_p239v2 = "x962_p239v2"
 
-pattern X962_p239v3 :: ECGrp
+pattern X962_p239v3 :: ECGroup
 pattern X962_p239v3 = "x962_p239v3"
 
-pattern Gost_256A :: ECGrp
+pattern Gost_256A :: ECGroup
 pattern Gost_256A = "gost_256A"
 
-pattern Gost_512A :: ECGrp
+pattern Gost_512A :: ECGroup
 pattern Gost_512A = "gost_512A"
 
-pattern Frp256v1 :: ECGrp
+pattern Frp256v1 :: ECGroup
 pattern Frp256v1 = "frp256v1"
 
-pattern Sm2p256v1 :: ECGrp
+pattern Sm2p256v1 :: ECGroup
 pattern Sm2p256v1 = "sm2p256v1"
 
 data DLType = DH | DSA | ElGamal
@@ -254,74 +202,74 @@ dlToCBytes = \case
   DSA -> "DSA"
   ElGamal -> "ElGamal"
 
-type DLGrp = CBytes
+type DLGroup = CBytes
 
 -- TODO: default_group
 
-pattern FFDHE_IETF_2048 :: DLGrp
+pattern FFDHE_IETF_2048 :: DLGroup
 pattern FFDHE_IETF_2048 = "ffdhe/ietf/2048"
 
-pattern FFDHE_IETF_3072 :: DLGrp
+pattern FFDHE_IETF_3072 :: DLGroup
 pattern FFDHE_IETF_3072 = "ffdhe/ietf/3072"
 
-pattern FFDHE_IETF_4096 :: DLGrp
+pattern FFDHE_IETF_4096 :: DLGroup
 pattern FFDHE_IETF_4096 = "ffdhe/ietf/4096"
 
-pattern FFDHE_IETF_6144 :: DLGrp
+pattern FFDHE_IETF_6144 :: DLGroup
 pattern FFDHE_IETF_6144 = "ffdhe/ietf/6144"
 
-pattern FFDHE_IETF_8192 :: DLGrp
+pattern FFDHE_IETF_8192 :: DLGroup
 pattern FFDHE_IETF_8192 = "ffdhe/ietf/8192"
 
-pattern MODP_IETF_1024 :: DLGrp
+pattern MODP_IETF_1024 :: DLGroup
 pattern MODP_IETF_1024 = "modp/ietf/1024"
 
-pattern MODP_IETF_1536 :: DLGrp
+pattern MODP_IETF_1536 :: DLGroup
 pattern MODP_IETF_1536 = "modp/ietf/1536"
 
-pattern MODP_IETF_2048 :: DLGrp
+pattern MODP_IETF_2048 :: DLGroup
 pattern MODP_IETF_2048 = "modp/ietf/2048"
 
-pattern MODP_IETF_3072 :: DLGrp
+pattern MODP_IETF_3072 :: DLGroup
 pattern MODP_IETF_3072 = "modp/ietf/3072"
 
-pattern MODP_IETF_4096 :: DLGrp
+pattern MODP_IETF_4096 :: DLGroup
 pattern MODP_IETF_4096 = "modp/ietf/4096"
 
-pattern MODP_IETF_6144 :: DLGrp
+pattern MODP_IETF_6144 :: DLGroup
 pattern MODP_IETF_6144 = "modp/ietf/6144"
 
-pattern MODP_IETF_8192 :: DLGrp
+pattern MODP_IETF_8192 :: DLGroup
 pattern MODP_IETF_8192 = "modp/ietf/8192"
 
-pattern MODP_SRP_1024 :: DLGrp
+pattern MODP_SRP_1024 :: DLGroup
 pattern MODP_SRP_1024 = "modp/srp/1024"
 
-pattern MODP_SRP_1536 :: DLGrp
+pattern MODP_SRP_1536 :: DLGroup
 pattern MODP_SRP_1536 = "modp/srp/1536"
 
-pattern MODP_SRP_2048 :: DLGrp
+pattern MODP_SRP_2048 :: DLGroup
 pattern MODP_SRP_2048 = "modp/srp/2048"
 
-pattern MODP_SRP_3072 :: DLGrp
+pattern MODP_SRP_3072 :: DLGroup
 pattern MODP_SRP_3072 = "modp/srp/3072"
 
-pattern MODP_SRP_4096 :: DLGrp
+pattern MODP_SRP_4096 :: DLGroup
 pattern MODP_SRP_4096 = "modp/srp/4096"
 
-pattern MODP_SRP_6144 :: DLGrp
+pattern MODP_SRP_6144 :: DLGroup
 pattern MODP_SRP_6144 = "modp/srp/6144"
 
-pattern MODP_SRP_8192 :: DLGrp
+pattern MODP_SRP_8192 :: DLGroup
 pattern MODP_SRP_8192 = "modp/srp/8192"
 
-pattern DSA_JCE_1024 :: DLGrp
+pattern DSA_JCE_1024 :: DLGroup
 pattern DSA_JCE_1024 = "dsa/jce/1024"
 
-pattern DSA_BOTAN_2048 :: DLGrp
+pattern DSA_BOTAN_2048 :: DLGroup
 pattern DSA_BOTAN_2048 = "dsa/botan/2048"
 
-pattern DSA_BOTAN_3072 :: DLGrp
+pattern DSA_BOTAN_3072 :: DLGroup
 pattern DSA_BOTAN_3072 = "dsa/botan/3072"
 
 -- | Sets of allowed padding schemes for public key types.

@@ -147,6 +147,35 @@ int hs_botan_pwdhash_timed(const char* algo
     return botan_pwdhash_timed(algo, msec, NULL, NULL, NULL, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len);
 }
 
+HsInt hs_botan_bcrypt_generate(uint8_t *out, const char *pwd, HsInt pwd_off, HsInt pwd_len
+    , botan_rng_t rng, HsInt work_factor, uint32_t flags){
+    size_t out_len = 64;
+    char pwd0[pwd_len+1];
+
+    memcpy(pwd0, pwd+pwd_off, pwd_len);
+    pwd0[pwd_len] = 0;
+
+    int r = botan_bcrypt_generate(out, &out_len, pwd0, rng, work_factor, flags);
+    if (r < 0) {
+        return (HsInt)r;
+    } else {
+        return (HsInt)out_len;
+    }
+}
+
+int hs_botan_bcrypt_is_valid(const char* pwd, HsInt pwd_off, HsInt pwd_len
+    , const char* hash, HsInt hash_off, HsInt hash_len){
+    char pwd0[pwd_len+1];
+    char hash0[hash_len+1];
+
+    memcpy(pwd0, pwd+pwd_off, pwd_len);
+    pwd0[pwd_len] = 0;
+    memcpy(hash0, hash+hash_off, hash_len);
+    hash0[hash_len] = 0;
+
+    return botan_bcrypt_is_valid(pwd0, hash0);
+}
+
 // MAC
 
 int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_off, HsInt key_len){

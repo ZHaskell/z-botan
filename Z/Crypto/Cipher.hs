@@ -613,13 +613,13 @@ finishCipher (Cipher ci ug _ tag_len _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
             let !out_len = in_len + ug + tag_len
-            ((V.PrimVector pa s _), r) <- allocPrimVectorUnsafe out_len $ \ out_p -> do
+            (pa, r) <- allocPrimArrayUnsafe out_len $ \ out_p -> do
                 throwBotanIfMinus (hs_botan_cipher_finish pci
                     out_p out_len in_p in_off in_len)
             mpa <- unsafeThawPrimArray pa
             shrinkMutablePrimArray mpa r
             pa' <- unsafeFreezePrimArray mpa
-            return (V.PrimVector pa' s r)
+            return (V.PrimVector pa' 0 r)
 
 -- | Wrap a cipher into a 'BIO' node.
 --

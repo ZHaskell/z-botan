@@ -187,6 +187,7 @@ data Hash = Hash
     deriving (Show, Eq, Ord, Generic)
     deriving anyclass T.Print
 
+-- | Create a new 'Hash' object.
 newHash :: HasCallStack => HashType -> IO Hash
 newHash typ = do
     let name = hashTypeToCBytes typ
@@ -208,7 +209,7 @@ copyHash (Hash bts0 name siz) = do
         botan_hash_destroy
     return (Hash s name siz)
 
--- | Reset the state of this object back to clean, as if no input has been supplied.
+-- | Reset the state of Hash object back to clean, as if no input has been supplied.
 clearHash :: HasCallStack => Hash -> IO ()
 clearHash (Hash bts _ _) =
     throwBotanIfMinus_ (withBotanStruct bts botan_hash_clear)

@@ -45,7 +45,7 @@ library
                             Z.Crypto.KDF
                             Z.Crypto.MAC
                             Z.Crypto.PubKey
-                            Z.Crypto.PasswdHash
+                            Z.Crypto.PwdHash
                             Z.Crypto.X509
                             Z.Crypto
 
@@ -71,7 +71,12 @@ library
     cxx-sources:            third_party/botan/botan_all.cpp
 
     cc-options:             -march=native
-    cxx-options:            -std=c++11 -march=native
+
+    if os(windows)
+        cxx-options:            -std=c++11 -march=native -fno-asynchronous-unwind-tables
+    else
+        cxx-options:            -std=c++11 -march=native
+
     if os(osx)
         extra-libraries:    c++
     else

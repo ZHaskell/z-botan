@@ -72,6 +72,11 @@ int hs_botan_pwdhash_timed(const char* algo
                           ,const char* passwd, HsInt passwd_off, HsInt passwd_len
                           ,const uint8_t salt[], HsInt salt_off, HsInt salt_len);
 
+HsInt hs_botan_bcrypt_generate(uint8_t *out, const char *pwd, HsInt pwd_off, HsInt pwd_len
+    , botan_rng_t rng, HsInt work_factor, uint32_t flags);
+int hs_botan_bcrypt_is_valid(const char* pwd, HsInt pwd_off, HsInt pwd_len
+    , const char* hash, HsInt hash_off, HsInt hash_len);
+
 // MAC
 
 int hs_botan_mac_set_key(botan_mac_t mac, const uint8_t* key, HsInt key_off, HsInt key_len);

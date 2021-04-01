@@ -13,8 +13,10 @@ import           Z.Data.CBytes      (CBytes)
 import qualified Z.Data.Vector      as V
 import           Prelude            hiding (lines)
 
-parseTestVector :: HasCallStack => P.Parser (x, Bool) -> CBytes -> IO [(V.Bytes, x)]
-parseTestVector p path  = do
+-- | Parse test data vector files.
+-- See `./third_party/botan/src/tests/data/`.
+parseNamedTestVector :: HasCallStack => P.Parser (x, Bool) -> CBytes -> IO [(V.Bytes, x)]
+parseNamedTestVector p path  = do
     withResource (FS.initFile path FS.O_RDONLY FS.DEFAULT_FILE_MODE) $ \ f -> do
         bi <- newBufferedInput f
         let loopRead = do
@@ -36,15 +38,15 @@ parseTestVector p path  = do
 
 -- | Parse @key = value@ or @key  = value@ or @key =@ line
 parseKeyValueLine :: V.Bytes -> P.Parser V.Bytes
-parseKeyValueLine k1 =
-    (do P.bytes k1
-        P.skipWhile (== SPACE)
-        P.word8 EQUAL
-        P.skipWhile (== SPACE)
-        P.takeWhile (/= NEWLINE))
+parseKeyValueLine k1 = do
+    P.bytes k1
+    P.skipWhile (== SPACE)
+    P.word8 EQUAL
+    P.skipWhile (== SPACE)
+    P.takeWhile (/= NEWLINE)
 
 parseHashTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, V.Bytes)])]
-parseHashTestVector = parseTestVector (go [])
+parseHashTestVector = parseNamedTestVector (go [])
   where
     go acc = do
       P.skipWhile (\ w -> w /= LETTER_I && w /= BRACKET_LEFT && w /= HASH)
@@ -63,7 +65,7 @@ parseHashTestVector = parseTestVector (go [])
               go ((hexDecode' i, hexDecode' o):acc)
 
 parseBlockCipherTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, V.Bytes, V.Bytes)])]
-parseBlockCipherTestVector = parseTestVector (go [])
+parseBlockCipherTestVector = parseNamedTestVector (go [])
   where
     go acc = do
       P.skipWhile (\ w -> w /= LETTER_K && w /= BRACKET_LEFT && w /= HASH)
@@ -84,7 +86,7 @@ parseBlockCipherTestVector = parseTestVector (go [])
               go ((hexDecode' key, hexDecode' i, hexDecode' o):acc)
 
 parseCipherModeTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, V.Bytes, V.Bytes, V.Bytes)])]
-parseCipherModeTestVector = parseTestVector (go [])
+parseCipherModeTestVector = parseNamedTestVector (go [])
   where
     go acc = do
       P.skipWhile (\ w -> w /= LETTER_K && w /= LETTER_N && w /= BRACKET_LEFT && w /= HASH)
@@ -116,7 +118,7 @@ parseCipherModeTestVector = parseTestVector (go [])
               go ((hexDecode' key, hexDecode' nonce, hexDecode' i, hexDecode' o):acc)
 
 parseCipherAEADTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, V.Bytes, V.Bytes, V.Bytes, V.Bytes)])]
-parseCipherAEADTestVector = parseTestVector (go [])
+parseCipherAEADTestVector = parseNamedTestVector (go [])
   where
     go acc = do
       P.skipWhile (\ w -> w /= LETTER_K && w /= LETTER_N && w /= BRACKET_LEFT && w /= HASH)
@@ -148,3 +150,49 @@ parseCipherAEADTestVector = parseTestVector (go [])
               P.skipWord8
               o <- parseKeyValueLine "Out"
               go ((hexDecode' key, hexDecode' nonce, hexDecode' i, hexDecode' ad, hexDecode' o):acc)
+
+
+-- | Parse test data vector files.
+-- See `./third_party/botan/src/tests/data/`.
+parseTestVector ::
+  HasCallStack =>
+  -- | (txt, eof)
+  P.Parser ([x], Bool) ->
+  -- | path
+  CBytes ->
+  IO [x]
+parseTestVector p path = do
+  withResource (FS.initFile path FS.O_RDONLY FS.DEFAULT_FILE_MODE) $ \f -> do
+    bi <- newBufferedInput f
+    let loopRead = do
+          (txt, eof) <- readParser p bi
+          if eof
+            then return txt
+            else do
+              rest <- loopRead
+              return $ txt ++ rest
+    loopRead
+
+-- | Parse test data vectors of the form:
+--    -- @Password = @
+--    -- @Passhash = @
+-- See `./third_party/botan/src/tests/data/passhash/bcrypt.vec`.
+parsePasswdHashTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, V.Bytes)]
+parsePasswdHashTestVector = parseTestVector $ h []
+  where
+    h acc = do
+      P.skipWhile $ \c ->
+        c /= LETTER_P -- goto @Password = @ or @Passhash = @
+          && c /= HASH -- deal with comment
+      c <- P.peekMaybe
+      case c of
+        Nothing -> pure (acc, True) -- end of file
+        Just HASH -> do
+          P.skipWhile (/= NEWLINE) -- line comment
+          P.skipWord8 -- skip @\n@
+          h acc
+        _ -> do
+          passwd <- parseKeyValueLine "Password"
+          P.skipWord8
+          passhash <- parseKeyValueLine "Passhash"
+          h $ (hexDecode' passwd, passhash) : acc

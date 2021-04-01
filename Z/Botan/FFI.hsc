@@ -199,11 +199,11 @@ foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> IO CInt
 
 foreign import ccall safe "hs_botan_pwdhash_timed"
-    hs_botan_pwdhash_timed_safe :: BA## Word8
+    hs_botan_pwdhash_timed_safe :: Ptr Word8
                                 -> Int
-                                -> MBA## Word8 -> Int
-                                -> BA## Word8 -> Int -> Int
-                                -> BA## Word8 -> Int -> Int
+                                -> Ptr Word8 -> Int
+                                -> Ptr Word8 -> Int -> Int
+                                -> Ptr Word8 -> Int -> Int
                                 -> IO CInt
 
 --------------------------------------------------------------------------------
@@ -216,6 +216,20 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
                                          -> BA## Word8 -> Int -> Int
                                          -> IO CInt
 
+
+--------------------------------------------------------------------------------
+-- Password Hashing
+
+foreign import ccall unsafe hs_botan_bcrypt_generate :: MBA## Word8 
+                                                     -> BA## Word8 -> Int -> Int
+                                                     -> BotanStructT
+                                                     -> Int
+                                                     -> Word32
+                                                     -> IO Int
+
+foreign import ccall unsafe hs_botan_bcrypt_is_valid :: BA## Word8 -> Int -> Int 
+                                                     -> BA## Word8 -> Int -> Int
+                                                     -> IO CInt
 
 ---------------------------------------------------------------------------------
 -- MAC
@@ -236,18 +250,6 @@ foreign import ccall unsafe hs_botan_mac_clear :: BotanStructT -> IO CInt
 foreign import ccall unsafe hs_botan_mac_name ::  BotanStructT -> MBA## Word8 -> MBA## Int -> IO CInt
 
 foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT -> MBA## Int -> MBA## Int -> MBA## Int -> IO CInt
-
---------------------------------------------------------------------------------
--- Password Hashing
-
-foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> MBA## Int
-                                                  -> BA## Word8
-                                                  -> BotanStructT
-                                                  -> Int
-                                                  -> Word32
-                                                  -> IO CInt
-
-foreign import ccall unsafe botan_bcrypt_is_valid :: BA## Word8 -> BA## Word8 -> IO CInt
 
 --------------------------------------------------------------------------------
 -- Public Key Creation, Import and Export (at Z.Crypto.PubKey)
