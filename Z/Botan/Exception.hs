@@ -50,7 +50,7 @@ botanExceptionFromException x = do
     SomeBotanException a <- fromException x
     cast a
 
-#define BotanE(e) data e = e CInt deriving (Show, Eq);  \
+#define BotanE(e) data e = e CInt CallStack deriving Show;  \
            instance Exception e where                     \
                { toException = botanExceptionToException     \
                ; fromException = botanExceptionFromException \
@@ -72,29 +72,32 @@ BotanE(InvalidObject)
 BotanE(UnknownError)
 
 
-throwBotanIfMinus :: Integral a => IO a -> IO a
+throwBotanIfMinus :: (HasCallStack, Integral a) => IO a -> IO a
 throwBotanIfMinus f = do
     r <- f
-    when (r < 0) (throwBotanError (fromIntegral r))
+    when (r < 0) (throwBotanError_ (fromIntegral r) callStack)
     return r
 
-throwBotanIfMinus_ :: Integral a => IO a -> IO ()
+throwBotanIfMinus_ :: (HasCallStack, Integral a) => IO a -> IO ()
 throwBotanIfMinus_ f = do
     r <- f
-    when (r < 0) (throwBotanError (fromIntegral r))
+    when (r < 0) (throwBotanError_ (fromIntegral r) callStack)
 
-throwBotanError :: CInt -> IO ()
-throwBotanError r =  case r of
-    BOTAN_FFI_ERROR_INVALID_INPUT             -> throw (InvalidInput r)
-    BOTAN_FFI_ERROR_BAD_MAC                   -> throw (BadMac r)
-    BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE -> throw (InsufficientBufferSpace r)
-    BOTAN_FFI_ERROR_EXCEPTION_THROWN          -> throw (ExceptionThrown r)
-    BOTAN_FFI_ERROR_OUT_OF_MEMORY             -> throw (OutOfMemory r)
-    BOTAN_FFI_ERROR_BAD_FLAG                  -> throw (BadFlag r)
-    BOTAN_FFI_ERROR_NULL_POINTER              -> throw (NullPointer r)
-    BOTAN_FFI_ERROR_BAD_PARAMETER             -> throw (BadParameter r)
-    BOTAN_FFI_ERROR_KEY_NOT_SET               -> throw (KeyNotSet r)
-    BOTAN_FFI_ERROR_INVALID_KEY_LENGTH        -> throw (InvalidKeyLength r)
-    BOTAN_FFI_ERROR_NOT_IMPLEMENTED           -> throw (NotImplemented r)
-    BOTAN_FFI_ERROR_INVALID_OBJECT            -> throw (InvalidObject r)
-    _                                         -> throw (UnknownError r)
+throwBotanError :: HasCallStack => CInt -> IO ()
+throwBotanError r = throwBotanError_ r callStack
+
+throwBotanError_ :: CInt -> CallStack -> IO ()
+throwBotanError_ r cs =  case r of
+    BOTAN_FFI_ERROR_INVALID_INPUT             -> throw (InvalidInput r cs)
+    BOTAN_FFI_ERROR_BAD_MAC                   -> throw (BadMac r cs)
+    BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE -> throw (InsufficientBufferSpace r cs)
+    BOTAN_FFI_ERROR_EXCEPTION_THROWN          -> throw (ExceptionThrown r cs)
+    BOTAN_FFI_ERROR_OUT_OF_MEMORY             -> throw (OutOfMemory r cs)
+    BOTAN_FFI_ERROR_BAD_FLAG                  -> throw (BadFlag r cs)
+    BOTAN_FFI_ERROR_NULL_POINTER              -> throw (NullPointer r cs)
+    BOTAN_FFI_ERROR_BAD_PARAMETER             -> throw (BadParameter r cs)
+    BOTAN_FFI_ERROR_KEY_NOT_SET               -> throw (KeyNotSet r cs)
+    BOTAN_FFI_ERROR_INVALID_KEY_LENGTH        -> throw (InvalidKeyLength r cs)
+    BOTAN_FFI_ERROR_NOT_IMPLEMENTED           -> throw (NotImplemented r cs)
+    BOTAN_FFI_ERROR_INVALID_OBJECT            -> throw (InvalidObject r cs)
+    _                                         -> throw (UnknownError r cs)

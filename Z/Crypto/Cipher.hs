@@ -16,14 +16,15 @@ A block cipher by itself, is only able to securely encrypt a single data block. 
 -}
 module Z.Crypto.Cipher
   ( -- * Block Cipher
-    BlockCipher, blockCipherSize, blockCipherKeySpec
-  , BlockCipherType(..), StreamCipherType(..)
+    BlockCipherType(..)
+  , BlockCipher(..)
   , newBlockCipher, setBlockCipherKey, clearBlockCipher
   , encryptBlocks, decryptBlocks
-    -- * Cipher
-  , Cipher, CipherMode(..), CipherDirection(..)
-  , cipherUpdateGranularity, cipherKeySpec, cipherTagLength, defaultNonceLength
-  , newCipher, setCipherKey, clearCipher, resetCipher, setAssociatedData
+    -- * Stream Cipher & Cipher Mode
+  , StreamCipherType(..), newStreamCipher
+  , CipherMode(..), CipherDirection(..), Cipher(..), newCipher
+    -- * Cipher operations
+  , setCipherKey, clearCipher, resetCipher, setAssociatedData
   , startCipher, updateCipher, finishCipher, cipherBIO
     -- * Internal helps
   , blockCipherTypeToCBytes
@@ -35,7 +36,7 @@ import           GHC.Generics
 import           Z.Botan.Exception
 import           Z.Data.CBytes          as CB
 import           Z.Data.JSON            (JSON)
-import qualified Z.Data.Vector          as V
+import qualified Z.Data.Vector.Base     as V
 import qualified Z.Data.Vector.Extra    as V
 import qualified Z.Data.Text            as T
 import           Z.Foreign
@@ -295,6 +296,7 @@ decryptBlocks (BlockCipher bc blockSiz _) blocks n = do
 
 --------------------------------------------------------------------------------
 
+-- | In contrast to block ciphers, stream ciphers operate on a plaintext stream instead of blocks. Thus encrypting data results in changing the internal state of the cipher and encryption of plaintext with arbitrary length is possible in one go (in byte amounts).
 data StreamCipherType
       -- | A cipher mode that converts a block cipher into a stream cipher.
       --  It offers parallel execution and can seek within the output stream, both useful properties.
@@ -333,6 +335,33 @@ streamCipherTypeToCBytes s = case s of
     Salsa20 -> "Salsa20"
     SHAKE128' ->  "SHAKE-128"
     RC4 -> "RC4"
+
+-- | Create a new stream cipher.
+--
+newStreamCipher :: HasCallStack => StreamCipherType -> CipherDirection -> IO Cipher
+newStreamCipher typ dir = do
+    ci <- newBotanStruct
+        (\ bts -> withCBytesUnsafe (streamCipherTypeToCBytes typ) $ \ pb ->
+            botan_cipher_init bts pb (cipherDirectionToFlag dir))
+        botan_cipher_destroy
+
+    withBotanStruct ci $ \ pci -> do
+        (g, _) <- allocPrimUnsafe $ \ pg ->
+            botan_cipher_get_update_granularity pci pg
+
+        (a, (b, (c, _))) <- allocPrimUnsafe $ \ pa ->
+            allocPrimUnsafe $ \ pb ->
+                allocPrimUnsafe $ \ pc ->
+                    throwBotanIfMinus_
+                        (botan_cipher_get_keyspec pci pa pb pc)
+
+        (t, _) <- allocPrimUnsafe $ \ pt ->
+            botan_cipher_get_tag_length pci pt
+
+        (n, _) <- allocPrimUnsafe $ \ pn ->
+            botan_cipher_get_default_nonce_length pci pn
+
+        return (Cipher ci g (a,b,c) t n)
 
 --------------------------------------------------------------------------------
 --
@@ -405,7 +434,7 @@ data CipherMode
     -- CFB uses a block cipher to create a self-synchronizing stream cipher.
     -- It is used for example in the OpenPGP protocol. There is no reason to prefer it,
     -- as it has worse performance characteristics than modes such as CTR or CBC.
-    | CFB BlockCipherType
+    | CFB BlockCipherType Int
     -- | XTS
     --
     -- XTS is a mode specialized for encrypting disk or database storage where ciphertext expansion
@@ -457,7 +486,12 @@ cipherTypeToCBytes ct = case ct of
     EAX        bct -> blockCipherTypeToCBytes bct <> "/EAX"
     SIV        bct -> blockCipherTypeToCBytes bct <> "/SIV"
     CCM        bct -> blockCipherTypeToCBytes bct <> "/CCM"
-    CFB             bct -> blockCipherTypeToCBytes bct <> "/CFB"
+    CFB           bct 0 -> blockCipherTypeToCBytes bct <> "/CFB"
+    CFB           bct x -> CB.concat [ blockCipherTypeToCBytes bct
+                                     , "/CFB("
+                                     , CB.fromText (T.toText x)
+                                     , ")"
+                                     ]
     XTS             bct -> blockCipherTypeToCBytes bct <> "/XTS"
     CBC_PKCS7       bct -> blockCipherTypeToCBytes bct <> "/CBC/PKCS7"
     CBC_OneAndZeros bct -> blockCipherTypeToCBytes bct <> "/CBC/OneAndZeros"
@@ -479,7 +513,7 @@ data Cipher = Cipher
 
 -- | Create a new cipher.
 --
-newCipher :: CipherMode -> CipherDirection -> IO Cipher
+newCipher :: HasCallStack => CipherMode -> CipherDirection -> IO Cipher
 newCipher typ dir = do
     ci <- newBotanStruct
         (\ bts -> withCBytesUnsafe (cipherTypeToCBytes typ) $ \ pb ->
@@ -578,11 +612,14 @@ finishCipher :: HasCallStack
 finishCipher (Cipher ci ug _ tag_len _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
-            let !out_len = max in_len ug + tag_len
-            (out, r) <- allocPrimVectorUnsafe out_len $ \ out_p ->
+            let !out_len = in_len + ug + tag_len
+            ((V.PrimVector pa s _), r) <- allocPrimVectorUnsafe out_len $ \ out_p -> do
                 throwBotanIfMinus (hs_botan_cipher_finish pci
                     out_p out_len in_p in_off in_len)
-            return (V.unsafeTake r out)
+            mpa <- unsafeThawPrimArray pa
+            shrinkMutablePrimArray mpa r
+            pa' <- unsafeFreezePrimArray mpa
+            return (V.PrimVector pa' s r)
 
 -- | Wrap a cipher into a 'BIO' node.
 --
@@ -591,7 +628,7 @@ finishCipher (Cipher ci ug _ tag_len _) input =
 -- Note some cipher modes have a minimal input length requirement for last chunk(CBC_CTS, XTS, etc.),
 -- which may not be suitable for arbitrary bytes streams.
 --
-cipherBIO :: Cipher -> IO (BIO V.Bytes V.Bytes)
+cipherBIO :: HasCallStack => Cipher -> IO (BIO V.Bytes V.Bytes)
 cipherBIO c = do
     trailingRef <- newIORef V.empty
     return (BIO (push_ trailingRef) (pull_ trailingRef))

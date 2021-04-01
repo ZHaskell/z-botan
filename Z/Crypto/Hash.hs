@@ -248,7 +248,7 @@ sha256AndMd5File f =
         return (HexBytes h1, HexBytes h2)
 @
 -}
-sinkToHash :: Hash -> Sink V.Bytes
+sinkToHash :: HasCallStack => Hash -> Sink V.Bytes
 {-# INLINABLE sinkToHash #-}
 sinkToHash h = BIO push_ pull_
   where
