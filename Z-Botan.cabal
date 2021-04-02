@@ -67,13 +67,11 @@ library
 
     install-includes:       hs_botan.h
 
+    cc-sources:             cbits/hs_botan.c
+    cc-options:             -march=native
+    
     cxx-sources:            third_party/botan/botan_all.cpp
-                            cbits/hs_botan.c
-
-    if os(windows)
-        cxx-options:            -std=c++11 -march=native -fno-asynchronous-unwind-tables
-    else
-        cxx-options:            -std=c++11 -march=native
+    cxx-options:            -std=c++11 -march=native
 
     if os(osx)
         extra-libraries:    c++
