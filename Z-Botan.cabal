@@ -145,7 +145,8 @@ test-suite Z-Botan-Test
                           , QuickCheck              >= 2.10
                           , quickcheck-instances
 
-    other-modules:          Z.Crypto.CipherSpec 
+    other-modules:          Utils
+                            Z.Crypto.CipherSpec 
                             Z.Crypto.HashSpec
                             Z.Crypto.PwdHashSpec
 
