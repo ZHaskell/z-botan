@@ -73,6 +73,7 @@ library
     cxx-sources:            third_party/botan/botan_all.cpp
 
     if os(windows)
+        extra-libraries:    Ws2_32, crypt32
         cxx-options:        -std=c++11 -march=native
                             -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18 -ffixed-xmm19
                             -ffixed-xmm20 -ffixed-xmm21 -ffixed-xmm22 -ffixed-xmm23
