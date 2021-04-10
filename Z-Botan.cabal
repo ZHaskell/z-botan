@@ -67,15 +67,20 @@ library
 
     install-includes:       hs_botan.h
 
-    c-sources:              cbits/hs_botan.c
+    c-sources:             cbits/hs_botan.c
+    cc-options:             -march=native
+    
     cxx-sources:            third_party/botan/botan_all.cpp
 
-    cc-options:             -march=native
-
     if os(windows)
-        cxx-options:            -std=c++11 -march=native -fno-asynchronous-unwind-tables
+        extra-libraries:    Ws2_32, crypt32
+        cxx-options:        -std=c++11 -march=native
+                            -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18 -ffixed-xmm19
+                            -ffixed-xmm20 -ffixed-xmm21 -ffixed-xmm22 -ffixed-xmm23
+                            -ffixed-xmm24 -ffixed-xmm25 -ffixed-xmm26 -ffixed-xmm27
+                            -ffixed-xmm28 -ffixed-xmm29 -ffixed-xmm30 -ffixed-xmm31
     else
-        cxx-options:            -std=c++11 -march=native
+        cxx-options:        -std=c++11 -march=native
 
     if os(osx)
         extra-libraries:    c++
@@ -140,7 +145,10 @@ test-suite Z-Botan-Test
                           , QuickCheck              >= 2.10
                           , quickcheck-instances
 
-    other-modules:
+    other-modules:          Utils
+                            Z.Crypto.CipherSpec 
+                            Z.Crypto.HashSpec
+                            Z.Crypto.PwdHashSpec
 
     ghc-options:            -threaded
     default-language:       Haskell2010
