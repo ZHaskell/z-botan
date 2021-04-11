@@ -1,14 +1,16 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-
 
 module Utils where
 
 import           Control.Applicative
+import           Control.Monad
 import           Z.IO
 import qualified Z.IO.FileSystem    as FS
 import           Z.Data.ASCII
 import           Z.Data.Vector.Hex
 import qualified Z.Data.Parser      as P
+import           Z.Data.Parser.Numeric (decLoopIntegerFast)
 import           Z.Data.CBytes      (CBytes)
 import qualified Z.Data.Vector      as V
 import           Prelude            hiding (lines)
@@ -43,7 +45,8 @@ parseKeyValueLine k1 = do
     P.skipWhile (== SPACE)
     P.word8 EQUAL
     P.skipWhile (== SPACE)
-    P.takeWhile (/= NEWLINE)
+    -- some lines contains trailing spaces, e.g., tls_prf.vec
+    V.dropWhileR isSpace <$> P.takeWhile (/= NEWLINE)
 
 parseHashTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, V.Bytes)])]
 parseHashTestVector = parseNamedTestVector (go [])
@@ -196,3 +199,119 @@ parsePasswdHashTestVector = parseTestVector $ h []
           P.skipWord8
           passhash <- parseKeyValueLine "Passhash"
           h $ (hexDecode' passwd, passhash) : acc
+
+-- | Parse test data vectors of the form
+--
+--    -- @Salt == @
+--    -- @Label == @
+--    -- @Secret == @
+--    -- @Output == @
+--
+-- and (unused) possible
+--
+--    -- @IKM == @
+--    -- @XTS == @
+--
+-- See `./third_party/botan/src/tests/data/kdf/hkdf.vec`.
+parseKDFTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, V.Bytes, V.Bytes, V.Bytes)])]
+parseKDFTestVector = parseNamedTestVector (go [])
+  where
+    go acc = do
+      P.skipWhile (\ w -> w /= LETTER_S
+                       && w /= LETTER_L
+                       && w /= LETTER_O
+                       && w /= LETTER_I
+                       && w /= LETTER_X
+                       && w /= BRACKET_LEFT && w /= HASH)
+      w <- P.peekMaybe
+      case w of
+          Nothing -> return (acc, True)
+          Just HASH -> do
+              P.skipWhile (/= NEWLINE)
+              P.skipWord8
+              go acc
+          Just BRACKET_LEFT -> return (acc, False)
+          _ -> do
+              -- skip possible IKM and XTS
+              ikm <- parseKeyValueLine "IKM" <|> pure mempty
+              unless (V.null ikm)
+                  P.skipWord8
+              xts <- parseKeyValueLine "XTS" <|> pure mempty
+              unless (V.null xts)
+                  P.skipWord8
+              salt <- parseKeyValueLine "Salt" <|> pure mempty
+              -- and here the salt's value may be empty...: in the format: Salt = <\n>.
+              P.peekMaybe >>= \case Just NEWLINE -> P.skipWord8
+                                    _            -> return ()
+              label <- parseKeyValueLine "Label" <|> pure mempty
+              unless (V.null label)
+                  P.skipWord8
+              secret <- parseKeyValueLine "Secret"
+              P.skipWord8
+              -- in some test data files the "salt" is placed after "secret", e.g., "kdf1.vec"
+              salt <- if V.null salt
+                         then do salt <- parseKeyValueLine "Salt" <|> pure mempty
+                                 -- and here the salt's value may be empty...: in the format: Salt = <\n>.
+                                 P.peekMaybe >>= \case Just NEWLINE -> P.skipWord8
+                                                       _            -> return ()
+                                 return salt
+                         else return salt
+              -- in some test data files the "label" is placed after "secret", e.g., "sp800_56a.vec"
+              label <- if V.null label
+                         then do label <- parseKeyValueLine "Label" <|> pure mempty
+                                 unless (V.null label)
+                                     P.skipWord8
+                                 return label
+                         else return label
+              o <- parseKeyValueLine "Output"
+              go ((hexDecode' salt, hexDecode' label, hexDecode' secret, hexDecode' o):acc)
+
+-- | Parse test data vectors of the form
+--
+--    -- @Salt == @
+--    -- @Iterations == @
+--    -- @Passphrase == @
+--    -- @Output == @
+--
+-- See `./third_party/botan/src/tests/data/pbkdf/pbkdf1.vec`.
+parsePBKDFTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, Int, V.Bytes, V.Bytes)])]
+parsePBKDFTestVector = parseNamedTestVector (go [])
+  where
+    go acc = do
+      P.skipWhile (\ w -> w /= LETTER_S
+                       && w /= LETTER_I
+                       && w /= LETTER_P
+                       && w /= LETTER_O
+                       && w /= BRACKET_LEFT && w /= HASH)
+      w <- P.peekMaybe
+      case w of
+          Nothing -> return (acc, True)
+          Just HASH -> do
+              P.skipWhile (/= NEWLINE)
+              P.skipWord8
+              go acc
+          Just BRACKET_LEFT -> return (acc, False)
+          _ -> do
+              -- in some cases the "Salt" and "Iterations" is after "Passphrase"
+              salt <- parseKeyValueLine "Salt" <|> pure mempty
+              P.peekMaybe >>= \case Just NEWLINE -> P.skipWord8
+                                    _            -> return ()
+              iter <- parseKeyValueLine "Iterations" <|> pure mempty
+              P.peekMaybe >>= \case Just NEWLINE -> P.skipWord8
+                                    _            -> return ()
+              passphrase <- parseKeyValueLine "Passphrase"
+              P.skipWord8
+              salt <- if V.null salt
+                         then do salt <- parseKeyValueLine "Salt" <|> pure mempty
+                                 P.peekMaybe >>= \case Just NEWLINE -> P.skipWord8
+                                                       _            -> return ()
+                                 return salt
+                         else return salt
+              iter <- if V.null iter
+                         then do iter <- parseKeyValueLine "Iterations" <|> pure mempty
+                                 P.peekMaybe >>= \case Just NEWLINE -> P.skipWord8
+                                                       _            -> return ()
+                                 return iter
+                         else return iter
+              o <- parseKeyValueLine "Output"
+              go ((hexDecode' salt, (fromIntegral . decLoopIntegerFast) iter, passphrase, hexDecode' o):acc)

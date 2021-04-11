@@ -11,11 +11,11 @@ import Z.Crypto.PwdHash
 import Z.Crypto.RNG (RNGType (SystemRNG), newRNG)
 
 spec :: Spec
-spec = describe "Crypto.PasswdHash" $ do
-  it "Bcrypt" $ do
-    tvMap <- parsePasswdHashTestVector "./third_party/botan/src/tests/data/passhash/bcrypt.vec"
-    forM_ tvMap $ \ (passwd, passhash) -> do
-      rng <- newRNG SystemRNG
-      ret <- genBcrypt passwd rng 8
-      b <- validBcrypt passwd passhash
-      b @?= True
+spec = describe "Crypto.PwdHash" $ do
+    it "Bcrypt" $ do
+        tvMap <- parsePasswdHashTestVector "./third_party/botan/src/tests/data/passhash/bcrypt.vec"
+        forM_ tvMap $ \ (passwd, passhash) -> do
+            rng <- newRNG SystemRNG
+            ret <- genBcrypt passwd rng 8
+            b <- validBcrypt passwd passhash
+            b @?= True
