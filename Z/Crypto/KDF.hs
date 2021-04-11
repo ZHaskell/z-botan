@@ -13,8 +13,10 @@ KDF(Key Derivation Function) and PBKDF(Password Based Key Derivation Function).
 module Z.Crypto.KDF (
   -- * KDF
     KDFType(..)
+  , BlockCipherType (..)
   , HashType(..)
   , kdf
+  , kdf'
   -- * PBKDF
   , PBKDFType(..)
   , pbkdf
@@ -24,6 +26,7 @@ module Z.Crypto.KDF (
   , pBKDFTypeToParam
   ) where
 
+import Z.Crypto.Cipher (BlockCipherType (..), blockCipherTypeToCBytes)
 import Z.Crypto.Hash
 import Z.Botan.FFI
 import Z.Data.CBytes (CBytes, withCBytesUnsafe, withCBytes)
@@ -55,9 +58,15 @@ data KDFType
     -- ^
     | TLS_12_PRF HashType
     | SP800_108_Counter HashType
+    | SP800_108_Counter' BlockCipherType
     | SP800_108_Feedback HashType
+    | SP800_108_Feedback' BlockCipherType
     | SP800_108_Pipeline HashType
-    | SP800_56A HashType
+    | SP800_108_Pipeline' BlockCipherType
+    | SP800_56AHash HashType
+    -- ^ NIST SP 800-56A KDF using hash function
+    | SP800_56AHMAC HashType
+    -- ^ NIST SP 800-56A KDF using HMAC
     | SP800_56C HashType
 
 kDFTypeToCBytes :: KDFType -> CBytes
@@ -69,11 +78,15 @@ kDFTypeToCBytes (KDF1_18033 ht  ) = CB.concat [ "KDF1-18033(" , hashTypeToCBytes
 kDFTypeToCBytes (KDF1 ht        ) = CB.concat [ "KDF1(" , hashTypeToCBytes ht, ")"]
 kDFTypeToCBytes (TLS_PRF        ) = "TLS-PRF"
 kDFTypeToCBytes (TLS_12_PRF ht  ) = CB.concat [ "TLS-12-PRF(" , hashTypeToCBytes ht, ")"]
-kDFTypeToCBytes (SP800_108_Counter  ht) = CB.concat [ "SP800-108-Counter(" , hashTypeToCBytes ht, ")"]
-kDFTypeToCBytes (SP800_108_Feedback ht) = CB.concat [ "SP800-108-Feedback(" , hashTypeToCBytes ht, ")"]
-kDFTypeToCBytes (SP800_108_Pipeline ht) = CB.concat [ "SP800-108-Pipeline(" , hashTypeToCBytes ht, ")"]
-kDFTypeToCBytes (SP800_56A ht         ) = CB.concat [ "SP800-56A(" , hashTypeToCBytes ht, ")"]
-kDFTypeToCBytes (SP800_56C ht         ) = CB.concat [ "SP800-56C(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_108_Counter ht  ) = CB.concat [ "SP800-108-Counter(HMAC(" , hashTypeToCBytes ht, "))"]
+kDFTypeToCBytes (SP800_108_Counter' ct ) = CB.concat [ "SP800-108-Counter(CMAC(" , blockCipherTypeToCBytes ct, "))"]
+kDFTypeToCBytes (SP800_108_Feedback ht ) = CB.concat [ "SP800-108-Feedback(HMAC(" , hashTypeToCBytes ht, "))"]
+kDFTypeToCBytes (SP800_108_Feedback' ct) = CB.concat [ "SP800-108-Feedback(CMAC(" , blockCipherTypeToCBytes ct, "))"]
+kDFTypeToCBytes (SP800_108_Pipeline ht ) = CB.concat [ "SP800-108-Pipeline(HMAC(" , hashTypeToCBytes ht, "))"]
+kDFTypeToCBytes (SP800_108_Pipeline' ct) = CB.concat [ "SP800-108-Pipeline(CMAC(" , blockCipherTypeToCBytes ct, "))"]
+kDFTypeToCBytes (SP800_56AHash ht      ) = CB.concat [ "SP800-56A(" , hashTypeToCBytes ht, ")"]
+kDFTypeToCBytes (SP800_56AHMAC ht      ) = CB.concat [ "SP800-56A(HMAC(" , hashTypeToCBytes ht, "))"]
+kDFTypeToCBytes (SP800_56C ht          ) = CB.concat [ "SP800-56C(" , hashTypeToCBytes ht, ")"]
 
 -- | Derive a key using the given KDF algorithm.
 kdf
@@ -97,6 +110,14 @@ kdf algo siz secret salt label =
                                 saltBA saltOff saltLen
                                 labelBA labelOff labelLen)
 
+-- | Derive a key using the given KDF algorithm, with default empty salt and label.
+kdf'
+  :: KDFType    -- ^ the name of the given PBKDF algorithm
+  -> Int        -- ^ length of output key
+  -> V.Bytes    -- ^ secret
+  -> IO V.Bytes
+kdf' algo siz secret = kdf algo siz secret mempty mempty
+
 --------------------------------------------
 -- Password-Based Key Derivation Function --
 --------------------------------------------
@@ -104,6 +125,9 @@ kdf algo siz secret salt label =
 -- | Often one needs to convert a human readable password into a cryptographic key. It is useful to slow down the computation of these computations in order to reduce the speed of brute force search, thus they are parameterized in some way which allows their required computation to be tuned.
 data PBKDFType
     = PBKDF2 HashType Int   -- ^ iterations
+    -- ^ PBKDF2 is the “standard” password derivation scheme,
+    -- widely implemented in many different libraries. It uses HMAC internally.
+    | PBKDF2' BlockCipherType Int   -- ^ iterations
     -- ^ PBKDF2 is the “standard” password derivation scheme,
     -- widely implemented in many different libraries. It uses HMAC internally.
     | Scrypt  Int Int Int   -- ^ N, r, p
@@ -119,7 +143,8 @@ data PBKDFType
     -- ^ The OpenPGP algorithm is weak and strange, and should be avoided unless implementing OpenPGP.
 
 pBKDFTypeToParam :: PBKDFType -> (CBytes, Int, Int, Int)
-pBKDFTypeToParam (PBKDF2 ht i     ) = (CB.concat [ "PBKDF2(" , hashTypeToCBytes ht, ")"], i, 0, 0)
+pBKDFTypeToParam (PBKDF2 ht i     ) = (CB.concat [ "PBKDF2(HMAC(" , hashTypeToCBytes ht, "))"], i, 0, 0)
+pBKDFTypeToParam (PBKDF2' ct i    ) = (CB.concat [ "PBKDF2(CMAC(" , blockCipherTypeToCBytes ct, "))"], i, 0, 0)
 pBKDFTypeToParam (Scrypt n r p    ) = ("Scrypt", n, r, p)
 pBKDFTypeToParam (Argon2d i m p   ) = ("Argon2d", i, m, p)
 pBKDFTypeToParam (Argon2i i m p   ) = ("Argon2i", i, m, p)

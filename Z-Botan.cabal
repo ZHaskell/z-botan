@@ -146,8 +146,9 @@ test-suite Z-Botan-Test
                           , quickcheck-instances
 
     other-modules:          Utils
-                            Z.Crypto.CipherSpec 
+                            Z.Crypto.CipherSpec
                             Z.Crypto.HashSpec
+                            Z.Crypto.KDFSpec
                             Z.Crypto.PwdHashSpec
 
     ghc-options:            -threaded
