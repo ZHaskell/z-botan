@@ -65,17 +65,17 @@ data MACType = CMAC BlockCipherType
              -- Sometimes called the “DES retail MAC”, also standardized in ISO 9797-1.
              -- It is slow and has known attacks. Avoid unless required.
 
-mACTypeToCBytes :: MACType -> CBytes
-mACTypeToCBytes (CMAC bc   ) = CB.concat ["CMAC(", blockCipherTypeToCBytes bc, ")"]
-mACTypeToCBytes (OMAC bc   ) = CB.concat ["OMAC(", blockCipherTypeToCBytes bc, ")"]
-mACTypeToCBytes (GMAC bc   ) = CB.concat ["GMAC(", blockCipherTypeToCBytes bc, ")"]
-mACTypeToCBytes (CBC_MAC bc) = CB.concat ["CBC-MAC(", blockCipherTypeToCBytes bc, ")"]
-mACTypeToCBytes (HMAC ht)    = CB.concat ["HMAC(", hashTypeToCBytes ht, ")"]
-mACTypeToCBytes Poly1305     = "Poly1305"
-mACTypeToCBytes (SipHash r1 r2) = CB.concat ["SipHash(", sizeCBytes r1, ",", sizeCBytes r2, ")"]
+macTypeToCBytes :: MACType -> CBytes
+macTypeToCBytes (CMAC bc   ) = CB.concat ["CMAC(", blockCipherTypeToCBytes bc, ")"]
+macTypeToCBytes (OMAC bc   ) = CB.concat ["OMAC(", blockCipherTypeToCBytes bc, ")"]
+macTypeToCBytes (GMAC bc   ) = CB.concat ["GMAC(", blockCipherTypeToCBytes bc, ")"]
+macTypeToCBytes (CBC_MAC bc) = CB.concat ["CBC-MAC(", blockCipherTypeToCBytes bc, ")"]
+macTypeToCBytes (HMAC ht)    = CB.concat ["HMAC(", hashTypeToCBytes ht, ")"]
+macTypeToCBytes Poly1305     = "Poly1305"
+macTypeToCBytes (SipHash r1 r2) = CB.concat ["SipHash(", sizeCBytes r1, ",", sizeCBytes r2, ")"]
   where
     sizeCBytes = CB.fromText . T.toText
-mACTypeToCBytes X9'19_MAC = "X9.19-MAC"
+macTypeToCBytes X9'19_MAC = "X9.19-MAC"
 
 data MAC = MAC
     { getMACStruct :: BotanStruct
@@ -86,7 +86,7 @@ data MAC = MAC
 -- | Create a new 'MAC' object.
 newMAC :: MACType -> IO MAC
 newMAC typ = do
-    let name = mACTypeToCBytes typ
+    let name = macTypeToCBytes typ
     bs <- newBotanStruct
         (\ bts -> withCBytesUnsafe name $ \ pt ->
             (botan_mac_init bts pt 0))
@@ -102,7 +102,6 @@ setKeyMAC (MAC bts _ _) bs =
     withBotanStruct bts $ \pbts->
         withPrimVectorUnsafe bs $ \pbs off len ->
             throwBotanIfMinus_ (hs_botan_mac_set_key pbts pbs off len)
-
 
 -- | Feed a chunk of input into a 'MAC' object.
 updateMAC :: HasCallStack => MAC -> V.Bytes -> IO ()

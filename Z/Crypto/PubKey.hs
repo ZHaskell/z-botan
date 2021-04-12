@@ -7,7 +7,7 @@ import Data.Word (Word32)
 import Z.Botan.Exception (throwBotanIfMinus_)
 import Z.Botan.FFI
 import Z.Crypto (HashType, hashTypeToCBytes)
-import Z.Crypto.KDF (KDFType, kDFTypeToCBytes)
+import Z.Crypto.KDF (KDFType, kdfTypeToCBytes)
 import Z.Crypto.MPI (MPI, unsafeNewMPI, unsafeWithMPI, withMPI)
 import Z.Crypto.RNG (RNG, withRNG)
 import qualified Z.Data.Builder as B
@@ -681,7 +681,7 @@ newtype PKAgreement = PKAgreement BotanStruct
 newPKAgree :: PrivKey -> KDFType -> KeyOPFMT -> IO PKAgreement
 newPKAgree (PrivKey privKey) kdf fmt = do
   withBotanStruct privKey $ \privKey' ->
-    let kdf' = kDFTypeToCBytes kdf
+    let kdf' = kdfTypeToCBytes kdf
      in withCBytesUnsafe kdf' $ \kdf'' ->
           PKAgreement <$> newBotanStruct (\ret -> botan_pk_op_key_agreement_create ret privKey' kdf'' (keyOPFMTToWord32 fmt)) botan_pk_op_key_agreement_destroy
 
