@@ -136,6 +136,6 @@ spec = do
                         startCipher d nonce
 
                         o' <- finishCipher c i
-                        o' @=? o
+                        o' @?= o
                         i' <- finishCipher d o
-                        i' @=? i
+                        i' @?= i

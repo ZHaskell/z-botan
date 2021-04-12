@@ -59,4 +59,4 @@ spec = describe "Crypto.Hash" $ do
             it (T.unpack $ T.validate algoName) $ do
                 tvMap <- parseHashTestVector =<< "./third_party/botan/src/tests/data/hash/" `FS.join` file
                 tvs <- unwrap' "ENOTFOUND" "no algo found" $ lookup algoName tvMap
-                forM_ tvs $ \ (i, o) -> hash hashType i @=? o
+                forM_ tvs $ \ (i, o) -> hash hashType i @?= o
