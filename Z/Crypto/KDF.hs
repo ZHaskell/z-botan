@@ -159,8 +159,14 @@ pbkdf :: PBKDFType  -- ^ PBKDF algorithm type
       -> V.Bytes    -- ^ salt
       -> IO V.Bytes
 pbkdf typ siz pwd salt = do
+    -- Workaround for implementation detail in botan (in ffi_kdf.cpp, `botan_pwdhash`), where
+    -- when `passphrase_len` == 0, -- it will be assigned as `strlen(passphrase)`.
+    let ppLen = V.length pwd
+        pwdOrNULL = if ppLen == 0
+                       then V.pack [ 0 ] -- '\NUL' terminated
+                       else pwd
     withCBytesUnsafe algo $ \ algoBA ->
-        withPrimVectorUnsafe pwd $ \ pwdBA ppOff ppLen ->
+        withPrimVectorUnsafe pwdOrNULL $ \ pwdBA ppOff _ ->
             withPrimVectorUnsafe salt $ \ saltBA saltOff saltLen -> do
                 fst <$> allocPrimVectorUnsafe siz (\ buf -> do
                     clearMBA buf siz
@@ -180,12 +186,17 @@ pbkdfTimed :: PBKDFType  -- ^ the name of the given PBKDF algorithm
            -> V.Bytes    -- ^ passphrase
            -> V.Bytes    -- ^ salt
            -> IO V.Bytes
-pbkdfTimed typ msec siz pwd s =
+pbkdfTimed typ msec siz pwd s = do
+    -- See also: @pbkdf@.
+    let ppLen = V.length pwd
+        pwdOrNULL = if ppLen == 0
+                       then V.pack [ 0 ] -- '\NUL' terminated
+                       else pwd
     -- we want run it in new OS thread without stop GC from running
     -- if the expected time is too long(>0.1s)
     if msec > 100
     then withCBytes algo $ \algo' ->
-        withPrimVectorSafe pwd $ \pwd' ppLen ->
+        withPrimVectorSafe pwdOrNULL $ \pwd' _ ->
             withPrimVectorSafe s $ \s' sLen ->
                 fst <$> allocPrimVectorSafe siz (\ buf -> do
                     clearPtr buf siz
@@ -195,7 +206,7 @@ pbkdfTimed typ msec siz pwd s =
                             pwd' 0 ppLen
                             s' 0 sLen)
     else withCBytesUnsafe algo $ \algo' ->
-        withPrimVectorUnsafe pwd $ \pwd' ppOff ppLen ->
+        withPrimVectorUnsafe pwdOrNULL $ \pwd' ppOff _ ->
             withPrimVectorUnsafe s $ \s' sOff sLen ->
                 fst <$> allocPrimVectorUnsafe siz (\ buf -> do
                     clearMBA buf siz
