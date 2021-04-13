@@ -315,3 +315,41 @@ parsePBKDFTestVector = parseNamedTestVector (go [])
                          else return iter
               o <- parseKeyValueLine "Output"
               go ((hexDecode' salt, (fromIntegral . decLoopIntegerFast) iter, passphrase, hexDecode' o):acc)
+
+
+-- | Parse test data vectors of the form
+--
+--    -- @IV == @ (possible)
+--    -- @Key == @
+--    -- @In == @
+--    -- @Out == @
+--
+-- See `./third_party/botan/src/tests/data/mac/cbcmac.vec`.
+parseMACTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(Maybe V.Bytes, V.Bytes, V.Bytes, V.Bytes)])]
+parseMACTestVector = parseNamedTestVector (go [])
+  where
+    go acc = do
+      P.skipWhile (\ w -> w /= LETTER_I
+                       && w /= LETTER_K
+                       && w /= LETTER_O
+                       && w /= BRACKET_LEFT && w /= HASH)
+      w <- P.peekMaybe
+      case w of
+          Nothing -> return (acc, True)
+          Just HASH -> do
+              P.skipWhile (/= NEWLINE)
+              P.skipWord8
+              go acc
+          Just BRACKET_LEFT -> return (acc, False)
+          _ -> do
+              -- in some cases the "Salt" and "Iterations" is after "Passphrase"
+              iv <- optional $ parseKeyValueLine "IV"
+              case iv of
+                  Just iv' -> unless (V.null iv') P.skipWord8
+                  Nothing  -> return ()
+              key <- parseKeyValueLine "Key"
+              P.skipWord8
+              in_ <- parseKeyValueLine "In"
+              P.skipWord8
+              o <- parseKeyValueLine "Out"
+              go ((fmap hexDecode' iv, hexDecode' key, hexDecode' in_, hexDecode' o):acc)

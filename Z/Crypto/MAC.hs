@@ -22,7 +22,7 @@ import Z.Botan.FFI
       botan_mac_output_length,
       botan_mac_destroy,
       botan_mac_init,
-      botan_hash_final,
+      botan_mac_final,
       withBotanStruct,
       newBotanStruct )
 import Z.Crypto.Cipher ( blockCipherTypeToCBytes, BlockCipherType )
@@ -115,7 +115,7 @@ finalMAC :: HasCallStack => MAC -> IO V.Bytes
 finalMAC (MAC bts _ siz) =
     withBotanStruct bts $ \ pbts -> do
         fst <$> allocPrimVectorUnsafe siz (\ pout ->
-            throwBotanIfMinus_ (botan_hash_final pbts pout))
+            throwBotanIfMinus_ (botan_mac_final pbts pout))
 
 -- | Reset the state of MAC object back to clean, as if no input has been supplied.
 clearMAC :: HasCallStack => MAC -> IO ()

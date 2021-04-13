@@ -239,11 +239,11 @@ foreign import ccall unsafe "&botan_mac_destroy" botan_mac_destroy :: FunPtr (Bo
 
 foreign import ccall unsafe botan_mac_output_length ::BotanStructT -> MBA## Word8 -> IO CInt
 
+foreign import ccall unsafe botan_mac_final :: BotanStructT -> MBA## Word8 -> IO CInt
+
 foreign import ccall unsafe hs_botan_mac_set_key :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
 
 foreign import ccall unsafe hs_botan_mac_update :: BotanStructT -> BA## Word8 -> Int -> Int-> IO CInt
-
-foreign import ccall unsafe hs_botan_mac_final :: BotanStructT -> BA## Word8 -> Int -> MBA## Word8 -> IO　CInt
 
 foreign import ccall unsafe hs_botan_mac_clear :: BotanStructT -> IO CInt
 

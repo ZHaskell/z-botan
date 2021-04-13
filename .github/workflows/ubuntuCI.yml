@@ -16,6 +16,7 @@ jobs:
     name: Haskell GHC ${{ matrix.ghc }} sample
     env:
         CONFIG: "--enable-tests --enable-benchmarks"
+        BOTAN_FFI_PRINT_EXCEPTIONS: "1"
     steps:
       - uses: actions/checkout@v2
         with:
@@ -36,7 +37,7 @@ jobs:
             ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
           key: ${{ runner.os }}-${{ matrix.ghc }}-${{ matrix.cabal }}-${{ hashFiles('cabal.project.freeze') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.ghc }}-${{ matrix.cabal }}
+            ${{ runner.os }}-${{ matrix.ghc }}-${{ matrix.cabal }}-
 
       - run: cabal v2-configure $CONFIG
       - run: cabal v2-build $CONFIG
