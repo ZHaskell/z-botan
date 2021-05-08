@@ -12,13 +12,13 @@ import           Data.IORef
 import           GHC.Conc
 import           GHC.Generics
 import           System.IO.Unsafe
-import           Z.Botan.FFI
 import           Z.Botan.Exception
+import           Z.Botan.FFI
+import qualified Z.Data.Array      as A
 import           Z.Data.CBytes
-import           Z.Data.JSON         (JSON)
-import qualified Z.Data.Array       as A
-import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text        as T
+import           Z.Data.JSON       (JSON)
+import qualified Z.Data.Text       as T
+import qualified Z.Data.Vector     as V
 import           Z.Foreign
 
 -- | RNG types.
@@ -37,9 +37,9 @@ newRNG typ = RNG <$> newBotanStruct
     (\ bts -> withCBytesUnsafe (rngTypeCBytes typ) (botan_rng_init bts))
     botan_rng_destroy
   where
-    rngTypeCBytes SystemRNG = "system"
+    rngTypeCBytes SystemRNG     = "system"
     rngTypeCBytes AutoSeededRNG = "user"
-    rngTypeCBytes ProcessorRNG = "hwrng"
+    rngTypeCBytes ProcessorRNG  = "hwrng"
 
 -- | Use RNG as a `botan_rng_t` object.
 withRNG :: RNG -> (BotanStructT -> IO a) -> IO a

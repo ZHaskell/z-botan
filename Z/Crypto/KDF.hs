@@ -2,6 +2,7 @@
 Module      : Z.Crypto.KDF
 Description : Key Derivation Functions
 Copyright   : Dong Han, 2021
+              AnJie Dong, 2021
 License     : BSD
 Maintainer  : winterland1989@gmail.com
 Stability   : experimental
@@ -27,15 +28,15 @@ module Z.Crypto.KDF (
   , pbkdfTypeToParam
   ) where
 
-import Z.Crypto.Cipher (BlockCipherType (..))
-import Z.Crypto.Hash (HashType (..), hashTypeToCBytes)
-import Z.Crypto.MAC (MACType (..), macTypeToCBytes)
-import Z.Botan.FFI
-import Z.Data.CBytes (CBytes, withCBytesUnsafe, withCBytes)
-import qualified Z.Data.CBytes as CB
-import qualified Z.Data.Vector as V
-import Z.Foreign
-import Z.Botan.Exception
+import           Z.Botan.Exception
+import           Z.Botan.FFI
+import           Z.Crypto.Cipher   (BlockCipherType (..))
+import           Z.Crypto.Hash     (HashType (..), hashTypeToCBytes)
+import           Z.Crypto.MAC      (MACType (..), macTypeToCBytes)
+import           Z.Data.CBytes     (CBytes, withCBytes, withCBytesUnsafe)
+import qualified Z.Data.CBytes     as CB
+import qualified Z.Data.Vector     as V
+import           Z.Foreign
 
 -----------------------------
 -- Key Derivation Function --
@@ -59,9 +60,10 @@ data KDFType
     | KDF1 HashType
     -- ^ KDF1 from IEEE 1363. It can only produce an output at most the length of the hash function used.
     | TLS_PRF
-    -- ^
+    -- ^ A KDF from ANSI X9.42. Sometimes used for Diffie-Hellman.
     | TLS_12_PRF MACType
     | SP800_108_Counter MACType
+    -- ^ KDFs from NIST SP 800-108. Variants include “SP800-108-Counter”, “SP800-108-Feedback” and “SP800-108-Pipeline”.
     | SP800_108_Feedback MACType
     | SP800_108_Pipeline MACType
     | SP800_56AHash HashType
@@ -69,6 +71,7 @@ data KDFType
     | SP800_56AMAC MACType
     -- ^ NIST SP 800-56A KDF using HMAC
     | SP800_56C MACType
+    -- ^ NIST SP 800-56C KDF using HMAC
 
 kdfTypeToCBytes :: KDFType -> CBytes
 kdfTypeToCBytes (HKDF mt        ) = CB.concat [ "HKDF(" , macTypeToCBytes mt, ")"]

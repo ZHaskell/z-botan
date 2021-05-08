@@ -83,21 +83,21 @@ throwBotanIfMinus_ f = do
     r <- f
     when (r < 0) (throwBotanError_ (fromIntegral r) callStack)
 
-throwBotanError :: HasCallStack => CInt -> IO ()
+throwBotanError :: HasCallStack => CInt -> IO x
 throwBotanError r = throwBotanError_ r callStack
 
-throwBotanError_ :: CInt -> CallStack -> IO ()
+throwBotanError_ :: CInt -> CallStack -> IO x
 throwBotanError_ r cs =  case r of
-    BOTAN_FFI_ERROR_INVALID_INPUT             -> throw (InvalidInput r cs)
-    BOTAN_FFI_ERROR_BAD_MAC                   -> throw (BadMac r cs)
-    BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE -> throw (InsufficientBufferSpace r cs)
-    BOTAN_FFI_ERROR_EXCEPTION_THROWN          -> throw (ExceptionThrown r cs)
-    BOTAN_FFI_ERROR_OUT_OF_MEMORY             -> throw (OutOfMemory r cs)
-    BOTAN_FFI_ERROR_BAD_FLAG                  -> throw (BadFlag r cs)
-    BOTAN_FFI_ERROR_NULL_POINTER              -> throw (NullPointer r cs)
-    BOTAN_FFI_ERROR_BAD_PARAMETER             -> throw (BadParameter r cs)
-    BOTAN_FFI_ERROR_KEY_NOT_SET               -> throw (KeyNotSet r cs)
-    BOTAN_FFI_ERROR_INVALID_KEY_LENGTH        -> throw (InvalidKeyLength r cs)
-    BOTAN_FFI_ERROR_NOT_IMPLEMENTED           -> throw (NotImplemented r cs)
-    BOTAN_FFI_ERROR_INVALID_OBJECT            -> throw (InvalidObject r cs)
-    _                                         -> throw (UnknownError r cs)
+    BOTAN_FFI_ERROR_INVALID_INPUT             -> throwIO (InvalidInput r cs)
+    BOTAN_FFI_ERROR_BAD_MAC                   -> throwIO (BadMac r cs)
+    BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE -> throwIO (InsufficientBufferSpace r cs)
+    BOTAN_FFI_ERROR_EXCEPTION_THROWN          -> throwIO (ExceptionThrown r cs)
+    BOTAN_FFI_ERROR_OUT_OF_MEMORY             -> throwIO (OutOfMemory r cs)
+    BOTAN_FFI_ERROR_BAD_FLAG                  -> throwIO (BadFlag r cs)
+    BOTAN_FFI_ERROR_NULL_POINTER              -> throwIO (NullPointer r cs)
+    BOTAN_FFI_ERROR_BAD_PARAMETER             -> throwIO (BadParameter r cs)
+    BOTAN_FFI_ERROR_KEY_NOT_SET               -> throwIO (KeyNotSet r cs)
+    BOTAN_FFI_ERROR_INVALID_KEY_LENGTH        -> throwIO (InvalidKeyLength r cs)
+    BOTAN_FFI_ERROR_NOT_IMPLEMENTED           -> throwIO (NotImplemented r cs)
+    BOTAN_FFI_ERROR_INVALID_OBJECT            -> throwIO (InvalidObject r cs)
+    _                                         -> throwIO (UnknownError r cs)

@@ -50,8 +50,8 @@ library
                             Z.Crypto
 
     build-depends:          base                    >= 4.12 && <5.0
-                          , Z-Data                  >= 0.7.3 && <0.8
-                          , Z-IO                    == 0.7.*
+                          , Z-Data                  >= 0.8.1 && <0.9
+                          , Z-IO                    == 0.8.*
                           , integer-gmp             == 1.*
                           , ghc-prim                >= 0.5.3
                           , stm                     == 2.5.*

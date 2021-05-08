@@ -1,3 +1,15 @@
+{-|
+Module      : Z.Crypto.MPI
+Description : Multiple Precision Integer
+Copyright   : Dong Han, 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
+
+This module provide Botan's Multiple Precision Integer, featuring constant-time operations, which is suit for cryptograph usage.
+
+-}
 module Z.Crypto.MPI
   ( -- * RNG
     MPI(..), fromCInt, toWord32, byteSize, Z.Crypto.MPI.bitSize
@@ -21,31 +33,28 @@ module Z.Crypto.MPI
 
 import           Control.Monad
 import           Data.Bits
+import qualified Data.Scientific           as Scientific
 import           Data.Word
-import qualified Data.Scientific                    as Scientific
 import           GHC.Exts
-import           GHC.Integer.GMP.Internals
 import           GHC.Generics
+import           GHC.Integer.GMP.Internals
 import           GHC.Real
-import System.IO.Unsafe ( unsafeDupablePerformIO )
-import           Z.Data.ASCII
-import           Z.Botan.FFI
+import           System.IO.Unsafe          (unsafeDupablePerformIO)
 import           Z.Botan.Exception
-import           Z.Data.JSON                        (JSON(..), Value(..), withBoundedScientific, fail')
-import qualified Z.Data.Array                       as A
-import qualified Z.Data.Builder                     as B
-import qualified Z.Data.Parser                      as P
-import qualified Z.Data.Vector.Base                 as V
-import qualified Z.Data.Text                        as T
+import           Z.Botan.FFI
 import           Z.Crypto.RNG
-import Z.Foreign
-    ( CInt,
-      PrimArray(..),
-      newPrimArray,
-      unsafeFreezePrimArray,
-      MutablePrimArray(MutablePrimArray),
-      CSize,
-      allocPrimUnsafe )
+import qualified Z.Data.Array              as A
+import           Z.Data.ASCII
+import qualified Z.Data.Builder            as B
+import           Z.Data.JSON               (JSON (..), Value (..), fail',
+                                            withBoundedScientific)
+import qualified Z.Data.Parser             as P
+import qualified Z.Data.Text               as T
+import qualified Z.Data.Vector.Base        as V
+import           Z.Foreign                 (CInt, CSize,
+                                            MutablePrimArray (MutablePrimArray),
+                                            PrimArray (..), allocPrimUnsafe,
+                                            newPrimArray, unsafeFreezePrimArray)
 
 -- | Opaque Botan Multiple Precision Integers.
 newtype MPI = MPI BotanStruct
