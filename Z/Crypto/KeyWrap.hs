@@ -5,6 +5,7 @@ import           Z.Botan.Exception
 import           Z.Botan.FFI
 import qualified Z.Data.ASCII      as C
 import qualified Z.Data.Vector     as V
+import qualified Z.Data.Vector.Hex as H
 import           Z.Foreign
 
 maxWrappedKeySiz :: Int

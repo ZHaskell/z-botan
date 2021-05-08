@@ -613,5 +613,5 @@ foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStruct
 
 foreign import ccall unsafe hs_botan_key_wrap3394 :: BA## Word8 -> Int -> Int
                                                   -> BA## Word8 -> Int -> Int
-                                                  -> MBA## Word8 -> MBA## Int
+                                                  -> MBA## Word8 -> MBA## CSize
                                                   -> IO CInt
