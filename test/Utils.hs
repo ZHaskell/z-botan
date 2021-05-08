@@ -353,3 +353,32 @@ parseMACTestVector = parseNamedTestVector (go [])
               P.skipWord8
               o <- parseKeyValueLine "Out"
               go ((fmap hexDecode' iv, hexDecode' key, hexDecode' in_, hexDecode' o):acc)
+
+skipComment :: (t -> P.Parser b) -> t -> P.Parser b
+{-# INLINE skipComment #-}
+skipComment h acc = do
+    P.skipWhile (/= NEWLINE)
+    P.skipWord8
+    h acc
+
+-- | Parse test data vectors of the form:
+--
+--    -- @Key == @
+--    -- @KEK == @
+--    -- @Output == @
+--
+-- See `./third_party/botan/src/tests/data/keywrap/`.
+parseKeyWrapVec :: HasCallStack => CBytes -> IO [(V.Bytes, V.Bytes, V.Bytes)]
+parseKeyWrapVec = parseTestVector (h [])
+  where
+    h acc = do
+      P.skipWhile (\ w -> w /= LETTER_K && w /= LETTER_O)
+      w <- P.peekMaybe
+      case w of
+          Nothing -> return (acc, True)
+          Just HASH -> skipComment h acc
+          _ -> do
+            key <- parseKeyValueLine "Key"
+            kek <- parseKeyValueLine "KEK"
+            o <- parseKeyValueLine "Output"
+            h ((hexDecode' key, hexDecode' kek, hexDecode' o) : acc)

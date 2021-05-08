@@ -277,3 +277,18 @@ int hs_botan_x509_cert_verify_with_crl(int *validation_result, botan_x509_cert_t
 int hs_botan_x509_crl_load(botan_x509_crl_t *crl_obj, const uint8_t crl[], HsInt crl_off, HsInt crl_len){
     return botan_x509_crl_load(crl_obj, crl+crl_off, crl_len);
 }
+
+/**
+  * Advanced Encryption Standard (AES) Key Wrap Algorithm
+  * See `https://tools.ietf.org/html/rfc3394`.
+  * Key wrapping as per RFC 3394
+*/
+
+int hs_botan_key_wrap3394(const uint8_t key[], HsInt key_off, HsInt key_len
+                         ,const uint8_t kek[], HsInt kek_off, HsInt kek_len
+                         ,uint8_t wrapped_key[], size_t *wrapped_key_len)
+{
+    return botan_key_wrap3394(key+key_off, key_len
+                             ,kek+kek_off, kek_len
+                             ,wrapped_key, wrapped_key_len);
+}
