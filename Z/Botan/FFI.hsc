@@ -233,14 +233,14 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
 --------------------------------------------------------------------------------
 -- Password Hashing
 
-foreign import ccall unsafe hs_botan_bcrypt_generate :: MBA## Word8 
+foreign import ccall unsafe hs_botan_bcrypt_generate :: MBA## Word8
                                                      -> BA## Word8 -> Int -> Int
                                                      -> BotanStructT
                                                      -> Int
                                                      -> Word32
                                                      -> IO Int
 
-foreign import ccall unsafe hs_botan_bcrypt_is_valid :: BA## Word8 -> Int -> Int 
+foreign import ccall unsafe hs_botan_bcrypt_is_valid :: BA## Word8 -> Int -> Int
                                                      -> BA## Word8 -> Int -> Int
                                                      -> IO CInt
 
@@ -601,3 +601,35 @@ foreign import ccall unsafe botan_x509_crl_load_file :: MBA## BotanStructT -> BA
 foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStructT -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Advanced Encryption Standard (AES) Key Wrap Algorithm
+
+foreign import ccall unsafe hs_botan_key_wrap3394 :: BA## Word8 -> Int -> Int
+                                                  -> BA## Word8 -> Int -> Int
+                                                  -> MBA## Word8 -> MBA## CSize
+                                                  -> IO CInt
+
+foreign import ccall unsafe hs_botan_key_unwrap3394 :: BA## Word8 -> Int -> Int
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> MBA## Word8 -> MBA## CSize
+                                                    -> IO CInt
+
+--------------------------------------------------------------------------------
+-- OTP
+
+foreign import ccall unsafe hs_botan_hotp_init :: MBA## BotanStructT
+                                               -> BA## Word8 -> Int -> Int
+                                               -> BA## Word8
+                                               -> Int
+                                               -> IO CInt
+
+foreign import ccall unsafe "&botan_hotp_destroy" botan_hotp_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe hs_botan_totp_init :: MBA## BotanStructT
+                                               -> BA## Word8 -> Int -> Int
+                                               -> BA## Word8
+                                               -> Int -> Int
+                                               -> IO CInt
+
+foreign import ccall unsafe "&botan_totp_destroy" botan_totp_destroy :: FunPtr (BotanStructT -> IO ())

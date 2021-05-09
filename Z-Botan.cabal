@@ -1,158 +1,165 @@
-cabal-version:              2.4
-name:                       Z-Botan
-version:                    0.1.0.0
-synopsis:                   Crypto and TLS for Haskell
-description:                Crypto and TLS for Haskell
-license:                    BSD-3-Clause
-license-file:               LICENSE
-author:                     Dong Han, Tao He
-maintainer:                 winterland1989@gmail.com
-copyright:                  (c) Dong Han, 2017-2020
-                            (c) Tao He, 2017-2019
-category:                   Data
-build-type:                 Custom
-homepage:                   https://github.com/haskell-Z/z-botan
-bug-reports:                https://github.com/haskell-Z/z-botan/issues
+cabal-version:      2.4
+name:               Z-Botan
+version:            0.1.0.0
+synopsis:           Crypto and TLS for Haskell
+description:        Crypto and TLS for Haskell
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Dong Han, Tao He
+maintainer:         winterland1989@gmail.com
+copyright:
+  (c) Dong Han, 2017-2020
+  (c) Tao He, 2017-2019
 
-extra-source-files:         ChangeLog.md
-                            README.md
-                            LICENSE
-                            third_party/botan/src/**/*.h
-                            third_party/botan/src/**/*.cpp
-                            third_party/botan/configure.py
-                            third_party/cacert.md
-                            third_party/cacert.pem
+category:           Data
+build-type:         Custom
+homepage:           https://github.com/haskell-Z/z-botan
+bug-reports:        https://github.com/haskell-Z/z-botan/issues
+extra-source-files:
+  ChangeLog.md
+  LICENSE
+  README.md
+  third_party/botan/configure.py
+  third_party/botan/src/**/*.cpp
+  third_party/botan/src/**/*.h
+  third_party/cacert.md
+  third_party/cacert.pem
 
 custom-setup
   setup-depends:
-    Cabal >= 2.4.0.0 && < 4,
-    filepath,
-    directory >= 1.2.3.0,
-    base >= 4.5 && < 5.0
+    , base       >=4.5     && <5.0
+    , Cabal      >=2.4.0.0 && <4
+    , directory  >=1.2.3.0
+    , filepath
 
 source-repository head
-    type:     git
-    location: git://github.com/haskell-Z/z-botan.git
+  type:     git
+  location: git://github.com/haskell-Z/z-botan.git
 
 library
-    exposed-modules:        Z.Botan.FFI
-                            Z.Botan.Errno
-                            Z.Botan.Exception
-                            Z.Crypto.Cipher
-                            Z.Crypto.Hash
-                            Z.Crypto.RNG
-                            Z.Crypto.MPI
-                            Z.Crypto.KDF
-                            Z.Crypto.MAC
-                            Z.Crypto.PubKey
-                            Z.Crypto.PwdHash
-                            Z.Crypto.X509
-                            Z.Crypto
+  exposed-modules:
+    Z.Botan.Errno
+    Z.Botan.Exception
+    Z.Botan.FFI
+    Z.Crypto
+    Z.Crypto.Cipher
+    Z.Crypto.Hash
+    Z.Crypto.KDF
+    Z.Crypto.KeyWrap
+    Z.Crypto.MAC
+    Z.Crypto.MPI
+    Z.Crypto.OTP
+    Z.Crypto.PubKey
+    Z.Crypto.PwdHash
+    Z.Crypto.RNG
+    Z.Crypto.X509
 
-    build-depends:          base                    >= 4.12 && <5.0
-                          , Z-Data                  >= 0.8.1 && <0.9
-                          , Z-IO                    == 0.8.*
-                          , integer-gmp             == 1.*
-                          , ghc-prim                >= 0.5.3
-                          , stm                     == 2.5.*
-                          , scientific            ^>=0.3
+  build-depends:
+    , base         >=4.12  && <5.0
+    , ghc-prim     >=0.5.3
+    , integer-gmp  >=1     && <2
+    , scientific   ^>=0.3
+    , stm          ^>=2.5
+    , Z-Data       ^>=0.7.3
+    , Z-IO         ^>=0.7
 
+  include-dirs:
+    include third_party/botan third_party/botan/build/include
+    third_party/botan/build/include/external
 
-    include-dirs:           include
-                            third_party/botan
-                            third_party/botan/build/include
-                            third_party/botan/build/include/external
+  includes:           hs_botan.h
+  install-includes:   hs_botan.h
+  c-sources:          cbits/hs_botan.c
+  cc-options:         -march=native
+  cxx-sources:        third_party/botan/botan_all.cpp
 
-    includes:               hs_botan.h
+  if os(windows)
+    extra-libraries:
+      Ws2_32
+      crypt32
 
-    install-includes:       hs_botan.h
+    cxx-options:
+      -std=c++11 -march=native -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18
+      -ffixed-xmm19 -ffixed-xmm20 -ffixed-xmm21 -ffixed-xmm22
+      -ffixed-xmm23 -ffixed-xmm24 -ffixed-xmm25 -ffixed-xmm26
+      -ffixed-xmm27 -ffixed-xmm28 -ffixed-xmm29 -ffixed-xmm30
+      -ffixed-xmm31
 
-    c-sources:              cbits/hs_botan.c
-    cc-options:             -march=native
-    
-    cxx-sources:            third_party/botan/botan_all.cpp
+  else
+    cxx-options: -std=c++11 -march=native
 
-    if os(windows)
-        extra-libraries:    Ws2_32, crypt32
-        cxx-options:        -std=c++11 -march=native
-                            -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18 -ffixed-xmm19
-                            -ffixed-xmm20 -ffixed-xmm21 -ffixed-xmm22 -ffixed-xmm23
-                            -ffixed-xmm24 -ffixed-xmm25 -ffixed-xmm26 -ffixed-xmm27
-                            -ffixed-xmm28 -ffixed-xmm29 -ffixed-xmm30 -ffixed-xmm31
-    else
-        cxx-options:        -std=c++11 -march=native
+  if os(osx)
+    extra-libraries: c++
 
-    if os(osx)
-        extra-libraries:    c++
-    else
-        extra-libraries:    stdc++
+  else
+    extra-libraries: stdc++
 
-    default-language:       Haskell2010
-    default-extensions:     BangPatterns
-                            CApiFFI
-                            ConstraintKinds
-                            CPP
-                            DerivingStrategies
-                            DeriveGeneric
-                            DeriveAnyClass
-                            DefaultSignatures
-                            DataKinds
-                            ExistentialQuantification
-                            FlexibleContexts
-                            FlexibleInstances
-                            GADTs
-                            GeneralizedNewtypeDeriving
-                            KindSignatures
-                            MagicHash
-                            MultiParamTypeClasses
-                            MultiWayIf
-                            PartialTypeSignatures
-                            PatternSynonyms
-                            PolyKinds
-                            QuantifiedConstraints
-                            QuasiQuotes
-                            OverloadedStrings
-                            RankNTypes
-                            RecordWildCards
-                            ScopedTypeVariables
-                            StandaloneDeriving
-                            TemplateHaskell
-                            TypeApplications
-                            TypeFamilyDependencies
-                            TypeFamilies
-                            TypeOperators
-                            TupleSections
-                            UnboxedTuples
-                            UnliftedFFITypes
-                            ViewPatterns
-                            LambdaCase
-                            RecordWildCards
+  default-language:   Haskell2010
+  default-extensions:
+    BangPatterns
+    CApiFFI
+    CPP
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    KindSignatures
+    LambdaCase
+    MagicHash
+    MultiParamTypeClasses
+    MultiWayIf
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    PolyKinds
+    QuantifiedConstraints
+    QuasiQuotes
+    RankNTypes
+    RecordWildCards
+    RecordWildCards
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeFamilyDependencies
+    TypeOperators
+    UnboxedTuples
+    UnliftedFFITypes
+    ViewPatterns
 
-    build-tool-depends:     hsc2hs:hsc2hs, hspec-discover:hspec-discover
-
-    ghc-options:            -Wall
+  build-tool-depends: hsc2hs:hsc2hs -any, hspec-discover:hspec-discover -any
+  ghc-options:        -Wall
 
 test-suite Z-Botan-Test
-    type:                   exitcode-stdio-1.0
-    main-is:                Spec.hs
-    hs-source-dirs:         test/
-    build-depends:          base
-                          , Z-IO
-                          , Z-Data
-                          , Z-Botan
-                          , hspec                   >= 2.5.4
-                          , HUnit
-                          , QuickCheck              >= 2.10
-                          , quickcheck-instances
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  hs-source-dirs:   test/
+  build-depends:
+    , base
+    , hspec                 >=2.5.4
+    , HUnit
+    , QuickCheck            >=2.10
+    , quickcheck-instances
+    , Z-Botan
+    , Z-Data
+    , Z-IO
 
-    other-modules:          Utils
-                            Z.Crypto.CipherSpec
-                            Z.Crypto.HashSpec
-                            Z.Crypto.KDFSpec
-                            Z.Crypto.MACSpec
-                            Z.Crypto.PwdHashSpec
+  other-modules:
+    Utils
+    Z.Crypto.CipherSpec
+    Z.Crypto.HashSpec
+    Z.Crypto.KDFSpec
+    Z.Crypto.MACSpec
+    Z.Crypto.PwdHashSpec
 
-    ghc-options:            -threaded
-    default-language:       Haskell2010
-
-
+  ghc-options:      -threaded
+  default-language: Haskell2010
