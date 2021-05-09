@@ -16,5 +16,6 @@ spec = describe "Crypto.KeyWrap" $ do
     it "RFC 3394" $ do
         tvMap <- parseKeyWrapVec "./third_party/botan/src/tests/data/keywrap/rfc3394.vec"
         forM_ tvMap $ \ (key, kek, o) -> do
-            o' <- keyWrap key kek
-            o' @?= o
+            o'   <- keyWrap key kek
+            key' <- keyUnwrap o kek
+            (o', key') @=? (o, key)

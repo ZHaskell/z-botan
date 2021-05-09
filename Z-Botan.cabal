@@ -158,6 +158,7 @@ test-suite Z-Botan-Test
     Z.Crypto.CipherSpec
     Z.Crypto.HashSpec
     Z.Crypto.KDFSpec
+    Z.Crypto.KeyWrapSpec
     Z.Crypto.MACSpec
     Z.Crypto.PwdHashSpec
 
