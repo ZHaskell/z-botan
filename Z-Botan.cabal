@@ -48,6 +48,7 @@ library
     Z.Crypto.KeyWrap
     Z.Crypto.MAC
     Z.Crypto.MPI
+    Z.Crypto.OTP
     Z.Crypto.PubKey
     Z.Crypto.PwdHash
     Z.Crypto.RNG

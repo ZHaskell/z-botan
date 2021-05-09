@@ -23,3 +23,18 @@ keyWrap key kek = do
             siz'' <- readIORef siz'
             let a'' = V.take siz'' a
             return a''
+
+keyUnwrap :: V.Bytes -- ^ wrapped key
+          -> V.Bytes -- ^ kek
+          -> IO V.Bytes
+keyUnwrap key kek = do
+    withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
+        withPrimVectorUnsafe kek $ \ kek' kekOff kekLen -> do
+            siz' <- newIORef 0
+            (a, _) <- allocPrimVectorUnsafe maxWrappedKeySiz $ \ wrap -> do
+                (a', _) <- allocPrimUnsafe @Int $ \ siz ->
+                    throwBotanIfMinus_ (hs_botan_key_unwrap3394 key' keyOff keyLen kek' kekOff kekLen wrap siz)
+                writeIORef siz' a'
+            siz'' <- readIORef siz'
+            let a'' = V.take siz'' a
+            return a''

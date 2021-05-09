@@ -292,3 +292,31 @@ int hs_botan_key_wrap3394(const uint8_t key[], HsInt key_off, HsInt key_len
                              ,kek+kek_off, kek_len
                              ,wrapped_key, wrapped_key_len);
 }
+
+int hs_botan_key_unwrap3394(const uint8_t wrapped_key[], HsInt wrapped_key_off, HsInt wrapped_key_len
+                           ,const uint8_t kek[], HsInt kek_off, HsInt kek_len
+                           ,uint8_t key[], size_t *key_len){
+    return botan_key_unwrap3394(wrapped_key+wrapped_key_off, wrapped_key_len
+                               ,kek+kek_off, kek_len
+                               ,key, key_len);}
+
+// OTP
+
+// HOTP
+
+int hs_botan_hotp_init(botan_hotp_t* hotp
+                      ,const uint8_t key[], HsInt key_off, HsInt key_len
+                      ,const char* hash_algo
+                      ,HsInt digits){
+    return botan_hotp_init(hotp
+                          ,key+key_off, key_len
+                          ,hash_algo, digits);}
+
+// TOTP
+
+int hs_botan_totp_init(botan_totp_t* totp
+                      ,const uint8_t key[], HsInt key_off, HsInt key_len
+                      ,const char* hash_algo
+                      ,HsInt digits
+                      ,HsInt time_step){
+    return botan_totp_init(totp, key+key_off, key_len, hash_algo, digits, time_step);}

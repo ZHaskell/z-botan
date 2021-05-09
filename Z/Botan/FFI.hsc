@@ -615,3 +615,23 @@ foreign import ccall unsafe hs_botan_key_wrap3394 :: BA## Word8 -> Int -> Int
                                                   -> BA## Word8 -> Int -> Int
                                                   -> MBA## Word8 -> MBA## CSize
                                                   -> IO CInt
+
+foreign import ccall unsafe hs_botan_key_unwrap3394 :: BA## Word8 -> Int -> Int
+                                                    -> BA## Word8 -> Int -> Int
+                                                    -> MBA## Word8 -> MBA## CSize
+                                                    -> IO CInt
+
+--------------------------------------------------------------------------------
+-- OTP
+
+foreign import ccall unsafe hs_botan_hotp_init :: BotanStructT
+                                               -> BA## Word8 -> Int -> Int
+                                               -> BA## Word8
+                                               -> Int
+                                               -> IO CInt
+
+foreign import ccall unsafe hs_botan_totp_init :: BotanStructT
+                                               -> BA## Word8 -> Int -> Int
+                                               -> BA## Word8
+                                               -> Int -> Int
+                                               -> IO CInt
