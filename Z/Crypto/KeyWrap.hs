@@ -1,5 +1,7 @@
 module Z.Crypto.KeyWrap where
 
+import           Data.IORef
+import           GHC.Word
 import           Z.Botan.Errno
 import           Z.Botan.Exception
 import           Z.Botan.FFI
@@ -17,9 +19,11 @@ keyWrap :: V.Bytes -- ^ key
 keyWrap key kek = do
     withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
         withPrimVectorUnsafe kek $ \ kek' kekOff kekLen -> do
+            siz' <- newIORef 0
             (a, _) <- allocPrimVectorUnsafe maxWrappedKeySiz $ \ wrap -> do
                 (a', _) <- allocPrimUnsafe @Int $ \ siz ->
                     throwBotanIfMinus_ (hs_botan_key_wrap3394 key' keyOff keyLen kek' kekOff kekLen wrap siz)
-                pure a'
-            return a
-
+                writeIORef siz' a'
+            siz'' <- readIORef siz'
+            let a'' = V.take siz'' a
+            return a''
