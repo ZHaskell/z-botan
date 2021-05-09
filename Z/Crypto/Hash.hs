@@ -29,28 +29,16 @@ module Z.Crypto.Hash(
   , hashTypeToCBytes
   ) where
 
-import GHC.Generics ( Generic )
-import Z.Botan.Exception ( HasCallStack, throwBotanIfMinus_ )
-import Z.Botan.FFI
-    ( BotanStruct,
-      botan_hash_final,
-      hs_botan_hash_update,
-      botan_hash_output_length,
-      botan_hash_clear,
-      botan_hash_copy_state,
-      botan_hash_destroy,
-      botan_hash_init,
-      withBotanStruct,
-      newBotanStruct )
-import Z.Data.CBytes as CB
-    ( concat, fromText, withCBytesUnsafe, CBytes )
-import           Z.Data.JSON         (JSON)
-import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text        as T
-import Z.Foreign
-    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe )
-import Z.IO.BIO ( Sink, BIO(BIO) )
-import System.IO.Unsafe ( unsafePerformIO )
+import           GHC.Generics      (Generic)
+import           System.IO.Unsafe  (unsafePerformIO)
+import           Z.Botan.Exception (HasCallStack, throwBotanIfMinus_)
+import           Z.Botan.FFI
+import           Z.Data.CBytes     as CB
+import           Z.Data.JSON       (JSON)
+import qualified Z.Data.Text       as T
+import qualified Z.Data.Vector     as V
+import           Z.Foreign
+import           Z.IO.BIO          (pattern EOF, Sink)
 
 -- | Available Hashs
 data HashType
@@ -180,11 +168,11 @@ hashTypeToCBytes h = case h of
 
 -- | A Botan Hash Object.
 data Hash = Hash
-    { getHashStruct :: BotanStruct
-    , getHashName :: CBytes
-    , getHashSize :: Int
+    { hashStruct :: {-# UNPACK #-} !BotanStruct
+    , hashName   :: {-# UNPACK #-} !CBytes
+    , hashSize   :: {-# UNPACK #-} !Int
     }
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Generic)
     deriving anyclass T.Print
 
 -- | Create a new 'Hash' object.
@@ -196,9 +184,9 @@ newHash typ = do
             (botan_hash_init bts pt 0))
         botan_hash_destroy
     (osiz, _) <- withBotanStruct bs $ \ pbs ->
-        allocPrimUnsafe $ \ pl ->
+        allocPrimUnsafe @CSize $ \ pl ->
             botan_hash_output_length pbs pl
-    return (Hash bs name osiz)
+    return (Hash bs name (fromIntegral osiz))
 
 -- | Copies the state of the hash object to a new hash object.
 copyHash :: HasCallStack => Hash -> IO Hash
@@ -243,7 +231,7 @@ sha256AndMd5File f =
     withResource (sourceFromFile f) $ \ src -> do
         md5 <- newHash MD5
         sha256 <- newHash SHA256
-        runBIO $ src >|> (joinSink (sinkToHash md5) (sinkToHash sha256))
+        runBIO $ src . (joinSink (sinkToHash md5) (sinkToHash sha256))
         h1 <- finalHash md5
         h2 <- finalHash sha256
         return (HexBytes h1, HexBytes h2)
@@ -251,10 +239,9 @@ sha256AndMd5File f =
 -}
 sinkToHash :: HasCallStack => Hash -> Sink V.Bytes
 {-# INLINABLE sinkToHash #-}
-sinkToHash h = BIO push_ pull_
-  where
-    push_ x = updateHash h x >> return Nothing
-    pull_ = return Nothing
+sinkToHash h = \ k mbs -> case mbs of
+    Just bs -> updateHash h bs
+    _       -> k EOF
 
 -- | Directly compute a message's hash.
 hash :: HasCallStack => HashType -> V.Bytes -> V.Bytes

@@ -34,14 +34,14 @@ import           Control.Monad
 import           Data.IORef
 import           GHC.Generics
 import           Z.Botan.Exception
-import           Z.Data.CBytes          as CB
-import           Z.Data.JSON            (JSON)
-import qualified Z.Data.Vector.Base     as V
-import qualified Z.Data.Vector.Extra    as V
-import qualified Z.Data.Text            as T
-import           Z.Foreign
-import           Z.Crypto.Hash
 import           Z.Botan.FFI
+import           Z.Crypto.Hash
+import           Z.Data.CBytes       as CB
+import           Z.Data.JSON         (JSON)
+import qualified Z.Data.Text         as T
+import qualified Z.Data.Vector.Base  as V
+import qualified Z.Data.Vector.Extra as V
+import           Z.Foreign
 import           Z.IO.BIO
 
 -- | Available Block Ciphers
@@ -218,19 +218,29 @@ blockCipherTypeToCBytes b = case b of
 -- or in the very rare situation where ECB is required, eg for compatibility with an existing system.
 --
 data BlockCipher = BlockCipher
-    { blockCipher :: BotanStruct
-    , blockCipherSize :: Int
-    , blockCipherKeySpec :: (Int, Int, Int)
+    { blockCipher        :: {-# UNPACK #-} !BotanStruct
+    , blockCipherName    :: {-# UNPACK #-} !CBytes
+    , blockCipherSize    :: {-# UNPACK #-} !Int
+    , blockCipherKeySpec :: {-# UNPACK #-} !KeySpec
     }
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Generic)
+    deriving anyclass T.Print
+
+data KeySpec = KeySpec
+    { keyLenMin :: {-# UNPACK #-} !Int  -- ^ minimum keylength
+    , keyLenMax :: {-# UNPACK #-} !Int  -- ^ maximum keylength
+    , keyLenMod :: {-# UNPACK #-} !Int  -- ^ keylength modulo
+    }
+    deriving (Eq, Ord, Show, Generic)
     deriving anyclass T.Print
 
 -- | Create a new block cipher.
 --
 newBlockCipher :: HasCallStack => BlockCipherType -> IO BlockCipher
 newBlockCipher typ = do
+    let name = blockCipherTypeToCBytes typ
     bc <- newBotanStruct
-        (\ bts -> withCBytesUnsafe (blockCipherTypeToCBytes typ) (botan_block_cipher_init bts))
+        (\ bts -> withCBytesUnsafe name (botan_block_cipher_init bts))
         botan_block_cipher_destroy
 
     bsiz <- withBotanStruct bc botan_block_cipher_block_size
@@ -242,12 +252,12 @@ newBlockCipher typ = do
                     throwBotanIfMinus_
                         (botan_block_cipher_get_keyspec pbc pa pb pc)
 
-    return (BlockCipher bc (fromIntegral bsiz) (a,b,c))
+    return (BlockCipher bc name (fromIntegral bsiz) (KeySpec a b c))
 
 -- | Set the cipher key, which is required before encrypting or decrypting.
 --
 setBlockCipherKey :: HasCallStack => BlockCipher -> V.Bytes -> IO ()
-setBlockCipherKey (BlockCipher bc _ _) key =
+setBlockCipherKey (BlockCipher bc _ _ _) key =
     withBotanStruct bc $ \ pbc -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
             throwBotanIfMinus_ (hs_botan_block_cipher_set_key
@@ -255,7 +265,7 @@ setBlockCipherKey (BlockCipher bc _ _) key =
 
 -- | Clear the internal state (such as keys) of this cipher object.
 clearBlockCipher :: HasCallStack => BlockCipher -> IO ()
-clearBlockCipher (BlockCipher bc _ _) =
+clearBlockCipher (BlockCipher bc _ _ _) =
     withBotanStruct bc (throwBotanIfMinus_ . botan_block_cipher_clear)
 
 -- | Encrypt blocks of data.
@@ -266,7 +276,7 @@ encryptBlocks :: HasCallStack
               -> V.Bytes    -- ^ blocks of data, length must be equal to block_size * number_of_blocks
               -> Int        -- ^ number of blocks
               -> IO V.Bytes
-encryptBlocks (BlockCipher bc blockSiz _) blocks n = do
+encryptBlocks (BlockCipher bc _ blockSiz _) blocks n = do
     let inputLen = V.length blocks
     when (inputLen /= blockSiz * n) $
         throwBotanError BOTAN_FFI_ERROR_INVALID_INPUT
@@ -284,7 +294,7 @@ decryptBlocks :: HasCallStack
               -> V.Bytes    -- ^ blocks of data, length must be equal to block_size * number_of_blocks
               -> Int        -- ^ number of blocks
               -> IO V.Bytes
-decryptBlocks (BlockCipher bc blockSiz _) blocks n = do
+decryptBlocks (BlockCipher bc _ blockSiz _) blocks n = do
     let inputLen = V.length blocks
     when (inputLen /= blockSiz * n) $
         throwBotanError BOTAN_FFI_ERROR_INVALID_INPUT
@@ -327,21 +337,22 @@ data StreamCipherType
 
 streamCipherTypeToCBytes :: StreamCipherType -> CBytes
 streamCipherTypeToCBytes s = case s of
-    CTR_BE b -> CB.concat ["CTR-BE(", blockCipherTypeToCBytes b, ")"]
-    OFB b -> CB.concat ["OFB(", blockCipherTypeToCBytes b, ")"]
-    ChaCha8 -> "ChaCha(8)"
-    ChaCha12 -> "ChaCha(12)"
-    ChaCha20 -> "ChaCha(20)"
-    Salsa20 -> "Salsa20"
+    CTR_BE b  -> CB.concat ["CTR-BE(", blockCipherTypeToCBytes b, ")"]
+    OFB b     -> CB.concat ["OFB(", blockCipherTypeToCBytes b, ")"]
+    ChaCha8   -> "ChaCha(8)"
+    ChaCha12  -> "ChaCha(12)"
+    ChaCha20  -> "ChaCha(20)"
+    Salsa20   -> "Salsa20"
     SHAKE128' ->  "SHAKE-128"
-    RC4 -> "RC4"
+    RC4       -> "RC4"
 
 -- | Create a new stream cipher.
 --
 newStreamCipher :: HasCallStack => StreamCipherType -> CipherDirection -> IO Cipher
 newStreamCipher typ dir = do
+    let name = streamCipherTypeToCBytes typ
     ci <- newBotanStruct
-        (\ bts -> withCBytesUnsafe (streamCipherTypeToCBytes typ) $ \ pb ->
+        (\ bts -> withCBytesUnsafe name $ \ pb ->
             botan_cipher_init bts pb (cipherDirectionToFlag dir))
         botan_cipher_destroy
 
@@ -361,7 +372,7 @@ newStreamCipher typ dir = do
         (n, _) <- allocPrimUnsafe $ \ pn ->
             botan_cipher_get_default_nonce_length pci pn
 
-        return (Cipher ci g (a,b,c) t n)
+        return (Cipher ci name g (KeySpec a b c) t n)
 
 --------------------------------------------------------------------------------
 --
@@ -502,21 +513,23 @@ cipherTypeToCBytes ct = case ct of
 
 -- | A Botan cipher.
 data Cipher = Cipher
-    { cipher     :: BotanStruct
-    , cipherUpdateGranularity :: Int
-    , cipherKeySpec :: (Int, Int, Int)
-    , cipherTagLength :: Int            -- ^ This will be zero for non-authenticated ciphers.
-    , defaultNonceLength :: Int
+    { cipher                  :: {-# UNPACK #-} !BotanStruct
+    , cipherName              :: {-# UNPACK #-} !CBytes
+    , cipherUpdateGranularity :: {-# UNPACK #-} !Int
+    , cipherKeySpec           :: {-# UNPACK #-} !KeySpec
+    , cipherTagLength         :: {-# UNPACK #-} !Int -- ^ This will be zero for non-authenticated ciphers.
+    , defaultNonceLength      :: {-# UNPACK #-} !Int
     }
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Generic)
     deriving anyclass T.Print
 
 -- | Create a new cipher.
 --
 newCipher :: HasCallStack => CipherMode -> CipherDirection -> IO Cipher
 newCipher typ dir = do
+    let name = cipherTypeToCBytes typ
     ci <- newBotanStruct
-        (\ bts -> withCBytesUnsafe (cipherTypeToCBytes typ) $ \ pb ->
+        (\ bts -> withCBytesUnsafe name $ \ pb ->
             botan_cipher_init bts pb (cipherDirectionToFlag dir))
         botan_cipher_destroy
 
@@ -536,12 +549,12 @@ newCipher typ dir = do
         (n, _) <- allocPrimUnsafe $ \ pn ->
             botan_cipher_get_default_nonce_length pci pn
 
-        return (Cipher ci g (a,b,c) t n)
+        return (Cipher ci name g (KeySpec a b c) t n)
 
 -- | Clear the internal state (such as keys) of this cipher object.
 --
 clearCipher :: HasCallStack => Cipher -> IO ()
-clearCipher (Cipher ci _ _ _ _) =
+clearCipher (Cipher ci _ _ _ _ _) =
     withBotanStruct ci (throwBotanIfMinus_ . botan_cipher_clear)
 
 -- | Reset the message specific state for this cipher.
@@ -552,13 +565,13 @@ clearCipher (Cipher ci _ _ _ _) =
 -- by botan_cipher_set_key with the original key.
 --
 resetCipher :: HasCallStack => Cipher -> IO ()
-resetCipher (Cipher ci _ _ _ _) =
+resetCipher (Cipher ci _ _ _ _ _) =
     withBotanStruct ci (throwBotanIfMinus_ . botan_cipher_reset)
 
 -- | Set the key for this cipher object
 --
 setCipherKey :: HasCallStack => Cipher -> V.Bytes -> IO ()
-setCipherKey (Cipher ci _ _ _ _) key =
+setCipherKey (Cipher ci _ _ _ _ _) key =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_key
@@ -567,7 +580,7 @@ setCipherKey (Cipher ci _ _ _ _) key =
 -- | Set the associated data. Will fail if cipher is not an AEAD.
 --
 setAssociatedData :: HasCallStack => Cipher -> V.Bytes -> IO ()
-setAssociatedData (Cipher ci _ _ _ _) ad =
+setAssociatedData (Cipher ci _ _ _ _ _) ad =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_associated_data
@@ -579,7 +592,7 @@ startCipher :: HasCallStack
             => Cipher
             -> V.Bytes      -- ^ nonce
             -> IO ()
-startCipher (Cipher ci _ _ _ _) nonce =
+startCipher (Cipher ci _ _ _ _ _) nonce =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_start
@@ -593,7 +606,7 @@ updateCipher :: HasCallStack
              => Cipher
              -> V.Bytes
              -> IO (V.Bytes, V.Bytes)   -- ^ trailing input, output
-updateCipher (Cipher ci _ _ _ _) input =
+updateCipher (Cipher ci _ _ _ _ _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
             (out, r) <- allocPrimVectorUnsafe in_len $ \ out_p ->
@@ -609,7 +622,7 @@ finishCipher :: HasCallStack
              => Cipher
              -> V.Bytes
              -> IO V.Bytes
-finishCipher (Cipher ci ug _ tag_len _) input =
+finishCipher (Cipher ci _ ug _ tag_len _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
             let !out_len = in_len + ug + tag_len
@@ -631,16 +644,16 @@ finishCipher (Cipher ci ug _ tag_len _) input =
 cipherBIO :: HasCallStack => Cipher -> IO (BIO V.Bytes V.Bytes)
 cipherBIO c = do
     trailingRef <- newIORef V.empty
-    return (BIO (push_ trailingRef) (pull_ trailingRef))
-  where
-    push_ trailingRef bs = do
-        trailing <- readIORef trailingRef
-        let chunk =  trailing `V.append` bs
-        (rest, out) <- updateCipher c chunk
-        writeIORef trailingRef rest
-        if V.null out
-        then return Nothing
-        else return (Just out)
-    pull_ trailingRef = do
-        trailing <- readIORef trailingRef
-        Just <$!> finishCipher c trailing
+    return $ \ k mbs -> case mbs of
+        Just bs -> do
+            trailing <- readIORef trailingRef
+            let chunk =  trailing `V.append` bs
+            (rest, out) <- updateCipher c chunk
+            writeIORef trailingRef rest
+            unless (V.null out) (k (Just out))
+        _ -> do
+            trailing <- readIORef trailingRef
+            bs <- finishCipher c trailing
+            if V.null bs
+            then k (Just bs) >> k EOF
+            else k EOF

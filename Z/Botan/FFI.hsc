@@ -1,15 +1,17 @@
 module Z.Botan.FFI where
 
 import           Data.Word
+import           Data.Bits
 import           Foreign.Ptr
 import           GHC.Generics
-import           GHC.Types          (IO (..))
+import           GHC.Types              (IO (..))
 import           Z.IO.Exception
 import           Z.Botan.Exception
 import           Z.Data.CBytes
-import           Z.Data.JSON         (JSON)
-import qualified Z.Data.Vector      as V
-import qualified Z.Data.Text        as T
+import           Z.Data.JSON            (JSON)
+import qualified Z.Data.Vector          as V
+import qualified Z.Data.Vector.Extra    as V
+import qualified Z.Data.Text            as T
 import           Z.Foreign
 import           Z.Foreign.CPtr
 
@@ -20,6 +22,17 @@ import           Z.Foreign.CPtr
 foreign import ccall unsafe hs_botan_hex_encode :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
 foreign import ccall unsafe hs_botan_hex_encode_lower :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
 foreign import ccall unsafe hs_botan_hex_decode :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
+
+allocBotanBufferUnsafe :: Integral r => Int -> (MBA## Word8 -> MBA## CSize -> IO r) -> IO V.Bytes
+allocBotanBufferUnsafe len f = do
+    (bs, (r, _)) <- allocPrimVectorUnsafe len (\ buf ->
+        withPrimUnsafe (fromIntegral len :: CSize) (\ size ->
+            f buf size))
+    if fromIntegral r == BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE
+    then allocBotanBufferUnsafe (len `unsafeShiftL` 1) f
+    else if r >= 0
+        then return $! V.unsafeTake (fromIntegral r) bs
+        else throwBotanError (fromIntegral r)
 
 --------------------------------------------------------------------------------
 
@@ -237,7 +250,7 @@ foreign import ccall unsafe hs_botan_bcrypt_is_valid :: BA## Word8 -> Int -> Int
 foreign import ccall unsafe botan_mac_init :: MBA## BotanStructT -> BA## Word8 -> Word32 -> IO CInt
 foreign import ccall unsafe "&botan_mac_destroy" botan_mac_destroy :: FunPtr (BotanStructT -> IO ())
 
-foreign import ccall unsafe botan_mac_output_length ::BotanStructT -> MBA## Word8 -> IO CInt
+foreign import ccall unsafe botan_mac_output_length ::BotanStructT -> MBA## CSize -> IO CInt
 
 foreign import ccall unsafe botan_mac_final :: BotanStructT -> MBA## Word8 -> IO CInt
 
@@ -291,6 +304,10 @@ foreign import ccall unsafe botan_pubkey_export :: BotanStructT
                                                 -> Word32
                                                 -> IO CInt
 
+foreign import ccall unsafe botan_privkey_algo_name :: BotanStructT
+                                                   -> MBA## Word8 -> MBA## CSize
+                                                   -> IO CInt
+
 foreign import ccall unsafe botan_pubkey_algo_name :: BotanStructT
                                                    -> MBA## Word8 -> MBA## CSize
                                                    -> IO CInt
@@ -314,33 +331,6 @@ foreign import ccall unsafe botan_pubkey_get_field :: BotanStructT
 --------------------------------------------------------------------------------
 -- RSA specific functions
 
-foreign import ccall unsafe botan_privkey_rsa_get_p :: BotanStructT -- ^ botan_mp_t p
-                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
-                                                    -> IO CInt
-
-foreign import ccall unsafe botan_privkey_rsa_get_q :: BotanStructT -- ^ botan_mp_t q
-                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
-                                                    -> IO CInt
-
-foreign import ccall unsafe botan_privkey_rsa_get_d :: BotanStructT -- ^ botan_mp_t d
-                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
-                                                    -> IO CInt
-
-foreign import ccall unsafe botan_privkey_rsa_get_n :: BotanStructT -- ^ botan_mp_t n
-                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
-                                                    -> IO CInt
-
-foreign import ccall unsafe botan_privkey_rsa_get_e :: BotanStructT -- ^ botan_mp_t e
-                                                    -> BotanStructT -- ^ botan_privkey_t rsa_key
-                                                    -> IO CInt
-
-foreign import ccall unsafe botan_pubkey_rsa_get_e :: BotanStructT -- ^ botan_mp_t e
-                                                   -> BotanStructT -- ^ botan_pubkey_t rsa_key
-                                                   -> IO CInt
-
-foreign import ccall unsafe botan_pubkey_rsa_get_n :: BotanStructT -- ^ botan_mp_t n
-                                                   -> BotanStructT -- ^ botan_pubkey_t rsa_key
-                                                   -> IO CInt
 
 foreign import ccall unsafe botan_privkey_load_rsa :: MBA## BotanStructT
                                                    -> BotanStructT -> BotanStructT -> BotanStructT
@@ -397,8 +387,8 @@ foreign import ccall unsafe botan_pk_op_encrypt_create :: MBA## BotanStructT
 foreign import ccall unsafe "&botan_pk_op_encrypt_destroy" botan_pk_op_encrypt_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_pk_op_encrypt_output_length :: BotanStructT
-                                                              -> Int
-                                                              -> MBA## Int
+                                                              -> CSize
+                                                              -> MBA## CSize
                                                               -> IO CInt
 
 foreign import ccall unsafe hs_botan_pk_op_encrypt :: BotanStructT
@@ -416,8 +406,8 @@ foreign import ccall unsafe botan_pk_op_decrypt_create :: MBA## BotanStructT
 foreign import ccall unsafe "&botan_pk_op_decrypt_destroy" botan_pk_op_decrypt_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_pk_op_decrypt_output_length :: BotanStructT
-                                                              -> Int
-                                                              -> MBA## Int
+                                                              -> CSize
+                                                              -> MBA## CSize
                                                               -> IO CInt
 
 foreign import ccall unsafe hs_botan_pk_op_decrypt :: BotanStructT
@@ -435,7 +425,7 @@ foreign import ccall unsafe botan_pk_op_sign_create :: MBA## BotanStructT
                                                     -> IO CInt
 
 foreign import ccall unsafe botan_pk_op_sign_output_length :: BotanStructT
-                                                           -> MBA## Int
+                                                           -> MBA## CSize
                                                            -> IO CInt
 
 foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT
@@ -483,6 +473,10 @@ foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key
 foreign import ccall unsafe botan_pk_op_key_agreement_export_public :: BotanStructT
                                                                     -> MBA## Word8 -> MBA## Int
                                                                     -> IO CInt
+
+foreign import ccall unsafe botan_pk_op_key_agreement_size :: BotanStructT
+                                                           -> MBA## CSize
+                                                           -> IO CInt
 
 foreign import ccall unsafe hs_botan_pk_op_key_agreement :: BotanStructT
                                                          -> MBA## Word8 -> MBA## Int
