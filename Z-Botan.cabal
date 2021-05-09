@@ -43,6 +43,7 @@ library
     Z.Botan.FFI
     Z.Crypto
     Z.Crypto.Cipher
+    Z.Crypto.FPE
     Z.Crypto.Hash
     Z.Crypto.KDF
     Z.Crypto.KeyWrap
