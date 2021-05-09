@@ -13,8 +13,8 @@ copyright:
 
 category:           Data
 build-type:         Custom
-homepage:           https://github.com/haskell-Z/z-botan
-bug-reports:        https://github.com/haskell-Z/z-botan/issues
+homepage:           https://github.com/ZHaskell/z-botan
+bug-reports:        https://github.com/ZHaskell/z-botan/issues
 extra-source-files:
   ChangeLog.md
   LICENSE
