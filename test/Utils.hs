@@ -379,6 +379,8 @@ parseKeyWrapVec = parseTestVector (h [])
           Just HASH -> skipComment h acc
           _ -> do
             key <- parseKeyValueLine "Key"
+            P.skipWord8
             kek <- parseKeyValueLine "KEK"
+            P.skipWord8
             o <- parseKeyValueLine "Output"
             h ((hexDecode' key, hexDecode' kek, hexDecode' o) : acc)
