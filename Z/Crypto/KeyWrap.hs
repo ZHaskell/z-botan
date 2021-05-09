@@ -1,6 +1,8 @@
 module Z.Crypto.KeyWrap where
 
 import           Data.IORef
+import           GHC.Word
+import           Z.Botan.Errno
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import qualified Z.Data.Vector     as V
