@@ -312,6 +312,16 @@ int hs_botan_hotp_init(botan_hotp_t* hotp
                           ,key+key_off, key_len
                           ,hash_algo, digits);}
 
+// int hs_botan_hotp_check(botan_hotp_t hotp
+//                        ,int has_counter
+//                        ,uint64_t* next_hotp_counter
+//                        ,uint32_t hotp_code
+//                        ,uint64_t hotp_counter
+//                        ,size_t resync_range){
+// uint64_t* ret_ptr = NULL;
+// if (has_counter) ret_ptr = next_hotp_counter;
+// return botan_hotp_check(hotp, ret_ptr, hotp_code, hotp_counter, resync_range);}
+
 // TOTP
 
 int hs_botan_totp_init(botan_totp_t* totp
@@ -320,3 +330,18 @@ int hs_botan_totp_init(botan_totp_t* totp
                       ,HsInt digits
                       ,HsInt time_step){
     return botan_totp_init(totp, key+key_off, key_len, hash_algo, digits, time_step);}
+
+// FPE
+
+int hs_botan_fpe_fe1_init(botan_fpe_t* fpe, botan_mp_t n,
+                       const uint8_t key[], HsInt key_off, HsInt key_len,
+                       size_t rounds, uint32_t flags){
+return botan_fpe_fe1_init(fpe, n,
+                       key+key_off, key_len,
+                       rounds, flags);}
+
+int hs_botan_fpe_encrypt(botan_fpe_t fpe, botan_mp_t x, const uint8_t tweak[], HsInt tweak_off, HsInt tweak_len)
+{return botan_fpe_encrypt(fpe, x, tweak+tweak_off, tweak_len);}
+
+int hs_botan_fpe_decrypt(botan_fpe_t fpe, botan_mp_t x, const uint8_t tweak[], HsInt tweak_off, HsInt tweak_len)
+{return botan_fpe_decrypt(fpe, x, tweak+tweak_off, tweak_len);}
