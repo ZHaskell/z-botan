@@ -9,11 +9,31 @@ import           Z.Foreign
 
 newtype HOTP = HOTP BotanStruct
 
-newHOTP :: V.Bytes -> CBytes -> Int -> IO HOTP
-newHOTP key hashAlgo digits = do
+data OTPAlgo =
+        OTP_SHA_1
+    |   OTP_SHA_256
+    |   OTP_SHA_512
+
+otpAlgoToBytes :: OTPAlgo -> CBytes
+otpAlgoToBytes OTP_SHA_1   = "SHA-1"
+otpAlgoToBytes OTP_SHA_256 = "SHA-256"
+otpAlgoToBytes OTP_SHA_512 = "SHA-512"
+
+data OTPDigit =
+        OTP_DIGIT_6
+    |   OTP_DIGIT_7
+    |   OTP_DIGIT_8
+
+otpDigitToInt :: OTPDigit -> Int
+otpDigitToInt OTP_DIGIT_6 = 6
+otpDigitToInt OTP_DIGIT_7 = 7
+otpDigitToInt OTP_DIGIT_8 = 8
+
+newHOTP :: V.Bytes -> OTPAlgo -> OTPDigit -> IO HOTP
+newHOTP key otpAlgo digits = do
     withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
-        withCBytesUnsafe hashAlgo $ \ hashAlgo' ->
-            HOTP <$> newBotanStruct (\ hotp -> hs_botan_hotp_init hotp key' keyOff keyLen hashAlgo' digits) botan_hotp_destroy
+        withCBytesUnsafe (otpAlgoToBytes otpAlgo) $ \ hashAlgo' ->
+            HOTP <$> newBotanStruct (\ hotp -> hs_botan_hotp_init hotp key' keyOff keyLen hashAlgo' (otpDigitToInt digits)) botan_hotp_destroy
 
 -- | Generate a HOTP code for the provided counter.
 genHOTP :: HOTP   -- ^ the HOTP object
@@ -25,29 +45,13 @@ genHOTP (HOTP hotp) counter = do
             botan_hotp_generate hotp' code counter
         return a
 
--- checkHOTP :: HOTP -> Maybe Word64 -> Word32 -> Word64 -> Int -> IO Bool
--- checkHOTP (HOTP hotp) nextCounter code counter range = do
---     withBotanStruct hotp $ \ hotp' -> do
---         ret <- hs_botan_hotp_check hotp' (
---                    case nextCounter of
---                        Nothing -> 0
---                        Just _  -> 1
---                     ) (do
---                         (a, _) <- allocPrimUnsafe $ \ retPtr ->
---                             case nextCounter of
---                                 Nothing -> undefined
---                                 Just p  -> undefined
---                         undefined
---                     ) code counter range
---         return $! ret == BOTAN_FFI_SUCCESS
-
 newtype TOTP = TOTP BotanStruct
 
-newTOTP :: V.Bytes -> CBytes -> Int -> Int -> IO TOTP
-newTOTP key hashAlgo digits timeStep = do
+newTOTP :: V.Bytes -> OTPAlgo -> OTPDigit -> Int -> IO TOTP
+newTOTP key otpAlgo digits timeStep = do
     withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
-        withCBytesUnsafe hashAlgo $ \ hashAlgo' ->
-            TOTP <$> newBotanStruct (\ hotp -> hs_botan_totp_init hotp key' keyOff keyLen hashAlgo' digits timeStep) botan_totp_destroy
+        withCBytesUnsafe (otpAlgoToBytes otpAlgo) $ \ hashAlgo' ->
+            TOTP <$> newBotanStruct (\ hotp -> hs_botan_totp_init hotp key' keyOff keyLen hashAlgo' (otpDigitToInt digits) timeStep) botan_totp_destroy
 
 -- | Generate a TOTP code for the provided timestamp.
 genTOTP :: TOTP   -- ^ the TOTP object
