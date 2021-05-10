@@ -2,6 +2,7 @@
 Module      : Z.Crypto.KDF
 Description : Key Derivation Functions
 Copyright   : Dong Han, 2021
+              AnJie Dong, 2021
 License     : BSD
 Maintainer  : winterland1989@gmail.com
 Stability   : experimental
@@ -27,15 +28,15 @@ module Z.Crypto.KDF (
   , pbkdfTypeToParam
   ) where
 
-import Z.Crypto.Cipher (BlockCipherType (..))
-import Z.Crypto.Hash (HashType (..), hashTypeToCBytes)
-import Z.Crypto.MAC (MACType (..), macTypeToCBytes)
-import Z.Botan.FFI
-import Z.Data.CBytes (CBytes, withCBytesUnsafe, withCBytes)
-import qualified Z.Data.CBytes as CB
-import qualified Z.Data.Vector as V
-import Z.Foreign
-import Z.Botan.Exception
+import           Z.Botan.Exception
+import           Z.Botan.FFI
+import           Z.Crypto.Cipher   (BlockCipherType (..))
+import           Z.Crypto.Hash     (HashType (..), hashTypeToCBytes)
+import           Z.Crypto.MAC      (MACType (..), macTypeToCBytes)
+import           Z.Data.CBytes     (CBytes, withCBytes, withCBytesUnsafe)
+import qualified Z.Data.CBytes     as CB
+import qualified Z.Data.Vector     as V
+import           Z.Foreign
 
 -----------------------------
 -- Key Derivation Function --
@@ -59,9 +60,10 @@ data KDFType
     | KDF1 HashType
     -- ^ KDF1 from IEEE 1363. It can only produce an output at most the length of the hash function used.
     | TLS_PRF
-    -- ^
+    -- ^ A KDF from ANSI X9.42. Sometimes used for Diffie-Hellman.
     | TLS_12_PRF MACType
     | SP800_108_Counter MACType
+    -- ^ KDFs from NIST SP 800-108. Variants include “SP800-108-Counter”, “SP800-108-Feedback” and “SP800-108-Pipeline”.
     | SP800_108_Feedback MACType
     | SP800_108_Pipeline MACType
     | SP800_56AHash HashType
@@ -69,6 +71,7 @@ data KDFType
     | SP800_56AMAC MACType
     -- ^ NIST SP 800-56A KDF using HMAC
     | SP800_56C MACType
+    -- ^ NIST SP 800-56C KDF using HMAC
 
 kdfTypeToCBytes :: KDFType -> CBytes
 kdfTypeToCBytes (HKDF mt        ) = CB.concat [ "HKDF(" , macTypeToCBytes mt, ")"]
@@ -151,18 +154,12 @@ pbkdfTypeToParam (OpenPGP_S2K ht i) = (CB.concat [ "OpenPGP-S2K(" , hashTypeToCB
 -- | Derive a key from a passphrase for a number of iterations using the given PBKDF algorithm and params.
 pbkdf :: PBKDFType  -- ^ PBKDF algorithm type
       -> Int        -- ^ length of output key
-      -> V.Bytes    -- ^ passphrase
+      -> CBytes     -- ^ passphrase
       -> V.Bytes    -- ^ salt
       -> IO V.Bytes
 pbkdf typ siz pwd salt = do
-    -- Workaround for implementation detail in botan (in ffi_kdf.cpp, `botan_pwdhash`), where
-    -- when `passphrase_len` == 0, -- it will be assigned as `strlen(passphrase)`.
-    let ppLen = V.length pwd
-        pwdOrNULL = if ppLen == 0
-                       then V.pack [ 0 ] -- '\NUL' terminated
-                       else pwd
     withCBytesUnsafe algo $ \ algoBA ->
-        withPrimVectorUnsafe pwdOrNULL $ \ pwdBA ppOff _ ->
+        withCBytesUnsafe pwd $ \ pwdBA ->
             withPrimVectorUnsafe salt $ \ saltBA saltOff saltLen -> do
                 fst <$> allocPrimVectorUnsafe siz (\ buf -> do
                     clearMBA buf siz
@@ -170,7 +167,7 @@ pbkdf typ siz pwd salt = do
                         hs_botan_pwdhash algoBA
                             i1 i2 i3
                             buf (fromIntegral siz)
-                            pwdBA ppOff ppLen
+                            pwdBA (CB.length pwd)
                             saltBA saltOff saltLen)
   where
     (algo, i1, i2, i3) = pbkdfTypeToParam typ
@@ -180,37 +177,30 @@ pbkdf typ siz pwd salt = do
 pbkdfTimed :: PBKDFType  -- ^ the name of the given PBKDF algorithm
            -> Int        -- ^ run until milliseconds have passwd
            -> Int        -- ^ length of output key
-           -> V.Bytes    -- ^ passphrase
+           -> CBytes     -- ^ passphrase
            -> V.Bytes    -- ^ salt
            -> IO V.Bytes
 pbkdfTimed typ msec siz pwd s = do
-    -- See also: @pbkdf@.
-    let ppLen = V.length pwd
-        pwdOrNULL = if ppLen == 0
-                       then V.pack [ 0 ] -- '\NUL' terminated
-                       else pwd
     -- we want run it in new OS thread without stop GC from running
     -- if the expected time is too long(>0.1s)
     if msec > 100
     then withCBytes algo $ \algo' ->
-        withPrimVectorSafe pwdOrNULL $ \pwd' _ ->
+        withCBytes pwd $ \ pwd' ->
             withPrimVectorSafe s $ \s' sLen ->
                 fst <$> allocPrimVectorSafe siz (\ buf -> do
                     clearPtr buf siz
                     throwBotanIfMinus_ $
                         hs_botan_pwdhash_timed_safe
                             algo' msec buf (fromIntegral siz)
-                            pwd' 0 ppLen
-                            s' 0 sLen)
+                            pwd' (CB.length pwd) s' 0 sLen)
     else withCBytesUnsafe algo $ \algo' ->
-        withPrimVectorUnsafe pwdOrNULL $ \pwd' ppOff _ ->
+        withCBytesUnsafe pwd $ \ pwd' ->
             withPrimVectorUnsafe s $ \s' sOff sLen ->
                 fst <$> allocPrimVectorUnsafe siz (\ buf -> do
                     clearMBA buf siz
                     throwBotanIfMinus_ $
                         hs_botan_pwdhash_timed
                             algo' msec buf (fromIntegral siz)
-                            pwd' ppOff ppLen
-                            s' sOff sLen)
+                            pwd' (CB.length pwd) s' sOff sLen)
   where
     (algo, _, _, _) = pbkdfTypeToParam typ

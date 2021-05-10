@@ -11,30 +11,37 @@ A Message Authentication Code algorithm computes a tag over a message utilizing 
 
 -}
 
-module Z.Crypto.MAC where
+module Z.Crypto.MAC (
+    -- * MAC type
+    MACType(..)
+  , MAC, macName, macSize
+    -- * IUF interface
+  , newMAC
+  , setKeyMAC
+  , updateMAC
+  , finalMAC
+  , clearMAC
+  -- * function interface
+  , mac, macChunks
+  -- * BIO interface
+  , sinkToMAC
+  -- * Internal helper
+  , macTypeToCBytes
+  , withMAC
+  ) where
 
-import Z.Botan.Exception ( HasCallStack, throwBotanIfMinus_ )
-import Z.Botan.FFI
-    ( BotanStruct,
-      hs_botan_mac_clear,
-      hs_botan_mac_update,
-      hs_botan_mac_set_key,
-      botan_mac_output_length,
-      botan_mac_destroy,
-      botan_mac_init,
-      botan_mac_final,
-      withBotanStruct,
-      newBotanStruct )
-import Z.Crypto.Cipher ( blockCipherTypeToCBytes, BlockCipherType )
-import Z.Crypto.Hash (HashType, hashTypeToCBytes)
-import Z.Data.CBytes as CB
-    ( concat, fromText, withCBytesUnsafe, CBytes )
-import qualified Z.Data.Text as T
-import Z.Foreign
-    ( allocPrimUnsafe, allocPrimVectorUnsafe, withPrimVectorUnsafe)
-import qualified Z.Data.Vector as V
-import Z.IO.BIO ( Sink, BIO(BIO) )
-import System.IO.Unsafe ( unsafePerformIO )
+import           GHC.Generics
+import           System.IO.Unsafe  (unsafePerformIO)
+import           Z.Botan.Exception
+import           Z.Botan.FFI
+import           Z.Crypto.Cipher   (BlockCipherType, blockCipherTypeToCBytes)
+import           Z.Crypto.Hash     (HashType, hashTypeToCBytes)
+import           Z.Data.CBytes     as CB
+import qualified Z.Data.Text       as T
+import qualified Z.Data.Vector     as V
+import           Z.Foreign
+import           Z.IO.BIO
+
 
 data MACType = CMAC BlockCipherType
                 -- ^ A modern CBC-MAC variant that avoids the security problems of plain CBC-MAC.
@@ -78,10 +85,16 @@ macTypeToCBytes (SipHash r1 r2) = CB.concat ["SipHash(", sizeCBytes r1, ",", siz
 macTypeToCBytes X9'19_MAC = "X9.19-MAC"
 
 data MAC = MAC
-    { getMACStruct :: BotanStruct
-    , getMACName :: CBytes
-    , getMACSiz :: Int
-    } deriving (Show, Eq)
+    { macStruct :: {-# UNPACK #-} !BotanStruct
+    , macName   :: {-# UNPACK #-} !CBytes
+    , macSize   :: {-# UNPACK #-} !Int
+    }
+    deriving (Show, Generic)
+    deriving anyclass T.Print
+
+-- | Pass MAC to FFI as 'botan_mac_t'.
+withMAC :: HasCallStack => MAC -> (BotanStructT -> IO r) -> IO r
+withMAC (MAC m _ _) = withBotanStruct m
 
 -- | Create a new 'MAC' object.
 newMAC :: MACType -> IO MAC
@@ -92,9 +105,9 @@ newMAC typ = do
             (botan_mac_init bts pt 0))
         botan_mac_destroy
     (osiz, _) <- withBotanStruct bs $ \ pbs ->
-        allocPrimUnsafe $ \ pl ->
+        allocPrimUnsafe @CSize $ \ pl ->
             botan_mac_output_length pbs pl
-    return (MAC bs name osiz)
+    return (MAC bs name (fromIntegral osiz))
 
 -- | Set the random key.
 setKeyMAC :: HasCallStack => MAC -> V.Bytes -> IO ()
@@ -125,10 +138,10 @@ clearMAC (MAC bts _ _) =
 -- | Trun 'MAC' to a 'V.Bytes' sink, update 'MAC' by write bytes to the sink.
 --
 sinkToMAC :: HasCallStack => MAC -> Sink V.Bytes
-sinkToMAC m = BIO push_ pull_
-  where
-    push_ x = updateMAC m x >> return Nothing
-    pull_ = return Nothing
+{-# INLINABLE sinkToMAC #-}
+sinkToMAC h = \ k mbs -> case mbs of
+    Just bs -> updateMAC h bs
+    _       -> k EOF
 
 -- | Directly compute a message's mac
 mac :: HasCallStack => MACType
@@ -145,8 +158,8 @@ mac mt key inp = unsafePerformIO $ do
 -- | Directly compute a chunked message's mac.
 macChunks :: HasCallStack => MACType -> V.Bytes -> [V.Bytes] -> V.Bytes
 {-# INLINABLE macChunks #-}
-macChunks mt key inp = unsafePerformIO $ do
+macChunks mt key inps = unsafePerformIO $ do
     m <- newMAC mt
     setKeyMAC m key
-    mapM_ (updateMAC m) inp
+    mapM_ (updateMAC m) inps
     finalMAC m

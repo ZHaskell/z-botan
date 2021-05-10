@@ -11,78 +11,98 @@
 -- Every once in a while the CA will release a new CRL, listing all certificates that have been revoked.
 -- Also included is various pieces of information like what time a particular certificate was revoked, and for what reason.
 -- In most systems, it is wise to support some form of certificate revocation, and CRLs handle this easily.
-module Z.Crypto.X509 where
+module Z.Crypto.X509 (
+  -- * X509 Certificates
+    X509Cert, withX509Cert
+  , loadX509Cert, loadX509CertFile, dupX509Cert
+  -- * read X509 field
+  , x509CertStart, x509CertExpire
+  , x509CertStart', x509CertExpire'
+  , x509CertStartText, x509CertExpireText
+  , x509CertFingerPrint
+  , x509CertSerial
+  , x509CertIDAuthority
+  , x509CertIDSubject
+  , x509CertPubBits
+  , x509CertPubKey
+  , x509CertDNIssuer
+  , x509CertDNSubject
+  , x509CertToText
+  , x509CertUsage
+  -- * verify certificate
+  , verifyX509Cert
+  , verifyX509CertCRL
+  -- * CRL
+  , X509CRL
+  , withX509CRL, loadX509CRL, loadX509CRLFile, isRevokedX509
+  -- * constants
+  , KeyUsageConstraint
+  , pattern NO_CONSTRAINTS
+  , pattern DIGITAL_SIGNATURE
+  , pattern NON_REPUDIATION
+  , pattern KEY_ENCIPHERMENT
+  , pattern DATA_ENCIPHERMENT
+  , pattern KEY_AGREEMENT
+  , pattern KEY_CERT_SIGN
+  , pattern CRL_SIGN
+  , pattern ENCIPHER_ONLY
+  , pattern DECIPHER_ONLY
+  ) where
 
-import Foreign (Word32, Word64)
-import Z.Botan.Exception (throwBotanIfMinus_)
-import Z.Botan.FFI
-  ( BotanStruct,
-    botan_pubkey_destroy,
-    botan_x509_cert_allowed_usage,
-    botan_x509_cert_destroy,
-    botan_x509_cert_dup,
-    botan_x509_cert_get_authority_key_id,
-    botan_x509_cert_get_fingerprint,
-    botan_x509_cert_get_issuer_dn,
-    botan_x509_cert_get_public_key,
-    botan_x509_cert_get_public_key_bits,
-    botan_x509_cert_get_serial_number,
-    botan_x509_cert_get_subject_dn,
-    botan_x509_cert_get_subject_key_id,
-    botan_x509_cert_get_time_expires,
-    botan_x509_cert_get_time_starts,
-    botan_x509_cert_load_file,
-    botan_x509_cert_not_after,
-    botan_x509_cert_not_before,
-    botan_x509_cert_to_string,
-    botan_x509_cert_validation_status,
-    botan_x509_crl_destroy,
-    botan_x509_crl_load_file,
-    botan_x509_is_revoked,
-    hs_botan_x509_cert_load,
-    hs_botan_x509_cert_verify,
-    hs_botan_x509_cert_verify_with_crl,
-    hs_botan_x509_crl_load,
-    newBotanStruct,
-    withBotanStruct,
-  )
-import Z.Crypto.Hash (HashType, hashTypeToCBytes)
-import Z.Crypto.PubKey (PubKey (..), maxFingerPrintSize)
-import Z.Data.CBytes (CBytes, CString, fromBytes, withCBytesUnsafe)
-import qualified Z.Data.Vector as V
-import Z.Foreign
-  ( CInt,
-    allocPrimUnsafe,
-    allocPrimVectorUnsafe,
-    withPrimVectorUnsafe,
-  )
+import           Data.Time.Clock.System (SystemTime (..))
+import           Data.Word
+import           GHC.Generics
+import           Z.Botan.Exception
+import           Z.Botan.FFI
+import           Z.Crypto.Hash          (HashType, hashTypeToCBytes)
+import           Z.Crypto.PubKey        (PubKey (..))
+import qualified Z.Data.Text            as T
+import qualified Z.Data.Text.Base       as T
+import qualified Z.Data.Vector          as V
+import qualified Z.Data.Vector.Extra    as V
+import           Z.Data.CBytes          (CBytes)
+import qualified Z.Data.CBytes          as CB
+import           Z.Foreign
+import           Z.Foreign.CPtr
+import           System.IO.Unsafe
 
 ------------------------
 -- X.509 Certificates --
 ------------------------
 
 -- | An opaque newtype wrapper for an X.509 certificate.
-newtype X509Cert = X509Cert BotanStruct
+newtype X509Cert = X509Cert { certStruct :: BotanStruct }
+    deriving (Show, Generic)
+    deriving anyclass T.Print
+
+withX509Cert :: HasCallStack => X509Cert -> (BotanStructT -> IO r) -> IO r
+withX509Cert (X509Cert cert) = withBotanStruct cert
 
 -- | Load a certificate from the DER or PEM representation.
-loadX509Cert :: V.Bytes -> IO X509Cert
+loadX509Cert :: HasCallStack => V.Bytes -> IO X509Cert
 loadX509Cert cert = do
-  withPrimVectorUnsafe cert $ \cert' off len ->
-    X509Cert <$> newBotanStruct (\ret -> hs_botan_x509_cert_load ret cert' off len) botan_x509_cert_destroy
+    withPrimVectorUnsafe cert $ \ cert' off len ->
+        X509Cert <$> newBotanStruct
+            (\ ret -> hs_botan_x509_cert_load ret cert' off len)
+            botan_x509_cert_destroy
 
 -- | Load a certificate from a file.
-loadX509CertFile :: CBytes -> IO X509Cert
+loadX509CertFile :: HasCallStack => CBytes -> IO X509Cert
 loadX509CertFile name = do
-  withCBytesUnsafe name $ \name' ->
-    X509Cert <$> newBotanStruct (`botan_x509_cert_load_file` name') botan_x509_cert_destroy
+    CB.withCBytesUnsafe name $ \ name' ->
+        X509Cert <$> newBotanStruct
+            (`botan_x509_cert_load_file` name')
+            botan_x509_cert_destroy
 
 -- | Create a new object that refers to the same certificate.
-dupX509Cert :: X509Cert -> IO X509Cert
-dupX509Cert (X509Cert cert) = do
-  withBotanStruct cert $ \cert' ->
-    X509Cert <$> newBotanStruct (`botan_x509_cert_dup` cert') botan_x509_cert_destroy
+dupX509Cert :: HasCallStack => X509Cert -> IO X509Cert
+dupX509Cert cert = do
+    withX509Cert cert $ \ cert' ->
+        X509Cert <$> newBotanStruct
+            (`botan_x509_cert_dup` cert')
+            botan_x509_cert_destroy
 
-{-
+{- NO IMPLEMENTED IN BOTAN
 -- | Create a new self-signed X.509 certificate.
 -- Generating a new self-signed certificate can often be useful, for example when setting up a new root CA, or for use in specialized protocols.
 newX509CertSelfsigned ::
@@ -94,282 +114,252 @@ newX509CertSelfsigned ::
   -- | org name
   CBytes ->
   IO X509Cert
-newX509CertSelfsigned (PrivKey key) rng common org = do
-  withBotanStruct key $ \key' ->
-    withRNG rng $ \rng' ->
-      withCBytesUnsafe common $ \common' ->
-        withCBytesUnsafe org $ \org' ->
-          X509Cert <$> newBotanStruct (\ret -> botan_x509_cert_gen_selfsigned ret key' rng' common' org') botan_x509_cert_destroy
+newX509CertSelfsigned (PrivKey key) rng common org =
+    withBotanStruct key $ \ key' ->
+    withRNG rng $ \ rng' ->
+    CB.withCBytesUnsafe common $ \ common' ->
+    CB.withCBytesUnsafe org $ \ org' ->
+        X509Cert <$> newBotanStruct
+            (\ ret -> botan_x509_cert_gen_selfsigned ret key' rng' common' org')
+            botan_x509_cert_destroy
 -}
 
-maxTDSize :: Int
-maxTDSize = 16
+-- | Return the time the certificate becomes valid, as a 'T.Text' in form “YYYYMMDDHHMMSSZ” where Z is a literal character reflecting that this time is relative to UTC.
+x509CertStartText :: X509Cert -> IO T.Text
+x509CertStartText cert =
+    withX509Cert cert $ \ cert' ->
+    allocBotanBufferUTF8Unsafe 16 (botan_x509_cert_get_time_starts cert')
 
--- | Return the time the certificate becomes valid, as a CBytes in form “YYYYMMDDHHMMSSZ” where Z is a literal character reflecting that this time is relative to UTC.
-readX509CertStart :: X509Cert -> IO CBytes
-readX509CertStart (X509Cert cert) = do
-  (a, _) <- allocPrimVectorUnsafe maxTDSize $ \td -> do
-    (a', _) <- allocPrimUnsafe @Int $ \len ->
-      withBotanStruct cert $ \cert' ->
-        throwBotanIfMinus_ $ botan_x509_cert_get_time_starts cert' td len
-    pure a'
-  return $ fromBytes a
-
--- | Return the time the certificate expires, as a CBytes in form “YYYYMMDDHHMMSSZ” where Z is a literal character reflecting that this time is relative to UTC.
-readX509CertExpire :: X509Cert -> IO CBytes
-readX509CertExpire (X509Cert cert) = do
-  (a, _) <- allocPrimVectorUnsafe maxTDSize $ \td -> do
-    (a', _) <- allocPrimUnsafe @Int $ \len ->
-      withBotanStruct cert $ \cert' ->
-        throwBotanIfMinus_ $ botan_x509_cert_get_time_expires cert' td len
-    pure a'
-  return (fromBytes a)
+-- | Return the time the certificate expires, as a 'T.Text' in form “YYYYMMDDHHMMSSZ” where Z is a literal character reflecting that this time is relative to UTC.
+x509CertExpireText :: X509Cert -> IO T.Text
+x509CertExpireText cert =
+    withX509Cert cert $ \ cert' ->
+    allocBotanBufferUTF8Unsafe 16 (botan_x509_cert_get_time_expires cert')
 
 -- | Return the time the certificate becomes valid, as seconds since epoch.
-readX509CertNotBefore :: X509Cert -> IO Word64
-readX509CertNotBefore (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimUnsafe @Word64 $ \time ->
-      botan_x509_cert_not_before cert' time
-    return a
+x509CertStart :: X509Cert -> IO Word64
+x509CertStart cert =
+    withX509Cert cert $ \ cert' -> do
+        (a, _) <- allocPrimUnsafe @Word64 $ botan_x509_cert_not_before cert'
+        return a
 
--- | Return the time the certificate expires, as seconds since epoch.
-readX509CertNotAfter :: X509Cert -> IO Word64
-readX509CertNotAfter (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimUnsafe @Word64 $ \time ->
-      botan_x509_cert_not_after cert' time
-    return a
+-- | Return the time the certificate becomes valid.
+x509CertStart' :: X509Cert -> IO SystemTime
+x509CertStart' cert = do
+    !r <- fromIntegral <$> x509CertStart cert
+    return (MkSystemTime r 0)
+
+-- | Return the time the certificate expires, as 'SystemTime'.
+x509CertExpire :: X509Cert -> IO Word64
+x509CertExpire cert =
+    withX509Cert cert $ \ cert' -> do
+        (a, _) <- allocPrimUnsafe @Word64 $ botan_x509_cert_not_after cert'
+        return a
+
+-- | Return the time the certificate expires, as 'SystemTime'.
+x509CertExpire' :: X509Cert -> IO SystemTime
+x509CertExpire' cert = do
+    !r <- fromIntegral <$> x509CertExpire cert
+    return (MkSystemTime r 0)
 
 -- | Return the finger print of the certificate.
-readX509CertFingerPrint :: X509Cert -> HashType -> IO V.Bytes
-readX509CertFingerPrint (X509Cert cert) hty = do
-  withBotanStruct cert $ \cert' ->
-    let hty' = hashTypeToCBytes hty
-     in withCBytesUnsafe hty' $ \hty'' -> do
-          (a, _) <- allocPrimVectorUnsafe maxFingerPrintSize $ \ret -> do
-            (a', _) <- allocPrimUnsafe @Int $ \len ->
-              throwBotanIfMinus_ $ botan_x509_cert_get_fingerprint cert' hty'' ret len
-            pure a'
-          return a
-
-maxX509ReadSize :: Int
-maxX509ReadSize = 64
+x509CertFingerPrint :: X509Cert -> HashType -> IO T.Text
+x509CertFingerPrint cert ht =
+    withX509Cert cert $ \ cert' ->
+    CB.withCBytesUnsafe (hashTypeToCBytes ht) $ \ ht' ->
+    allocBotanBufferUTF8Unsafe V.smallChunkSize $
+        botan_x509_cert_get_fingerprint cert' ht'
 
 -- | Return the serial number of the certificate.
-readX509CertSerial :: X509Cert -> IO V.Bytes
-readX509CertSerial (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-      (a', _) <- allocPrimUnsafe @Int $ \len ->
-        throwBotanIfMinus_ $ botan_x509_cert_get_serial_number cert' ret len
-      pure a'
-    return a
+x509CertSerial :: X509Cert -> IO V.Bytes
+x509CertSerial cert =
+    withX509Cert cert $ \ cert' ->
+    allocBotanBufferUnsafe 64 $
+        botan_x509_cert_get_serial_number cert'
 
 -- | Return the authority key ID set in the certificate, which may be empty.
-readX509CertIDAuthority :: X509Cert -> IO V.Bytes
-readX509CertIDAuthority (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-      (a', _) <- allocPrimUnsafe @Int $ \len ->
-        throwBotanIfMinus_ $ botan_x509_cert_get_authority_key_id cert' ret len
-      pure a'
-    return a
+x509CertIDAuthority :: X509Cert -> IO V.Bytes
+x509CertIDAuthority cert =
+    withX509Cert cert $ \ cert' ->
+    allocBotanBufferUnsafe 64 $
+        botan_x509_cert_get_authority_key_id cert'
 
 -- | Return the subject key ID set in the certificate, which may be empty.
-readX509CertIDSubject :: X509Cert -> IO V.Bytes
-readX509CertIDSubject (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-      (a', _) <- allocPrimUnsafe @Int $ \len ->
-        throwBotanIfMinus_ $ botan_x509_cert_get_subject_key_id cert' ret len
-      pure a'
-    return a
+x509CertIDSubject :: X509Cert -> IO V.Bytes
+x509CertIDSubject cert =
+    withX509Cert cert $ \ cert' ->
+    allocBotanBufferUnsafe 64 $
+        botan_x509_cert_get_subject_key_id cert'
 
 -- | Get the serialized representation of the public key included in this certificate.
-readX509CertPubBits :: X509Cert -> IO V.Bytes
-readX509CertPubBits (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-      (a', _) <- allocPrimUnsafe @Int $ \len ->
-        throwBotanIfMinus_ $ botan_x509_cert_get_public_key_bits cert' ret len
-      pure a'
-    return a
+x509CertPubBits :: X509Cert -> IO V.Bytes
+x509CertPubBits cert =
+    withX509Cert cert $ \ cert' ->
+    allocBotanBufferUnsafe V.smallChunkSize $
+        botan_x509_cert_get_public_key_bits cert'
 
 -- | Get the public key included in this certificate.
-readX509CertPub :: X509Cert -> IO PubKey
-readX509CertPub (X509Cert cert) = do
-  withBotanStruct cert $ \cert' ->
-    PubKey <$> newBotanStruct (cert' `botan_x509_cert_get_public_key`) botan_pubkey_destroy
+x509CertPubKey :: X509Cert -> IO PubKey
+x509CertPubKey cert = do
+    withX509Cert cert $ \ cert' ->
+        PubKey <$> newBotanStruct
+            (cert' `botan_x509_cert_get_public_key`)
+            botan_pubkey_destroy
 
 -- | Get a value from the issuer DN field.
-readX509CertDNIssuer ::
-  X509Cert ->
-  -- | key
-  CBytes ->
-  -- | index
-  Int ->
-  IO V.Bytes
-readX509CertDNIssuer (X509Cert cert) key ix = do
-  withBotanStruct cert $ \cert' ->
-    withCBytesUnsafe key $ \key' -> do
-      (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-        (a', _) <- allocPrimUnsafe @Int $ \len ->
-          throwBotanIfMinus_ $ botan_x509_cert_get_issuer_dn cert' key' ix ret len
-        pure a'
-      return a
+x509CertDNIssuer ::
+    X509Cert ->
+    -- | key
+    CBytes ->
+    -- | index
+    Int ->
+    IO T.Text
+x509CertDNIssuer cert key ix =
+    withX509Cert cert $ \ cert' ->
+    CB.withCBytesUnsafe key $ \ key' -> do
+    allocBotanBufferUTF8Unsafe 64 $
+        botan_x509_cert_get_issuer_dn cert' key' ix
 
 -- | Get a value from the subject DN field.
-readX509CertDNSubject ::
+x509CertDNSubject ::
   X509Cert ->
   -- | key
   CBytes ->
   -- | index
   Int ->
-  IO V.Bytes
-readX509CertDNSubject (X509Cert cert) key ix = do
-  withBotanStruct cert $ \cert' ->
-    withCBytesUnsafe key $ \key' -> do
-      (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-        (a', _) <- allocPrimUnsafe @Int $ \len ->
-          throwBotanIfMinus_ $ botan_x509_cert_get_subject_dn cert' key' ix ret len
-        pure a'
-      return a
+  IO T.Text
+x509CertDNSubject cert key ix =
+    withX509Cert cert $ \ cert' ->
+    CB.withCBytesUnsafe key $ \ key' ->
+    allocBotanBufferUTF8Unsafe 64 $
+        botan_x509_cert_get_subject_dn cert' key' ix
 
--- | Format the certificate as a free-form string (CBytes).
-x509CertToCBytes :: X509Cert -> IO CBytes
-x509CertToCBytes (X509Cert cert) = do
-  withBotanStruct cert $ \cert' -> do
-    (a, _) <- allocPrimVectorUnsafe maxX509ReadSize $ \ret -> do
-      (a', _) <- allocPrimUnsafe @Int $ \len ->
-        throwBotanIfMinus_ $ botan_x509_cert_to_string cert' ret len
-      pure a'
-    return $ fromBytes a
+-- | Format the certificate as a free-form string.
+x509CertToText :: X509Cert -> IO T.Text
+x509CertToText cert =
+    withX509Cert cert $ \ cert' ->
+    T.Text . V.unsafeInit <$>
+        allocBotanBufferUnsafe V.smallChunkSize (botan_x509_cert_to_string cert')
 
--- | Certificate key usage constraints.
-data X509CertKeyConstraint
-  = NoConstraints
-  | DigitalSignatrue
-  | NonRepudiation
-  | KeyEncipherment
-  | DataEncipherment
-  | KeyAgreement
-  | KeyCertSign
-  | CRLSign
-  | EncipherOnly
-  | DecipherOnly
+-- | Change cert's 'KeyUsageConstraint'.
+x509CertUsage :: X509Cert -> KeyUsageConstraint -> IO ()
+x509CertUsage cert usage =
+    withX509Cert cert $ \ cert' ->
+    throwBotanIfMinus_ $ botan_x509_cert_allowed_usage cert' usage
 
-x509KeyConstraintToWord32 :: X509CertKeyConstraint -> Word32 -- unsigned int key_usage
-x509KeyConstraintToWord32 = \case
-  NoConstraints -> 0
-  DigitalSignatrue -> 32768
-  NonRepudiation -> 16384
-  KeyEncipherment -> 8192
-  DataEncipherment -> 4096
-  KeyAgreement -> 2048
-  KeyCertSign -> 1024
-  CRLSign -> 512
-  EncipherOnly -> 256
-  DecipherOnly -> 128
-
-type X509CertUsage = (X509Cert, X509CertKeyConstraint)
-
-x509CertUsage :: X509Cert -> X509CertKeyConstraint -> IO ()
-x509CertUsage (X509Cert cert) usage = do
-  withBotanStruct cert $ \cert' ->
-    throwBotanIfMinus_ $ botan_x509_cert_allowed_usage cert' (x509KeyConstraintToWord32 usage)
+-- Verify a certificate. Returns 'Nothing' if validation was successful, 'Just reason' if unsuccessful.
+--
+verifyX509Cert ::
+    -- | Intermediate certificates, set to @[]@ if not needed.
+    [X509Cert] ->
+    -- | Trusted certificates, set to @[]@ if not needed.
+    [X509Cert] ->
+    -- | The trusted path which refers to a directory where one or more trusted CA certificates are stored. It may be empty if not needed.
+    CBytes ->
+    -- | Set required strength to indicate the minimum key and hash strength that is allowed.
+    Int ->
+    -- | Hostname.
+    CBytes ->
+    -- | Set reference time(seconds since epoch) to be the time which the certificate chain is validated against. Use zero to use the current system clock.
+    Word64 ->
+    -- | The certificate to be verified.
+    X509Cert ->
+    IO (Maybe CBytes)
+verifyX509Cert intermediates trusted path strength hostname refTime cert =
+    withX509Cert cert $ \ cert' ->
+    withCPtrs (map certStruct intermediates) $ \ intermediates' intermediatesLen ->
+    withCPtrs (map certStruct trusted) $ \ trusted' trustedLen ->
+    CB.withCBytes path $ \ path' ->
+    CB.withCBytes hostname $ \ hostname' -> do
+        a <- throwBotanIfMinus $
+            hs_botan_x509_cert_verify cert'
+                intermediates' intermediatesLen
+                trusted' trustedLen
+                path' strength hostname' refTime
+        if a == 0
+        then return Nothing
+        else let !reason = x509CertValidateStatus a in return (Just reason)
 
 -- | Return a (statically allocated) CString associated with the verification result.
-readX509CertValidateStatus :: CInt -> CString
-readX509CertValidateStatus = botan_x509_cert_validation_status -- TODO: maybe unsafeDupablePerformIO
-
--- | Verify a certificate. Returns (Just True) if validation was successful, (Just False) if unsuccessful, or Nothing on error.
-verifyX509Cert ::
-  -- | The certificate to be verified.
-  X509Cert ->
-  -- | Intermediate certificates, set to NULL if not needed.
-  V.Bytes ->
-  -- | Trusted certificates, set to NULL if not needed.
-  V.Bytes ->
-  -- | The trusted path which refers to a directory where one or more trusted CA certificates are stored. It may be NULL if not needed.
-  CBytes ->
-  -- | Set required strength to indicate the minimum key and hash strength that is allowed.
-  Int ->
-  -- | Hostname.
-  CBytes ->
-  -- | Set reference time to be the time which the certificate chain is validated against. Use zero to use the current system clock.
-  Word64 ->
-  IO (Maybe Bool) -- TODO: maybe Bool, [X509Cert]
-verifyX509Cert (X509Cert cert) intermediates trusted path strength hostname refTime = do
-  withBotanStruct cert $ \cert' ->
-    withPrimVectorUnsafe intermediates $ \intermediates' intermediatesOff intermediatesLen ->
-      withPrimVectorUnsafe trusted $ \trusted' trustedOff trustedLen ->
-        withCBytesUnsafe path $ \path' ->
-          withCBytesUnsafe hostname $ \hostname' -> do
-            (a, _) <- allocPrimUnsafe @CInt $ \ret ->
-              throwBotanIfMinus_ $ hs_botan_x509_cert_verify ret cert' intermediates' intermediatesOff intermediatesLen trusted' trustedOff trustedLen path' strength hostname' refTime
-            if a == 0
-              then return (Just True)
-              else if a == 1 then return (Just False) else return Nothing
+x509CertValidateStatus :: CInt -> CBytes
+x509CertValidateStatus r =
+    unsafeDupablePerformIO $ CB.fromCString =<< botan_x509_cert_validation_status r
 
 -- | Certificate path validation supporting Certificate Revocation Lists.
--- Verify a certificate. Returns (Just True) if validation was successful, (Just False) if unsuccessful, or Nothing on error.
+--
+-- Verify a certificate. Returns 'Nothing' if validation was successful, 'Just reason' if unsuccessful.
+--
 verifyX509CertCRL ::
-  -- | The certificate to be verified.
-  X509Cert ->
-  -- | Intermediate certificates, set to NULL if not needed.
-  V.Bytes ->
-  -- | Trusted certificates, set to NULL if not needed.
-  V.Bytes ->
-  -- | Certificate Revocation Lists, set to NULL if not needed.
-  V.Bytes ->
-  -- | The trusted path which refers to a directory where one or more trusted CA certificates are stored. It may be NULL if not needed.
-  CBytes ->
-  -- | Set required strength to indicate the minimum key and hash strength that is allowed.
-  Int ->
-  -- | Hostname.
-  CBytes ->
-  -- | Set reference time to be the time which the certificate chain is validated against. Use zero to use the current system clock.
-  Word64 ->
-  IO (Maybe Bool)
-verifyX509CertCRL (X509Cert cert) intermediates trusted crls path strength hostname refTime = do
-  withBotanStruct cert $ \cert' ->
-    withPrimVectorUnsafe intermediates $ \intermediates' intermediatesOff intermediatesLen ->
-      withPrimVectorUnsafe trusted $ \trusted' trustedOff trustedLen ->
-        withPrimVectorUnsafe crls $ \crls' crlsOff crlsLen ->
-          withCBytesUnsafe path $ \path' ->
-            withCBytesUnsafe hostname $ \hostname' -> do
-              (a, _) <- allocPrimUnsafe @CInt $ \ret ->
-                throwBotanIfMinus_ $ hs_botan_x509_cert_verify_with_crl ret cert' intermediates' intermediatesOff intermediatesLen trusted' trustedOff trustedLen crls' crlsOff crlsLen path' strength hostname' refTime
-              if a == 0
-                then return (Just True)
-                else if a == 1 then return (Just False) else return Nothing
+    -- | Intermediate certificates, set to NULL if not needed.
+    [X509Cert] ->
+    -- | Trusted certificates, set to NULL if not needed.
+    [X509Cert] ->
+    -- | Certificate Revocation Lists, set to NULL if not needed.
+    [X509CRL] ->
+    -- | The trusted path which refers to a directory where one or more trusted CA certificates are stored. It may be NULL if not needed.
+    CBytes ->
+    -- | Set required strength to indicate the minimum key and hash strength that is allowed.
+    Int ->
+    -- | Hostname.
+    CBytes ->
+    -- | Set reference time(seconds since epoch) to be the time which the certificate chain is validated against. Use zero to use the current system clock.
+    Word64 ->
+    -- | The certificate to be verified.
+    X509Cert ->
+    IO (Maybe CBytes)
+verifyX509CertCRL intermediates trusted crls path strength hostname refTime cert =
+    withX509Cert cert $ \ cert' ->
+    withCPtrs (map certStruct intermediates) $ \ intermediates' intermediatesLen ->
+    withCPtrs (map certStruct trusted) $ \ trusted' trustedLen ->
+    withCPtrs (map crlStruct crls) $ \ crls' crlsLen ->
+    CB.withCBytes path $ \ path' ->
+    CB.withCBytes hostname $ \ hostname' -> do
+        a <- throwBotanIfMinus $
+            hs_botan_x509_cert_verify_with_crl cert'
+                intermediates' intermediatesLen
+                trusted' trustedLen
+                crls' crlsLen
+                path' strength hostname' refTime
+        if a == 0
+        then return Nothing
+        else let !reason = x509CertValidateStatus a in return (Just reason)
 
 ----------------------------------------
 -- X.509 Certificate Revocation Lists --
 ----------------------------------------
 
 -- | An opaque newtype wrapper for an X.509 Certificate Revocation Lists.
-newtype X509CRL = X509CRL BotanStruct
+newtype X509CRL = X509CRL { crlStruct :: BotanStruct }
+    deriving (Show, Generic)
+    deriving anyclass T.Print
+
+withX509CRL :: HasCallStack => X509CRL -> (BotanStructT -> IO r) -> IO r
+withX509CRL (X509CRL crl) = withBotanStruct crl
 
 -- | Load a CRL from the DER or PEM representation.
 loadX509CRL :: V.Bytes -> IO X509CRL
-loadX509CRL src = do
-  withPrimVectorUnsafe src $ \src' off len ->
-    X509CRL <$> newBotanStruct (\ret -> hs_botan_x509_crl_load ret src' off len) botan_x509_crl_destroy
+loadX509CRL src =
+    withPrimVectorUnsafe src $ \ src' off len ->
+    X509CRL <$> newBotanStruct
+        (\ ret -> hs_botan_x509_crl_load ret src' off len)
+        botan_x509_crl_destroy
 
 -- | Load a CRL from a file.
 loadX509CRLFile :: CBytes -> IO X509CRL
-loadX509CRLFile src = do
-  withCBytesUnsafe src $ \src' ->
-    X509CRL <$> newBotanStruct (`botan_x509_crl_load_file` src') botan_x509_cert_destroy
+loadX509CRLFile src =
+    CB.withCBytesUnsafe src $ \ src' ->
+    X509CRL <$> newBotanStruct
+        (`botan_x509_crl_load_file` src')
+        botan_x509_cert_destroy
 
 -- | Check whether a given crl contains a given cert. Return True when the certificate is revoked, False otherwise.
-isRevokedX509CRL :: X509CRL -> X509Cert -> IO (Maybe Bool) -- TODO: maybe Bool
-isRevokedX509CRL (X509CRL xs) (X509Cert cert) =
-  withBotanStruct xs $ \xs' ->
-    withBotanStruct cert $ \cert' -> do
-      ret <- botan_x509_is_revoked xs' cert'
-      if ret == 0
-        then return (Just True)
-        else if ret == -1 then return (Just False) else return Nothing
+isRevokedX509 :: HasCallStack => X509CRL -> X509Cert -> IO Bool
+isRevokedX509 crl cert =
+    withX509CRL crl $ \ crl' ->
+    withX509Cert cert $ \ cert' -> do
+        ret <- botan_x509_is_revoked crl' cert'
+        if ret == 0
+        then return True
+        else if ret == -1
+            then return False
+            else throwBotanError ret

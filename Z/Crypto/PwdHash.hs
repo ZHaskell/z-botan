@@ -22,11 +22,11 @@ Memory usage while checking a password is also a consideration; if the computati
 
 module Z.Crypto.PwdHash where
 
-import Z.Botan.Exception
-import Z.Botan.FFI
-import Z.Crypto.RNG (RNG, withRNG)
-import Z.Foreign
+import           Z.Botan.Exception
+import           Z.Botan.FFI
+import           Z.Crypto.RNG       (RNG, withRNG)
 import qualified Z.Data.Vector.Base as V
+import           Z.Foreign
 
 -- | Create a password hash using Bcrypt.
 --

@@ -5,7 +5,6 @@
 module Z.Botan.Errno where
 
 import Foreign.C.Types
-import Z.Data.CBytes
 
 #include "hs_botan.h"
 
