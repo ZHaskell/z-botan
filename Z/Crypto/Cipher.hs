@@ -17,17 +17,22 @@ A block cipher by itself, is only able to securely encrypt a single data block. 
 module Z.Crypto.Cipher
   ( -- * Block Cipher
     BlockCipherType(..)
-  , BlockCipher(..)
+  , BlockCipher, blockCipherName, blockCipherKeySpec, blockCipherSize
   , newBlockCipher, setBlockCipherKey, clearBlockCipher
   , encryptBlocks, decryptBlocks
     -- * Stream Cipher & Cipher Mode
   , StreamCipherType(..), newStreamCipher
-  , CipherMode(..), CipherDirection(..), Cipher(..), newCipher
+  , CipherMode(..), CipherDirection(..)
+  , Cipher, cipherName, cipherUpdateGranularity
+  , cipherKeySpec, cipherTagLength, defaultNonceLength
+  , newCipher
     -- * Cipher operations
   , setCipherKey, clearCipher, resetCipher, setAssociatedData
   , startCipher, updateCipher, finishCipher, cipherBIO
     -- * Internal helps
   , blockCipherTypeToCBytes
+  , withBlockCipher
+  , withCipher
   ) where
 
 import           Control.Monad
@@ -225,6 +230,10 @@ data BlockCipher = BlockCipher
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
+
+-- | Pass 'BlockCipher' to FFI as 'botan_block_cipher_t'.
+withBlockCipher :: HasCallStack => BlockCipher -> (BotanStructT -> IO r) -> IO r
+withBlockCipher (BlockCipher bc _ _ _) = withBotanStruct bc
 
 data KeySpec = KeySpec
     { keyLenMin :: {-# UNPACK #-} !Int  -- ^ minimum keylength
@@ -522,6 +531,10 @@ data Cipher = Cipher
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
+
+-- | Pass 'Cipher' to FFI as 'botan_cipher_t'.
+withCipher :: HasCallStack => Cipher -> (BotanStructT -> IO r) -> IO r
+withCipher (Cipher c _ _ _ _ _) = withBotanStruct c
 
 -- | Create a new cipher.
 --

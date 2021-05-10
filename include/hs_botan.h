@@ -64,12 +64,12 @@ int hs_botan_kdf(const char* algo
 int hs_botan_pwdhash(const char* algo
                     ,HsInt p1, HsInt p2, HsInt p3
                     ,uint8_t out[], HsInt out_len
-                    ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                    ,const char* passwd, HsInt passwd_len
                     ,const uint8_t salt[], HsInt salt_off, HsInt salt_len);
 int hs_botan_pwdhash_timed(const char* algo
                           ,uint32_t msec
                           ,uint8_t out[], HsInt out_len
-                          ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                          ,const char* passwd, HsInt passwd_len
                           ,const uint8_t salt[], HsInt salt_off, HsInt salt_len);
 
 HsInt hs_botan_bcrypt_generate(uint8_t *out, const char *pwd, HsInt pwd_off, HsInt pwd_len

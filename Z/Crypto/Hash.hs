@@ -13,20 +13,22 @@ Using a hash function is typically split into three stages: initialization, upda
 
 -}
 module Z.Crypto.Hash(
-    -- * IUF interface
+    -- * Hash type
     HashType(..)
-  , Hash(..)
+  , Hash, hashName, hashSize
+    -- * IUF interface
   , newHash
-  , copyHash
-  , clearHash
   , updateHash
   , finalHash
+  , copyHash
+  , clearHash
   -- * function interface
   , hash, hashChunks
   -- * BIO interface
   , sinkToHash
   -- * Internal helper
   , hashTypeToCBytes
+  , withHash
   ) where
 
 import           GHC.Generics      (Generic)
@@ -174,6 +176,10 @@ data Hash = Hash
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
+
+-- | Pass Hash to FFI as @botan_hash_t@
+withHash :: HasCallStack => Hash -> (BotanStructT -> IO r) -> IO r
+withHash (Hash h _ _) = withBotanStruct h
 
 -- | Create a new 'Hash' object.
 newHash :: HasCallStack => HashType -> IO Hash
