@@ -13,7 +13,8 @@ import qualified Z.Data.Parser      as P
 import           Z.Data.Parser.Numeric (decLoopIntegerFast)
 import           Z.Data.CBytes      (CBytes)
 import qualified Z.Data.Vector      as V
-import           Prelude            hiding (lines)
+import           Prelude            hiding (lines, mod)
+-- import           Data.IORef
 
 -- | Parse test data vector files.
 -- See `./third_party/botan/src/tests/data/`.
@@ -367,12 +368,12 @@ skipComment h acc = do
 --    -- @KEK == @
 --    -- @Output == @
 --
--- See `./third_party/botan/src/tests/data/keywrap/`.
+-- See `./third_party/botan/src/tests/data/keywrap/rfc3394.vec`.
 parseKeyWrapVec :: HasCallStack => CBytes -> IO [(V.Bytes, V.Bytes, V.Bytes)]
 parseKeyWrapVec = parseTestVector (h [])
   where
     h acc = do
-      P.skipWhile (\ w -> w /= LETTER_K && w /= LETTER_O)
+      P.skipWhile (\ w -> w /= LETTER_K && w /= LETTER_O && w /= HASH)
       w <- P.peekMaybe
       case w of
           Nothing -> return (acc, True)
@@ -384,3 +385,56 @@ parseKeyWrapVec = parseTestVector (h [])
             P.skipWord8
             o <- parseKeyValueLine "Output"
             h ((hexDecode' key, hexDecode' kek, hexDecode' o) : acc)
+
+-- | Parse test data vectors of the form:
+--
+--    -- [label]         -- [label]
+--    -- @Key == @       -- @Key == @
+--    -- @Input == @     -- @Output == @
+--    -- @Output == @    -- @Input == @
+--
+-- See `./third_party/botan/src/tests/data/keywrap/`.
+-- parseNistKeyWrapVec :: HasCallStack => CBytes -> IO [(V.Bytes ,[(V.Bytes, V.Bytes, V.Bytes)])]
+-- parseNistKeyWrapVec = parseNamedTestVector (h [])
+--     where
+--       h acc = do
+--         P.skipWhile $ \ w -> w /= LETTER_K
+--                           && w /= LETTER_O
+--                           && w /= BRACKET_LEFT && w /= HASH
+--         w <- P.peekMaybe
+--         case w of
+--           Nothing -> return (acc, True)
+--           Just HASH -> skipComment h acc
+--           Just BRACE_LEFT -> return (acc, False)
+--           _ -> do
+--             key <- parseKeyValueLine "Key"
+--             P.skipWord8
+--             resTag <- liftIO $ newIORef False
+--             res0 <- parseKeyValueLine "Input" <* (liftIO $ writeIORef resTag True) <|> parseKeyValueLine "Output"
+--             P.skipWord8
+--             res1 <- parseKeyValueLine "Input" <|> parseKeyValueLine "Output"
+--             resTag' <- liftIO $ readIORef resTag
+--             let (i, o) = if resTag' then (res0, res1) else (res1, res0)
+--             h ((hexDecode' key, hexDecode' i, hexDecode' o) : acc)
+
+parseFPEVec :: HasCallStack => CBytes -> IO [(V.Bytes, V.Bytes, V.Bytes, V.Bytes, V.Bytes)]
+parseFPEVec = parseTestVector (h [])
+    where
+        h acc = do
+            P.skipWhile $ \ w -> w /= LETTER_M -- Mod
+                              && w /= LETTER_I -- In
+                              && w /= LETTER_O -- Out
+                              && w /= LETTER_K -- Key
+                              && w /= LETTER_T -- Tweak
+                              && w /= HASH
+            w <- P.peekMaybe
+            case w of
+                Nothing -> return (acc, True)
+                Just HASH -> skipComment h acc
+                _ -> do
+                    mod   <- parseKeyValueLine "Mod"   <* P.skipWord8
+                    i     <- parseKeyValueLine "In"    <* P.skipWord8
+                    o     <- parseKeyValueLine "Out"   <* P.skipWord8
+                    key   <- parseKeyValueLine "Key"   <* P.skipWord8
+                    tweak <- parseKeyValueLine "Tweak" <* P.skipWord8
+                    h ((mod, i, o, hexDecode' key, hexDecode' tweak) : acc)

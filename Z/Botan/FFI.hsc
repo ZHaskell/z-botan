@@ -666,6 +666,26 @@ foreign import ccall unsafe hs_botan_hotp_init :: MBA## BotanStructT
 
 foreign import ccall unsafe "&botan_hotp_destroy" botan_hotp_destroy :: FunPtr (BotanStructT -> IO ())
 
+foreign import ccall unsafe botan_hotp_generate :: BotanStructT
+                                                -> MBA## Word32
+                                                -> Word64
+                                                -> IO CInt
+
+foreign import ccall unsafe botan_hotp_check :: BotanStructT
+                                             -> MBA## Word64
+                                             -> Word32
+                                             -> Word64
+                                             -> Int
+                                             -> IO CInt
+
+-- foreign import ccall unsafe hs_botan_hotp_check :: BotanStructT
+--                                                 -> Int
+--                                                 -> MBA## Word64
+--                                                 -> Word32
+--                                                 -> Word64
+--                                                 -> Int
+--                                                 -> IO CInt
+
 foreign import ccall unsafe hs_botan_totp_init :: MBA## BotanStructT
                                                -> BA## Word8 -> Int -> Int
                                                -> BA## Word8
@@ -673,3 +693,32 @@ foreign import ccall unsafe hs_botan_totp_init :: MBA## BotanStructT
                                                -> IO CInt
 
 foreign import ccall unsafe "&botan_totp_destroy" botan_totp_destroy :: FunPtr (BotanStructT -> IO ())
+
+foreign import ccall unsafe botan_totp_generate :: BotanStructT
+                                                -> MBA## Word32
+                                                -> Word64
+                                                -> IO CInt
+
+foreign import ccall unsafe botan_totp_check :: BotanStructT
+                                             -> Word32
+                                             -> Word64
+                                             -> Int
+                                             -> IO CInt
+
+--------------------------------------------------------------------------------
+-- Format Preserving Encryption
+
+foreign import ccall unsafe hs_botan_fpe_fe1_init :: MBA## BotanStructT -> BotanStructT
+                                                  -> BA## Word8 -> Int -> Int
+                                                  -> Int -> Word32
+                                                  -> IO CInt
+
+foreign import ccall unsafe hs_botan_fpe_encrypt :: BotanStructT -> BotanStructT
+                                                 -> BA## Word8 -> Int -> Int
+                                                 -> IO CInt
+
+foreign import ccall unsafe hs_botan_fpe_decrypt :: BotanStructT -> BotanStructT
+                                                 -> BA## Word8 -> Int -> Int
+                                                 -> IO CInt
+
+foreign import ccall unsafe "&botan_fpe_destroy" botan_fpe_destroy :: FunPtr (BotanStructT -> IO ())
