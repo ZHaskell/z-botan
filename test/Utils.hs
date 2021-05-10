@@ -416,3 +416,25 @@ parseKeyWrapVec = parseTestVector (h [])
 --             resTag' <- liftIO $ readIORef resTag
 --             let (i, o) = if resTag' then (res0, res1) else (res1, res0)
 --             h ((hexDecode' key, hexDecode' i, hexDecode' o) : acc)
+
+parseFPEVec :: HasCallStack => CBytes -> IO [(V.Bytes, V.Bytes, V.Bytes, V.Bytes, V.Bytes)]
+parseFPEVec = parseTestVector (h [])
+    where
+        h acc = do
+            P.skipWhile $ \ w -> w /= LETTER_M -- Mod
+                              && w /= LETTER_I -- In
+                              && w /= LETTER_O -- Out
+                              && w /= LETTER_K -- Key
+                              && w /= LETTER_T -- Tweak
+                              && w /= HASH
+            w <- P.peekMaybe
+            case w of
+                Nothing -> return (acc, True)
+                Just HASH -> skipComment h acc
+                _ -> do
+                    mod   <- parseKeyValueLine "Mod"   <* P.skipWord8
+                    i     <- parseKeyValueLine "In"    <* P.skipWord8
+                    o     <- parseKeyValueLine "Out"   <* P.skipWord8
+                    key   <- parseKeyValueLine "Key"   <* P.skipWord8
+                    tweak <- parseKeyValueLine "Tweak" <* P.skipWord8
+                    h ((mod, i, o, key, tweak) : acc)
