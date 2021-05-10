@@ -28,7 +28,7 @@ data RNGType = SystemRNG | AutoSeededRNG | ProcessorRNG
 
 -- | Opaque botan RNG type.
 newtype RNG = RNG BotanStruct
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Generic)
     deriving anyclass T.Print
 
 -- | Initialize a random number generator object from the given 'RNGType'

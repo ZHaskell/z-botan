@@ -11,7 +11,24 @@ A Message Authentication Code algorithm computes a tag over a message utilizing 
 
 -}
 
-module Z.Crypto.MAC where
+module Z.Crypto.MAC (
+    -- * MAC type
+    MACType(..)
+  , MAC, macName, macSize
+    -- * IUF interface
+  , newMAC
+  , setKeyMAC
+  , updateMAC
+  , finalMAC
+  , clearMAC
+  -- * function interface
+  , mac, macChunks
+  -- * BIO interface
+  , sinkToMAC
+  -- * Internal helper
+  , macTypeToCBytes
+  , withMAC
+  ) where
 
 import           GHC.Generics
 import           System.IO.Unsafe  (unsafePerformIO)
@@ -74,6 +91,10 @@ data MAC = MAC
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
+
+-- | Pass MAC to FFI as 'botan_mac_t'.
+withMAC :: HasCallStack => MAC -> (BotanStructT -> IO r) -> IO r
+withMAC (MAC m _ _) = withBotanStruct m
 
 -- | Create a new 'MAC' object.
 newMAC :: MACType -> IO MAC

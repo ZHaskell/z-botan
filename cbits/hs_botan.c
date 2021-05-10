@@ -134,17 +134,17 @@ int hs_botan_kdf(const char* algo
 int hs_botan_pwdhash(const char* algo
                     ,HsInt p1, HsInt p2, HsInt p3
                     ,uint8_t out[], HsInt out_len
-                    ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                    ,const char* passwd, HsInt passwd_len
                     ,const uint8_t salt[], HsInt salt_off, HsInt salt_len){
-    return botan_pwdhash(algo, p1, p2, p3, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len);
+    return botan_pwdhash(algo, p1, p2, p3, out, out_len, passwd, passwd_len, salt+salt_off, salt_len);
 }
 
 int hs_botan_pwdhash_timed(const char* algo
                           ,uint32_t msec
                           ,uint8_t out[], HsInt out_len
-                          ,const char* passwd, HsInt passwd_off, HsInt passwd_len
+                          ,const char* passwd, HsInt passwd_len
                           ,const uint8_t salt[], HsInt salt_off, HsInt salt_len){
-    return botan_pwdhash_timed(algo, msec, NULL, NULL, NULL, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len);
+    return botan_pwdhash_timed(algo, msec, NULL, NULL, NULL, out, out_len, passwd, passwd_len, salt+salt_off, salt_len);
 }
 
 HsInt hs_botan_bcrypt_generate(uint8_t *out, const char *pwd, HsInt pwd_off, HsInt pwd_len
@@ -264,12 +264,38 @@ int hs_botan_x509_cert_load(botan_x509_cert_t *cert_obj, const uint8_t cert[], H
     return botan_x509_cert_load(cert_obj, cert+cert_off, cert_len);
 }
 
-int hs_botan_x509_cert_verify(int *validation_result, botan_x509_cert_t cert, const botan_x509_cert_t *intermediates, HsInt intermediates_off, HsInt intermediates_len, const botan_x509_cert_t *trusted, HsInt trusted_off, HsInt trusted_len, const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
-    return botan_x509_cert_verify(validation_result, cert, intermediates+intermediates_off, intermediates_len, trusted+trusted_off, trusted_len, trusted_path, required_strength, hostname, reference_time);
+int hs_botan_x509_cert_verify(botan_x509_cert_t cert
+        , const botan_x509_cert_t *intermediates, HsInt intermediates_len
+        , const botan_x509_cert_t *trusted, HsInt trusted_len
+        , const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
+    int r1;
+    int r2 = botan_x509_cert_verify(&r1, cert
+            , intermediates, intermediates_len
+            , trusted, trusted_len
+            , trusted_path, required_strength, hostname, reference_time);
+    if (r2 < 0){
+        return r2;
+    } else { 
+        return r1; 
+    }
 }
 
-int hs_botan_x509_cert_verify_with_crl(int *validation_result, botan_x509_cert_t cert, const botan_x509_cert_t *intermediates, HsInt intermediates_off, HsInt intermediates_len, const botan_x509_cert_t *trusted, HsInt trusted_off, HsInt trusted_len, const botan_x509_crl_t *crls, HsInt crls_off, HsInt crls_len, const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
-    return botan_x509_cert_verify_with_crl(validation_result, cert, intermediates+intermediates_off, intermediates_len, trusted+trusted_off, trusted_len, crls+crls_off, crls_len, trusted_path, required_strength, hostname, reference_time);
+int hs_botan_x509_cert_verify_with_crl(botan_x509_cert_t cert
+        , const botan_x509_cert_t *intermediates, HsInt intermediates_len
+        , const botan_x509_cert_t *trusted, HsInt trusted_len
+        , const botan_x509_crl_t *crls, HsInt crls_off, HsInt crls_len
+        , const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
+    int r1;
+    int r2 = botan_x509_cert_verify_with_crl(&r1, cert
+            , intermediates, intermediates_len
+            , trusted, trusted_len
+            , crls, crls_len
+            , trusted_path, required_strength, hostname, reference_time);
+    if (r2 < 0){
+        return r2;
+    } else { 
+        return r1; 
+    }
 }
 
 // X.509 Certificate Revocation Lists

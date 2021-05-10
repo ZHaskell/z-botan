@@ -22,12 +22,13 @@ module Z.Crypto.PubKey (
   , loadPrivKey
   , privKeyAlgoName
   , privKeyParam
-  , KeyExportFmt(..)
-  , exportPrivKey
+  , exportPrivKeyDER, exportPrivKeyPEM
+  , exportPrivKeyEncryptedDER, exportPrivKeyEncryptedPEM
   , loadPubKey
   , pubKeyAlgoName
   , pubKeyParam
-  , exportPubKey
+  , exportPubKeyDER
+  , exportPubKeyPEM
   , estStrength
   , fingerPrintPubKey
   -- * Encrypt & Decrypt
@@ -131,6 +132,9 @@ module Z.Crypto.PubKey (
   -- * re-exports
   , HashType(..)
   , KDFType(..)
+  -- * internal
+  , withPrivKey
+  , withPubKey
   ) where
 
 import           Data.Word
@@ -424,6 +428,11 @@ newtype PrivKey = PrivKey BotanStruct
     deriving (Show, Generic)
     deriving anyclass T.Print
 
+-- | Pass 'PrivKey' to FFI.
+withPrivKey :: HasCallStack
+            => PrivKey -> (BotanStructT -> IO r) -> IO r
+withPrivKey (PrivKey key) = withBotanStruct key
+
 -- | Creating a new key pair.
 --
 newKeyPair ::
@@ -450,9 +459,9 @@ newPrivKey ::
     IO PrivKey
 newPrivKey keyTyp rng =
     withRNG rng $ \ rng' ->
-    CB.withCBytesUnsafe algo $ \ algo' ->
-    CB.withCBytesUnsafe args $ \ args' ->
-        PrivKey <$> newBotanStruct
+    CB.withCBytes algo $ \ algo' ->
+    CB.withCBytes args $ \ args' ->
+        PrivKey <$> newBotanStruct'
             (\ key -> botan_privkey_create key algo' args' rng')
             botan_privkey_destroy
     where
@@ -475,30 +484,48 @@ loadPrivKey rng buf passwd =
 
 -- | Get the algorithm name of a private key.
 privKeyAlgoName :: PrivKey -> IO V.Bytes
-privKeyAlgoName (PrivKey key) =
-    withBotanStruct key $ \ key' ->
-    allocBotanBufferUnsafe 16 $ botan_privkey_algo_name key'
+privKeyAlgoName key =
+    withPrivKey key $ allocBotanBufferUnsafe 16 . botan_privkey_algo_name
 
--- | Key export format.
-data KeyExportFmt = DER | PEM deriving (Eq, Ord, Show)
-
-keyExportFmtToWord32 :: KeyExportFmt -> Word32
-keyExportFmtToWord32 = \ case
-    DER -> 0
-    PEM -> 1
-
--- | Export a private key with given format.
-exportPrivKey :: HasCallStack
-              => PrivKey -> KeyExportFmt -> IO V.Bytes
-{-# INLINE exportPrivKey #-}
-exportPrivKey (PrivKey key) fmt =
-    withBotanStruct key $ \ key' ->
+-- | Export a private key in DER binary format.
+exportPrivKeyDER :: HasCallStack => PrivKey -> V.Bytes
+{-# INLINE exportPrivKeyDER #-}
+exportPrivKeyDER key = unsafePerformIO $
+    withPrivKey key $ \ key' ->
     allocBotanBufferUnsafe V.smallChunkSize $ \ buf siz ->
-    botan_privkey_export key' buf siz (keyExportFmtToWord32 fmt)
+    botan_privkey_export key' buf siz 0
 
--- | Export a private key with password
-exportPrivKeyEncrypted :: PrivKey -> KeyExportFmt -> IO V.Bytes
-exportPrivKeyEncrypted = error "TODO"
+-- | Export a private key in PEM textual format.
+exportPrivKeyPEM :: HasCallStack => PrivKey -> T.Text
+{-# INLINE exportPrivKeyPEM #-}
+exportPrivKeyPEM key = unsafePerformIO $
+    withPrivKey key $ \ key' ->
+    allocBotanBufferUTF8Unsafe V.smallChunkSize $ \ buf siz ->
+    botan_privkey_export key' buf siz 1
+
+-- | Export a private key with password.
+exportPrivKeyEncryptedDER :: PrivKey -> RNG
+                          -> CBytes        -- ^ password
+                          -> IO V.Bytes
+exportPrivKeyEncryptedDER key rng pwd =
+    withPrivKey key $ \ key' ->
+    withRNG rng $ \ rng' ->
+    CB.withCBytesUnsafe pwd $ \ pwd' ->
+    CB.withCBytesUnsafe "" $ \ pbe' ->   -- currently ignored
+    allocBotanBufferUnsafe V.smallChunkSize $ \ buf siz ->
+    botan_privkey_export_encrypted key' buf siz rng' pwd' pbe' 0
+
+-- | Export a private key with password in PEM textual format.
+exportPrivKeyEncryptedPEM :: PrivKey -> RNG
+                          -> CBytes        -- ^ password
+                          -> IO T.Text
+exportPrivKeyEncryptedPEM key rng pwd =
+    withPrivKey key $ \ key' ->
+    withRNG rng $ \ rng' ->
+    CB.withCBytesUnsafe pwd $ \ pwd' ->
+    CB.withCBytesUnsafe "" $ \ pbe' ->   -- currently ignored
+    allocBotanBufferUTF8Unsafe V.smallChunkSize $ \ buf siz ->
+    botan_privkey_export_encrypted key' buf siz rng' pwd' pbe' 1
 
 -- | Export a public key from a given key pair.
 privKeyToPubKey :: PrivKey -> PubKey
@@ -513,15 +540,20 @@ privKeyParam :: HasCallStack
              -> CBytes       -- ^ field name
              -> MPI
 {-# INLINE privKeyParam #-}
-privKeyParam (PrivKey key) name =
+privKeyParam key name =
     unsafeNewMPI $ \ mp ->
-    withBotanStruct key $ \ key' -> do
+    withPrivKey key $ \ key' -> do
     throwBotanIfMinus_ (CB.withCBytesUnsafe name (botan_privkey_get_field mp key'))
 
 -- | A newtype wrapper.
 newtype PubKey = PubKey BotanStruct
     deriving (Show, Eq, Ord, Generic)
     deriving anyclass T.Print
+
+-- | Pass 'PubKey' to FFI.
+withPubKey :: HasCallStack
+            => PubKey -> (BotanStructT -> IO r) -> IO r
+withPubKey (PubKey key) = withBotanStruct key
 
 -- | Load a publickey.
 loadPubKey :: HasCallStack
@@ -531,27 +563,35 @@ loadPubKey buf = do
     withPrimVectorUnsafe buf $ \ buf' off len ->
         PubKey <$> newBotanStruct (\ pubKey -> hs_botan_pubkey_load pubKey buf' off len) botan_pubkey_destroy
 
--- | Export a public key.
-exportPubKey :: HasCallStack
-             => PubKey -> KeyExportFmt -> IO V.Bytes
-{-# INLINE exportPubKey #-}
-exportPubKey (PubKey pubKey) fmt =
-    withBotanStruct pubKey $ \ pubKey' ->
+-- | Export a public key in DER binary format..
+exportPubKeyDER :: HasCallStack => PubKey -> V.Bytes
+{-# INLINE exportPubKeyDER #-}
+exportPubKeyDER pubKey = unsafePerformIO $
+    withPubKey pubKey $ \ pubKey' ->
     allocBotanBufferUnsafe V.smallChunkSize $ \ buf siz ->
-    botan_privkey_export pubKey' buf siz (keyExportFmtToWord32 fmt)
+    botan_pubkey_export pubKey' buf siz 0
+
+-- | Export a public key in PEM textual format.
+exportPubKeyPEM :: HasCallStack => PubKey -> T.Text
+{-# INLINE exportPubKeyPEM #-}
+exportPubKeyPEM pubKey = unsafePerformIO $
+    withPubKey pubKey $ \ pubKey' ->
+    allocBotanBufferUTF8Unsafe V.smallChunkSize $ \ buf siz ->
+    botan_pubkey_export pubKey' buf siz 1
 
 -- | Get the algorithm name of a public key.
-pubKeyAlgoName :: PubKey -> V.Bytes
+pubKeyAlgoName :: PubKey -> CBytes
 {-# INLINE pubKeyAlgoName #-}
-pubKeyAlgoName (PubKey pubKey) = unsafePerformIO $
-    withBotanStruct pubKey $ \ pubKey' ->
-    allocBotanBufferUnsafe 16 $ botan_pubkey_algo_name pubKey'
+pubKeyAlgoName pubKey = unsafePerformIO $
+    withPubKey pubKey $ \ pubKey' ->
+        CB.fromBytes <$> allocBotanBufferUnsafe 16
+            (botan_pubkey_algo_name pubKey')
 
 -- | Estimate the strength of a public key.
 estStrength :: PubKey -> Int
 {-# INLINE estStrength #-}
-estStrength (PubKey pubKey) = unsafePerformIO $
-    withBotanStruct pubKey $ \ pubKey' -> do
+estStrength pubKey = unsafePerformIO $
+    withPubKey pubKey $ \ pubKey' -> do
         (a, _) <- allocPrimUnsafe @CSize $ \ est ->
             throwBotanIfMinus_ (botan_pubkey_estimated_strength pubKey' est)
         return (fromIntegral a)
@@ -559,8 +599,8 @@ estStrength (PubKey pubKey) = unsafePerformIO $
 -- | Fingerprint a given publickey.
 fingerPrintPubKey :: PubKey -> HashType -> V.Bytes
 {-# INLINE fingerPrintPubKey #-}
-fingerPrintPubKey (PubKey pubKey) ht = unsafePerformIO $
-    withBotanStruct pubKey $ \ pubKey' ->
+fingerPrintPubKey pubKey ht = unsafePerformIO $
+    withPubKey pubKey $ \ pubKey' ->
     CB.withCBytesUnsafe (hashTypeToCBytes ht) $ \ hash' ->
     allocBotanBufferUnsafe V.smallChunkSize $ \ buf siz ->
     botan_pubkey_fingerprint pubKey' hash' buf siz
@@ -570,10 +610,10 @@ pubKeyParam :: HasCallStack
                     => PubKey       -- ^ key
                     -> CBytes       -- ^ field name
                     -> MPI
-pubKeyParam (PubKey key) name =
+pubKeyParam pubKey name =
     unsafeNewMPI $ \ mp ->
-    withBotanStruct key $ \ key' -> do
-    throwBotanIfMinus_ (CB.withCBytesUnsafe name (botan_pubkey_get_field mp key'))
+    withPubKey pubKey $ \ pubKey' -> do
+    throwBotanIfMinus_ (CB.withCBytesUnsafe name (botan_pubkey_get_field mp pubKey'))
 
 ----------------------------
 -- RSA specific functions --
@@ -806,13 +846,13 @@ emeToCBytes (EME_OAEP' ht ht' label)
 pkEncrypt :: PubKey -> EMEPadding -> RNG
           -> V.Bytes        -- ^ plaintext
           -> IO V.Bytes     -- ^ ciphertext
-pkEncrypt (PubKey key) padding rng ptext = do
+pkEncrypt pubKey padding rng ptext = do
     let paddingStr = emeToCBytes padding
     encryptor <-
-        withBotanStruct key $ \ key' ->
+        withPubKey pubKey $ \ pubKey' ->
         CB.withCBytesUnsafe paddingStr $ \ padding' ->
             newBotanStruct
-                (\ op -> botan_pk_op_encrypt_create op key' padding' 0) -- Flags should be 0 in this version.
+                (\ op -> botan_pk_op_encrypt_create op pubKey' padding' 0) -- Flags should be 0 in this version.
                 botan_pk_op_encrypt_destroy
 
     withBotanStruct encryptor $ \ op -> do
@@ -832,10 +872,10 @@ pkEncrypt (PubKey key) padding rng ptext = do
 pkDecrypt :: PrivKey -> EMEPadding
           -> V.Bytes        -- ^ ciphertext
           -> V.Bytes        -- ^ plaintext
-pkDecrypt (PrivKey key) padding ctext = unsafePerformIO $ do
+pkDecrypt key padding ctext = unsafePerformIO $ do
     let paddingStr = emeToCBytes padding
     decryptor <-
-        withBotanStruct key $ \ key' ->
+        withPrivKey key $ \ key' ->
         CB.withCBytesUnsafe paddingStr $ \ padding' ->
             newBotanStruct
                 (\ op -> botan_pk_op_decrypt_create op key' padding' 0) -- Flags should be 0 in this version.
@@ -917,9 +957,9 @@ data Signer = Signer
     deriving anyclass T.Print
 
 newSigner :: PrivKey -> EMSA -> SignFmt -> IO Signer
-newSigner (PrivKey key) emsa fmt = do
+newSigner key emsa fmt = do
     let name = emsaToCBytes emsa
-    withBotanStruct key $ \ key' ->
+    withPrivKey key $ \ key' ->
         CB.withCBytesUnsafe name $ \ arg -> do
             op <- newBotanStruct
                 (\ ret -> botan_pk_op_sign_create ret key' arg (signFmtToFlag fmt))
@@ -986,9 +1026,9 @@ data Verifier = Verifier
     deriving anyclass T.Print
 
 newVerifier :: PubKey -> EMSA -> SignFmt -> IO Verifier
-newVerifier (PubKey pubKey) emsa fmt = do
+newVerifier pubKey emsa fmt = do
     let name = emsaToCBytes emsa
-    withBotanStruct pubKey $ \ pubKey' ->
+    withPubKey pubKey $ \ pubKey' ->
         CB.withCBytesUnsafe name $ \ arg -> do
             op <- newBotanStruct
                 (\ ret -> botan_pk_op_verify_create ret pubKey' arg (signFmtToFlag fmt))
@@ -1068,8 +1108,8 @@ data KeyAgreement = KeyAgreement
 -- * NewHope
 --
 newKeyAgreement :: PrivKey -> KDFType -> IO KeyAgreement
-newKeyAgreement (PrivKey key) kdf =
-    withBotanStruct key $ \ key' ->
+newKeyAgreement key kdf =
+    withPrivKey key $ \ key' ->
     CB.withCBytesUnsafe (kdfTypeToCBytes kdf) $ \ kdf' -> do
         op <- newBotanStruct
             (\ op -> botan_pk_op_key_agreement_create op key' kdf' 0) -- Flags should be 0 in this version.
@@ -1079,10 +1119,9 @@ newKeyAgreement (PrivKey key) kdf =
                 throwBotanIfMinus_ $ botan_pk_op_key_agreement_size op' siz')
         return (KeyAgreement op (fromIntegral siz))
 
--- |
 exportKeyAgreementPublic :: PrivKey -> IO V.Bytes
-exportKeyAgreementPublic (PrivKey key) =
-    withBotanStruct key $ \ key' ->
+exportKeyAgreementPublic key =
+    withPrivKey key $ \ key' ->
     allocBotanBufferUnsafe 128 $ botan_pk_op_key_agreement_export_public key'
 
 -- | How key agreement works is that you trade public values with some other party, and then each of you runs a computation with the other’s value and your key (this should return the same result to both parties).

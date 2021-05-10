@@ -61,7 +61,8 @@ library
     , integer-gmp  >=1     && <2
     , scientific   ^>=0.3
     , stm          ^>=2.5
-    , Z-Data       ^>=0.8.1
+    , time         == 1.11.*
+    , Z-Data       >=0.8.2 && < 0.9
     , Z-IO         ^>=0.8
 
   include-dirs:

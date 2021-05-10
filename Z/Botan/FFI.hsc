@@ -4,7 +4,6 @@ import           Data.Word
 import           Data.Bits
 import           Foreign.Ptr
 import           GHC.Generics
-import           GHC.Types              (IO (..))
 import           Z.IO.Exception
 import           Z.Botan.Exception
 import           Z.Data.CBytes
@@ -23,16 +22,21 @@ foreign import ccall unsafe hs_botan_hex_encode :: BA## Word8 -> Int -> Int -> M
 foreign import ccall unsafe hs_botan_hex_encode_lower :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
 foreign import ccall unsafe hs_botan_hex_decode :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
 
-allocBotanBufferUnsafe :: Integral r => Int -> (MBA## Word8 -> MBA## CSize -> IO r) -> IO V.Bytes
+allocBotanBufferUTF8Unsafe :: (HasCallStack, Integral r)
+                           => Int -> (MBA## Word8 -> MBA## CSize -> IO r) -> IO T.Text
+allocBotanBufferUTF8Unsafe len f = T.validate . V.unsafeInit <$> allocBotanBufferUnsafe len f
+
+allocBotanBufferUnsafe :: (HasCallStack, Integral r)
+                       => Int -> (MBA## Word8 -> MBA## CSize -> IO r) -> IO V.Bytes
 allocBotanBufferUnsafe len f = do
-    (bs, (r, _)) <- allocPrimVectorUnsafe len (\ buf ->
+    (bs, (r1, r2)) <- allocPrimVectorUnsafe len (\ buf ->
         withPrimUnsafe (fromIntegral len :: CSize) (\ size ->
             f buf size))
-    if fromIntegral r == BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE
+    if fromIntegral r2 == BOTAN_FFI_ERROR_INSUFFICIENT_BUFFER_SPACE
     then allocBotanBufferUnsafe (len `unsafeShiftL` 1) f
-    else if r >= 0
-        then return $! V.unsafeTake (fromIntegral r) bs
-        else throwBotanError (fromIntegral r)
+    else if r2 >= 0
+        then return $! V.unsafeTake (fromIntegral r1) bs
+        else throwBotanError (fromIntegral r2)
 
 --------------------------------------------------------------------------------
 
@@ -46,10 +50,18 @@ withBotanStruct = withCPtr
 
 newBotanStruct :: HasCallStack
                => (MBA## BotanStructT -> IO CInt)   -- ^ init function
-               -> FunPtr (BotanStructT -> IO a)    -- ^ destroy function pointer
+               -> FunPtr (BotanStructT -> IO a)     -- ^ destroy function pointer
                -> IO BotanStruct
 newBotanStruct init_ destroy = do
     (bts, _) <- newCPtrUnsafe (\ pp -> throwBotanIfMinus_ (init_ pp)) destroy
+    return bts
+
+newBotanStruct' :: HasCallStack
+                => (Ptr BotanStructT -> IO CInt)    -- ^ init function
+                -> FunPtr (BotanStructT -> IO a)    -- ^ destroy function pointer
+                -> IO BotanStruct
+newBotanStruct' init_ destroy = do
+    (bts, _) <- newCPtr (\ pp -> throwBotanIfMinus_ (init_ pp)) destroy
     return bts
 
 --------------------------------------------------------------------------------
@@ -199,24 +211,24 @@ foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA##
 
 foreign import ccall unsafe hs_botan_pwdhash :: BA## Word8
                                              -> Int -> Int -> Int
-                                             -> MBA## Word8 -> Int
-                                             -> BA## Word8 -> Int -> Int
-                                             -> BA## Word8 -> Int -> Int
+                                             -> MBA## Word8 -> Int              -- ^ output
+                                             -> BA## Word8 -> Int               -- ^ passphrase
+                                             -> BA## Word8 -> Int -> Int        -- ^ salt
                                              -> IO CInt
 
 foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> Int
-                                                   -> MBA## Word8 -> Int
-                                                   -> BA## Word8 -> Int -> Int
-                                                   -> BA## Word8 -> Int -> Int
+                                                   -> MBA## Word8 -> Int        -- ^ output
+                                                   -> BA## Word8 -> Int         -- ^ passphrase
+                                                   -> BA## Word8 -> Int -> Int  -- ^ salt
                                                    -> IO CInt
 
 foreign import ccall safe "hs_botan_pwdhash_timed"
     hs_botan_pwdhash_timed_safe :: Ptr Word8
                                 -> Int
-                                -> Ptr Word8 -> Int
-                                -> Ptr Word8 -> Int -> Int
-                                -> Ptr Word8 -> Int -> Int
+                                -> Ptr Word8 -> Int         -- ^ output
+                                -> Ptr Word8 -> Int         -- ^ passphrase
+                                -> Ptr Word8 -> Int -> Int  -- ^ salt
                                 -> IO CInt
 
 --------------------------------------------------------------------------------
@@ -267,11 +279,11 @@ foreign import ccall unsafe hs_botan_mac_get_keyspec :: BotanStructT -> MBA## In
 --------------------------------------------------------------------------------
 -- Public Key Creation, Import and Export (at Z.Crypto.PubKey)
 
-foreign import ccall unsafe botan_privkey_create :: MBA## BotanStructT -- ^ botan_privkey_t* key
-                                                 -> BA## Word8 -- ^ const char* algo_name
-                                                 -> BA## Word8 -- ^ const char* algo_params
-                                                 -> BotanStructT -- ^ botan_rng_t rng
-                                                 -> IO CInt
+foreign import ccall safe botan_privkey_create :: Ptr BotanStructT    -- ^ botan_privkey_t* key
+                                               -> Ptr Word8           -- ^ const char* algo_name
+                                               -> Ptr Word8           -- ^ const char* algo_params
+                                               -> BotanStructT        -- ^ botan_rng_t rng
+                                               -> IO CInt
 
 foreign import ccall unsafe hs_botan_privkey_load :: MBA## BotanStructT
                                                   -> BotanStructT
@@ -283,6 +295,15 @@ foreign import ccall unsafe botan_privkey_export :: BotanStructT -- ^ botan_priv
                                                  -> MBA## Word8 -> MBA## CSize -- ^ uint8_t out[], size_t* out_len
                                                  -> Word32 -- ^ uint32_t flags
                                                  -> IO CInt
+
+foreign import ccall unsafe botan_privkey_export_encrypted
+    :: BotanStructT                     -- ^ botan_privkey_t key
+    -> MBA## Word8 -> MBA## CSize       -- ^ uint8_t out[], size_t* out_len
+    -> BotanStructT                     -- ^ botan_rng_t 
+    -> BA## Word8                       -- ^ passphrase
+    -> BA## Word8                       -- ^ encryption_algo, currently ignored by botan
+    -> Word32                           -- ^ uint32_t flags
+    -> IO CInt
 
 foreign import ccall unsafe botan_privkey_export_pubkey :: MBA## BotanStructT
                                                         -> BotanStructT
@@ -503,6 +524,30 @@ foreign import ccall unsafe hs_botan_mceies_decrypt :: BotanStructT
 --------------------------------------------------------------------------------
 -- X.509 Certificates
 
+-- | Certificate key usage constraints.
+type KeyUsageConstraint = CUInt
+
+pattern NO_CONSTRAINTS     :: KeyUsageConstraint
+pattern DIGITAL_SIGNATURE  :: KeyUsageConstraint
+pattern NON_REPUDIATION    :: KeyUsageConstraint
+pattern KEY_ENCIPHERMENT   :: KeyUsageConstraint
+pattern DATA_ENCIPHERMENT  :: KeyUsageConstraint
+pattern KEY_AGREEMENT      :: KeyUsageConstraint
+pattern KEY_CERT_SIGN      :: KeyUsageConstraint
+pattern CRL_SIGN           :: KeyUsageConstraint
+pattern ENCIPHER_ONLY      :: KeyUsageConstraint
+pattern DECIPHER_ONLY      :: KeyUsageConstraint
+pattern NO_CONSTRAINTS      = #const NO_CONSTRAINTS
+pattern DIGITAL_SIGNATURE   = #const DIGITAL_SIGNATURE
+pattern NON_REPUDIATION     = #const NON_REPUDIATION
+pattern KEY_ENCIPHERMENT    = #const KEY_ENCIPHERMENT
+pattern DATA_ENCIPHERMENT   = #const DATA_ENCIPHERMENT
+pattern KEY_AGREEMENT       = #const KEY_AGREEMENT
+pattern KEY_CERT_SIGN       = #const KEY_CERT_SIGN
+pattern CRL_SIGN            = #const CRL_SIGN
+pattern ENCIPHER_ONLY       = #const ENCIPHER_ONLY
+pattern DECIPHER_ONLY       = #const DECIPHER_ONLY     
+
 foreign import ccall unsafe "&botan_x509_cert_destroy" botan_x509_cert_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe hs_botan_x509_cert_load :: MBA## BotanStructT -- ^ botan_x509_cert_t* cert_obj
@@ -567,27 +612,22 @@ foreign import ccall unsafe botan_x509_cert_to_string :: BotanStructT
                                                       -> MBA## Word8 -> MBA## Int
                                                       -> IO CInt
 
-foreign import ccall unsafe botan_x509_cert_allowed_usage :: BotanStructT -> Word32 -> IO CInt
+foreign import ccall unsafe botan_x509_cert_allowed_usage :: BotanStructT -> CUInt -> IO CInt
 
-foreign import ccall unsafe hs_botan_x509_cert_verify :: MBA## Word32 -- ^ int *validation_result
-                                                      -> BotanStructT
-                                                      -> BA## BotanStructT -> Int -> Int
-                                                      -> BA## BotanStructT -> Int -> Int
-                                                      -> BA## Word8
-                                                      -> Int
-                                                      -> BA## Word8
-                                                      -> Word64
+foreign import ccall unsafe hs_botan_x509_cert_verify :: BotanStructT
+                                                      -> Ptr BotanStructT -> Int 
+                                                      -> Ptr BotanStructT -> Int 
+                                                      -> Ptr Word8 -> Int -> Ptr Word8 -> Word64
                                                       -> IO CInt
 
-foreign import ccall unsafe hs_botan_x509_cert_verify_with_crl :: MBA## Word32
-                                                               -> BotanStructT
-                                                               -> BA## BotanStructT -> Int -> Int
-                                                               -> BA## BotanStructT -> Int -> Int
-                                                               -> BA## BotanStructT -> Int -> Int
-                                                               -> BA## Word8 -> Int -> BA## Word8 -> Word64
+foreign import ccall unsafe hs_botan_x509_cert_verify_with_crl :: BotanStructT
+                                                               -> Ptr BotanStructT -> Int 
+                                                               -> Ptr BotanStructT -> Int
+                                                               -> Ptr BotanStructT -> Int
+                                                               -> Ptr Word8 -> Int -> Ptr Word8 -> Word64
                                                                -> IO CInt
 
-foreign import ccall unsafe botan_x509_cert_validation_status :: CInt -> CString
+foreign import ccall unsafe botan_x509_cert_validation_status :: CInt -> IO CString
 
 --------------------------------------------------------------------------------
 -- X.509 Certificate Revocation Lists
