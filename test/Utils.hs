@@ -13,7 +13,7 @@ import qualified Z.Data.Parser      as P
 import           Z.Data.Parser.Numeric (decLoopIntegerFast)
 import           Z.Data.CBytes      (CBytes)
 import qualified Z.Data.Vector      as V
-import           Prelude            hiding (lines)
+import           Prelude            hiding (lines, mod)
 -- import           Data.IORef
 
 -- | Parse test data vector files.
@@ -437,4 +437,4 @@ parseFPEVec = parseTestVector (h [])
                     o     <- parseKeyValueLine "Out"   <* P.skipWord8
                     key   <- parseKeyValueLine "Key"   <* P.skipWord8
                     tweak <- parseKeyValueLine "Tweak" <* P.skipWord8
-                    h ((mod, i, o, key, tweak) : acc)
+                    h ((mod, i, o, hexDecode' key, hexDecode' tweak) : acc)

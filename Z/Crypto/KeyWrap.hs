@@ -5,7 +5,7 @@ import qualified Z.Data.Vector as V
 import           Z.Foreign
 
 maxWrappedKeySiz :: Int
-maxWrappedKeySiz = 128
+maxWrappedKeySiz = 512
 
 -- keyWrap :: V.Bytes -- ^ key
 --         -> V.Bytes -- ^ kek

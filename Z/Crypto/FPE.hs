@@ -10,7 +10,7 @@ newtype FPE = FPE BotanStruct
 -- | Initialize an FPE operation to encrypt/decrypt integers less than n. It is
 --   expected that n is trivially factorable into small integers. Common usage
 --   would be n to be a power of 10.
-newFPE :: MPI     -- ^ n
+newFPE :: MPI     -- ^ mod (n)
        -> V.Bytes -- ^ key
        -> IO FPE
 newFPE mpi key = do
