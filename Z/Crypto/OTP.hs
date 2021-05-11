@@ -45,7 +45,7 @@ type OTPAlgo = HashType
 pattern OTP_SHA1    :: OTPAlgo
 pattern OTP_SHA256  :: OTPAlgo
 pattern OTP_SHA512  :: OTPAlgo
-pattern OTP_SHA1    = SHA1
+pattern OTP_SHA1    = SHA160
 pattern OTP_SHA256  = SHA256
 pattern OTP_SHA512  = SHA512
 

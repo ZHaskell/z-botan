@@ -12,6 +12,7 @@ import           Z.Data.Vector.Hex
 import qualified Z.Data.Parser      as P
 import           Z.Data.Parser.Numeric (decLoopIntegerFast)
 import           Z.Data.CBytes      (CBytes)
+import qualified Z.Data.CBytes      as CB
 import qualified Z.Data.Vector      as V
 import           Prelude            hiding (lines, mod)
 -- import           Data.IORef
@@ -275,7 +276,7 @@ parseKDFTestVector = parseNamedTestVector (go [])
 --    -- @Output == @
 --
 -- See `./third_party/botan/src/tests/data/pbkdf/pbkdf1.vec`.
-parsePBKDFTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, Int, V.Bytes, V.Bytes)])]
+parsePBKDFTestVector :: HasCallStack => CBytes -> IO [(V.Bytes, [(V.Bytes, Int, CBytes, V.Bytes)])]
 parsePBKDFTestVector = parseNamedTestVector (go [])
   where
     go acc = do
@@ -315,7 +316,10 @@ parsePBKDFTestVector = parseNamedTestVector (go [])
                                  return iter
                          else return iter
               o <- parseKeyValueLine "Output"
-              go ((hexDecode' salt, (fromIntegral . decLoopIntegerFast) iter, passphrase, hexDecode' o):acc)
+              go ( (hexDecode' salt
+                 , (fromIntegral . decLoopIntegerFast) iter
+                 , CB.fromBytes passphrase
+                 , hexDecode' o):acc)
 
 
 -- | Parse test data vectors of the form
