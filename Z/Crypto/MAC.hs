@@ -86,8 +86,8 @@ macTypeToCBytes X9'19_MAC = "X9.19-MAC"
 
 data MAC = MAC
     { macStruct :: {-# UNPACK #-} !BotanStruct
-    , macName   :: {-# UNPACK #-} !CBytes
-    , macSize   :: {-# UNPACK #-} !Int
+    , macName   :: {-# UNPACK #-} !CBytes             -- ^ mac algo name
+    , macSize   :: {-# UNPACK #-} !Int                -- ^ mac output size in bytes
     }
     deriving (Show, Generic)
     deriving anyclass T.Print

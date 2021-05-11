@@ -14,15 +14,19 @@ The scheme currently implemented in botan is called FE1, and described in the pa
 To encrypt an arbitrary value using FE1, you need to use a ranking method. Basically, the idea is to assign an integer to every value you might encrypt. For instance, a 16 digit credit card number consists of a 15 digit code plus a 1 digit checksum. So to encrypt a credit card number, you first remove the checksum, encrypt the 15 digit value modulo 1015, and then calculate what the checksum is for the new (ciphertext) number. Or, if you were encrypting words in a dictionary, you could rank the words by their lexicographical order, and choose the modulus to be the number of words in the dictionary.
 
 -}
-module Z.Crypto.FPE where
+module Z.Crypto.FPE ( FPE, newFPE, encryptFPE, decryptFPE ) where
 
+import           GHC.Generics
 import           Z.Botan.FFI
 import           Z.Botan.Exception
 import           Z.Crypto.MPI
 import qualified Z.Data.Vector as V
+import qualified Z.Data.Text   as T
 import           Z.Foreign
 
 newtype FPE = FPE BotanStruct
+    deriving (Show, Generic)
+    deriving anyclass T.Print
 
 -- | Initialize an FPE operation to encrypt/decrypt integers less than n. It is
 --   expected that n is trivially factorable into small integers. Common usage

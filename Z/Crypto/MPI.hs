@@ -12,7 +12,7 @@ This module provide Botan's Multiple Precision Integer, featuring constant-time 
 -}
 module Z.Crypto.MPI
   ( -- * RNG
-    MPI(..), fromCInt, toWord32, byteSize, Z.Crypto.MPI.bitSize
+    MPI, fromCInt, toWord32, byteSize, Z.Crypto.MPI.bitSize
     -- * Builder & Parser
   , toHex, toDecimal, fromHex, fromDecimal
     -- * Predicator

@@ -171,8 +171,8 @@ hashTypeToCBytes h = case h of
 -- | A Botan Hash Object.
 data Hash = Hash
     { hashStruct :: {-# UNPACK #-} !BotanStruct
-    , hashName   :: {-# UNPACK #-} !CBytes
-    , hashSize   :: {-# UNPACK #-} !Int
+    , hashName   :: {-# UNPACK #-} !CBytes              -- ^ hash algo name
+    , hashSize   :: {-# UNPACK #-} !Int                 -- ^ hash output size in bytes
     }
     deriving (Show, Generic)
     deriving anyclass T.Print

@@ -164,10 +164,7 @@ data KeyType
     = Curve25519
     | -- | RSA key of the given size, namely n bits
         RSA Word32
-      -- | McEliece is a cryptographic scheme based on error correcting codes which is thought to be resistant to quantum computers. See <mceliece https://botan.randombit.net/handbook/api_ref/pubkey.html#mceliece>.
-    | McEliece Word32 -- ^ n
-               Word32 -- ^ t
-      -- | eXtended Merkle Signature Scheme, see <xmss https://botan.randombit.net/handbook/api_ref/pubkey.html#extended-merkle-signature-scheme-xmss>
+     -- | eXtended Merkle Signature Scheme, see <xmss https://botan.randombit.net/handbook/api_ref/pubkey.html#extended-merkle-signature-scheme-xmss>
     | XMSS XMSSType
       -- | Ed25519 high-speed high-security signatures
     | Ed25519
@@ -175,6 +172,11 @@ data KeyType
     | ECC ECCType ECGroup
       -- | Asymmetric algorithm based on the discrete logarithm problem, see 'DLType'
     | DL DLType DLGroup
+      -- | McEliece is a cryptographic scheme based on error correcting codes which is thought to be resistant to quantum computers. See <mceliece https://botan.randombit.net/handbook/api_ref/pubkey.html#mceliece>.
+    | McEliece
+        Word32 -- ^ n
+        Word32 -- ^ t
+
 
 keyTypeToCBytes :: KeyType -> (CBytes, CBytes)
 keyTypeToCBytes keyType' = case keyType' of
