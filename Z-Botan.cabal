@@ -21,6 +21,7 @@ extra-source-files:
   third_party/botan/configure.py
   third_party/botan/src/**/*.cpp
   third_party/botan/src/**/*.h
+  third_party/botan/build/include/external/cabal.placeholder
   third_party/cacert.md
   third_party/cacert.pem
 
