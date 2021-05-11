@@ -11,11 +11,11 @@ This module provide Botan's Multiple Precision Integer, featuring constant-time 
 
 -}
 module Z.Crypto.MPI
-  ( -- * RNG
+  ( -- * MPI
     MPI, fromCInt, toWord32, byteSize, Z.Crypto.MPI.bitSize
-    -- * Builder & Parser
+    -- * MPI Builder & Parser
   , toHex, toDecimal, fromHex, fromDecimal
-    -- * Predicator
+    -- * MPI Predicator
   , isNegative, isZero, isOdd, isEven, isPrim
     -- * MPI specific
   , mulMod, powMod, modInverse, Z.Crypto.MPI.gcd

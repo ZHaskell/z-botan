@@ -95,8 +95,6 @@ runTouch configFolder placeholder verbosity flags = do
             runProgramInvocation verbosity $
                  (programInvocation touch' [placeholder])
                  { progInvokeCwd = Just configFolder }
-
         Nothing -> die' verbosity notFoundMsg
   where
       notFoundMsg = "touch is required to keep a cabal placeholder file"
-

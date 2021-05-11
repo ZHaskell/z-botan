@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               Z-Botan
-version:            0.1.1.1
+version:            0.1.1.2
 synopsis:           Crypto for Haskell
 description:        Crypto for Haskell, based on <http://botan.randombit.net/ Botan>
 license:            BSD-3-Clause

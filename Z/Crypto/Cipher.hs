@@ -16,7 +16,7 @@ A block cipher by itself, is only able to securely encrypt a single data block. 
 -}
 module Z.Crypto.Cipher
   ( -- * Block Cipher
-    BlockCipherType(..)
+    BlockCipherType(..), KeySpec(..)
   , BlockCipher, blockCipherName, blockCipherKeySpec, blockCipherSize
   , newBlockCipher, setBlockCipherKey, clearBlockCipher
   , encryptBlocks, decryptBlocks
@@ -224,9 +224,9 @@ blockCipherTypeToCBytes b = case b of
 --
 data BlockCipher = BlockCipher
     { blockCipher        :: {-# UNPACK #-} !BotanStruct
-    , blockCipherName    :: {-# UNPACK #-} !CBytes
-    , blockCipherSize    :: {-# UNPACK #-} !Int
-    , blockCipherKeySpec :: {-# UNPACK #-} !KeySpec
+    , blockCipherName    :: {-# UNPACK #-} !CBytes          -- ^ block cipher algo name
+    , blockCipherSize    :: {-# UNPACK #-} !Int             -- ^ block cipher block size
+    , blockCipherKeySpec :: {-# UNPACK #-} !KeySpec         -- ^ block cipher keyspec
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
@@ -523,11 +523,12 @@ cipherTypeToCBytes ct = case ct of
 -- | A Botan cipher.
 data Cipher = Cipher
     { cipher                  :: {-# UNPACK #-} !BotanStruct
-    , cipherName              :: {-# UNPACK #-} !CBytes
-    , cipherUpdateGranularity :: {-# UNPACK #-} !Int
-    , cipherKeySpec           :: {-# UNPACK #-} !KeySpec
-    , cipherTagLength         :: {-# UNPACK #-} !Int -- ^ This will be zero for non-authenticated ciphers.
-    , defaultNonceLength      :: {-# UNPACK #-} !Int
+    , cipherName              :: {-# UNPACK #-} !CBytes        -- ^ cipher algo name
+    , cipherUpdateGranularity :: {-# UNPACK #-} !Int           -- ^ cipher input chunk granularity
+    , cipherKeySpec           :: {-# UNPACK #-} !KeySpec       -- ^ cipher keyspec
+    , cipherTagLength         :: {-# UNPACK #-} !Int    -- ^ AEAD tag length,
+                                                        -- will be zero for non-authenticated ciphers.
+    , defaultNonceLength      :: {-# UNPACK #-} !Int    -- ^ a proper default nonce length
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
