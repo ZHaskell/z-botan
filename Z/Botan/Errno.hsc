@@ -1,6 +1,15 @@
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE CApiFFI #-}
+{-|
+Module      : Z.Botan.Errno
+Description : Errno provided by botan
+Copyright   : (c) Dong Han, 2020 - 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
 
+INTERNAL MODULE, provides all botan errno.
+
+-}
 
 module Z.Botan.Errno where
 

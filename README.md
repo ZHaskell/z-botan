@@ -23,6 +23,8 @@ This package is part of [ZHaskell](https://z.haskell.world) project, providing c
 * Signature generation & signature verification.
 * X.509 certificates & X.509 certificate revocation lists.
 * One time password.
+* AES Key Wrapping
+* Format Preserving Encryption.
 
 ## Requirements
 

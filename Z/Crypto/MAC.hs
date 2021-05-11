@@ -1,7 +1,7 @@
 {-|
 Module      : Z.Crypto.MAC
 Description : Message Authentication Codes (MAC)
-Copyright   : Dong Han, 2021
+Copyright   : YouShi, Dong Han, 2021
 License     : BSD
 Maintainer  : winterland1989@gmail.com
 Stability   : experimental

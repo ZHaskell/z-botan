@@ -19,10 +19,6 @@ int hs_botan_block_cipher_decrypt_blocks(botan_block_cipher_t bc
 // Hash
 int hs_botan_hash_update(botan_hash_t hash, const uint8_t *input, HsInt off, HsInt len);
 
-// MAC
-
-//
-
 // Cipher Mode
 int hs_botan_cipher_set_key(botan_cipher_t cipher, const uint8_t* key, HsInt key_off, HsInt key_len);
 int hs_botan_cipher_set_associated_data(botan_cipher_t cipher, const uint8_t* ad, HsInt ad_off, HsInt ad_len);
@@ -89,38 +85,65 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
     size_t* out_maximum_keylength,
     size_t* out_keylength_modulo);
 
-
-
-
-// Password Hashing
-
-
 // Public Key Creation, Import and Export
-
-// RSA specific functions
-
-// DSA specific functions
-
-// ElGamal specific functions
-
-// Diffie-Hellman specific functions
-
+int hs_botan_privkey_load (botan_privkey_t* key, botan_rng_t rng
+                          ,const uint8_t bits[], HsInt off, HsInt len
+                          ,const char* passwd);
+int hs_botan_pubkey_load (botan_pubkey_t* key
+                         ,const uint8_t bits[], HsInt off, HsInt len);
 // Public Key Encryption/Decryption
+//
+int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t out[], HsInt *out_len, const uint8_t plaintext[], HsInt plaintext_off, HsInt plaintext_len);
+int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len);
 
 // Signature Generation & Signature Verification
+//
 int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t * in, HsInt off , HsInt len);
-
-int hs_botan_pk_op_sign_finish(botan_pk_op_sign_t op, botan_rng_t rng,
-                            uint8_t * sig, size_t* sig_len);
-
-
 int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t * in, HsInt off, HsInt in_len);
 int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t * sig, HsInt off, HsInt sig_len);
 
 // Key Agreement
 
+int hs_botan_pk_op_key_agreement(botan_pk_op_ka_t op, uint8_t out[], HsInt *out_len, const uint8_t other_key[], HsInt other_key_off, HsInt other_key_len, const uint8_t salt[], HsInt salt_off, HsInt salt_len);
+
 // X.509 Certificates & X.509 Certificate Revocation Lists
 
-// OTP
+int hs_botan_x509_cert_load(botan_x509_cert_t *cert_obj, const uint8_t cert[], HsInt cert_off, HsInt cert_len);
+int hs_botan_x509_cert_verify(botan_x509_cert_t cert
+        , const botan_x509_cert_t *intermediates, HsInt intermediates_len
+        , const botan_x509_cert_t *trusted, HsInt trusted_len
+        , HsInt required_strength, const char *hostname, uint64_t reference_time);
+int hs_botan_x509_cert_verify_with_crl(botan_x509_cert_t cert
+        , const botan_x509_cert_t *intermediates, HsInt intermediates_len
+        , const botan_x509_cert_t *trusted, HsInt trusted_len
+        , const botan_x509_crl_t *crls, HsInt crls_len
+        , HsInt required_strength, const char *hostname, uint64_t reference_time);
+int hs_botan_x509_cert_verify_with_certstore_crl(
+   botan_x509_cert_t cert,
+   const botan_x509_cert_t* intermediates, HsInt intermediates_len,
+   const botan_x509_certstore_t store,
+   const botan_x509_crl_t* crls, HsInt crls_len,
+   size_t required_strength,
+   const char* hostname_cstr,
+   uint64_t reference_time);
 
 // Key wrap
+
+int hs_botan_key_wrap3394(const uint8_t key[], HsInt key_off, HsInt key_len
+                         ,const uint8_t kek[], HsInt kek_off, HsInt kek_len
+                         ,uint8_t wrapped_key[], size_t *wrapped_key_len);
+
+int hs_botan_key_unwrap3394(const uint8_t wrapped_key[], HsInt wrapped_key_off, HsInt wrapped_key_len
+                           ,const uint8_t kek[], HsInt kek_off, HsInt kek_len
+                           ,uint8_t key[], size_t *key_len);
+// OTP
+int hs_botan_hotp_init(botan_hotp_t* hotp
+                      ,const uint8_t key[], HsInt key_off, HsInt key_len
+                      ,const char* hash_algo
+                      ,HsInt digits);
+
+int hs_botan_totp_init(botan_totp_t* totp
+                      ,const uint8_t key[], HsInt key_off, HsInt key_len
+                      ,const char* hash_algo
+                      ,HsInt digits
+                      ,HsInt time_step);

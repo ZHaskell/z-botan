@@ -68,7 +68,7 @@ data HashType
     | RIPEMD160
       -- | Widely adopted NSA designed hash function.
       -- Starting to show significant signs of weakness, and collisions can now be generated. Avoid in new designs.
-    | SHA160
+    | SHA1
       -- | Relatively fast 256 bit hash function, thought to be secure.
       -- Also includes the variant SHA-224. There is no real reason to use SHA-224.
     | SHA256
@@ -135,7 +135,7 @@ hashTypeToCBytes h = case h of
     MD4          -> "MD4"
     MD5          -> "MD5"
     RIPEMD160    -> "RIPEMD-160"
-    SHA160       -> "SHA-160"
+    SHA1         -> "SHA-1"
     SHA224       -> "SHA-224"
     SHA256       -> "SHA-256"
     SHA512       -> "SHA-512"

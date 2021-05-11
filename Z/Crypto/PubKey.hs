@@ -142,7 +142,7 @@ import           GHC.Generics
 import           System.IO.Unsafe    (unsafePerformIO)
 import           Z.Botan.Exception
 import           Z.Botan.FFI
-import           Z.Crypto            (HashType(..), hashTypeToCBytes)
+import           Z.Crypto.Hash       (HashType(..), hashTypeToCBytes)
 import           Z.Crypto.KDF        (KDFType(..), kdfTypeToCBytes)
 import           Z.Crypto.MPI
 import           Z.Crypto.RNG        (RNG, getRNG, withRNG)

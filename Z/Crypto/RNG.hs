@@ -1,3 +1,16 @@
+{-|
+Module      : Z.Crypto.RNG
+Description : Random Number Generators
+Copyright   : Dong Han, 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
+
+Several different RNG types are implemented. Some access hardware RNGs, which are only available on certain platforms. Others are mostly useful in specific situations.
+
+-}
+
 module Z.Crypto.RNG
   ( -- * RNG
     RNGType(..), RNG

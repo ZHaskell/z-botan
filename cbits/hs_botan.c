@@ -202,10 +202,6 @@ int hs_botan_mac_get_keyspec(botan_mac_t mac,
         return botan_mac_get_keyspec(mac, out_minimum_keylength, out_maximum_keylength, out_keylength_modulo);
 }
 
-int hs_botan_mac_destroy(botan_mac_t mac){
-    return botan_mac_destroy(mac);
-}
-
 // Public Key Creation, Import and Export
 
 int hs_botan_privkey_load (botan_privkey_t* key, botan_rng_t rng
@@ -230,13 +226,11 @@ int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_l
     return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
 }
 
-// Signature Generation
+// Signature Generation & Signature Verification
 
 int hs_botan_pk_op_sign_update(botan_pk_op_sign_t op, const uint8_t in[], HsInt off, HsInt len){
     return botan_pk_op_sign_update(op, in+off, len);
 }
-
-// Signature Verification
 
 int hs_botan_pk_op_verify_update(botan_pk_op_verify_t op, const uint8_t in[], HsInt off, HsInt len){
     return botan_pk_op_verify_update(op, in+off, len);
@@ -258,7 +252,7 @@ int hs_botan_mceies_encrypt(botan_pubkey_t mce_key, botan_rng_t rng, const char 
 }
 */
 
-// X.509 Certificates
+// X.509 Certificates & Certificate Revocation Lists
 
 int hs_botan_x509_cert_load(botan_x509_cert_t *cert_obj, const uint8_t cert[], HsInt cert_off, HsInt cert_len){
     return botan_x509_cert_load(cert_obj, cert+cert_off, cert_len);
@@ -267,12 +261,12 @@ int hs_botan_x509_cert_load(botan_x509_cert_t *cert_obj, const uint8_t cert[], H
 int hs_botan_x509_cert_verify(botan_x509_cert_t cert
         , const botan_x509_cert_t *intermediates, HsInt intermediates_len
         , const botan_x509_cert_t *trusted, HsInt trusted_len
-        , const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
+        , HsInt required_strength, const char *hostname, uint64_t reference_time){
     int r1;
     int r2 = botan_x509_cert_verify(&r1, cert
             , intermediates, intermediates_len
             , trusted, trusted_len
-            , trusted_path, required_strength, hostname, reference_time);
+            , NULL, required_strength, hostname, reference_time);
     if (r2 < 0){
         return r2;
     } else { 
@@ -283,14 +277,14 @@ int hs_botan_x509_cert_verify(botan_x509_cert_t cert
 int hs_botan_x509_cert_verify_with_crl(botan_x509_cert_t cert
         , const botan_x509_cert_t *intermediates, HsInt intermediates_len
         , const botan_x509_cert_t *trusted, HsInt trusted_len
-        , const botan_x509_crl_t *crls, HsInt crls_off, HsInt crls_len
-        , const char *trusted_path, HsInt required_strength, const char *hostname, uint64_t reference_time){
+        , const botan_x509_crl_t *crls, HsInt crls_len
+        , HsInt required_strength, const char *hostname, uint64_t reference_time){
     int r1;
     int r2 = botan_x509_cert_verify_with_crl(&r1, cert
             , intermediates, intermediates_len
             , trusted, trusted_len
             , crls, crls_len
-            , trusted_path, required_strength, hostname, reference_time);
+            , NULL, required_strength, hostname, reference_time);
     if (r2 < 0){
         return r2;
     } else { 
@@ -298,11 +292,34 @@ int hs_botan_x509_cert_verify_with_crl(botan_x509_cert_t cert
     }
 }
 
-// X.509 Certificate Revocation Lists
+
+int hs_botan_x509_cert_verify_with_certstore_crl(
+   botan_x509_cert_t cert,
+   const botan_x509_cert_t* intermediates, HsInt intermediates_len,
+   const botan_x509_certstore_t store,
+   const botan_x509_crl_t* crls, HsInt crls_len,
+   size_t required_strength,
+   const char* hostname,
+   uint64_t reference_time) {
+    int r1;
+    int r2 = botan_x509_cert_verify_with_certstore_crl(&r1, cert
+            , intermediates, intermediates_len
+            , store
+            , crls, crls_len
+            , required_strength, hostname, reference_time);
+    if (r2 < 0){
+        return r2;
+    } else { 
+        return r1; 
+    }
+
+}
 
 int hs_botan_x509_crl_load(botan_x509_crl_t *crl_obj, const uint8_t crl[], HsInt crl_off, HsInt crl_len){
     return botan_x509_crl_load(crl_obj, crl+crl_off, crl_len);
 }
+
+// Key wrap
 
 /**
   * Advanced Encryption Standard (AES) Key Wrap Algorithm
@@ -328,8 +345,6 @@ int hs_botan_key_unwrap3394(const uint8_t wrapped_key[], HsInt wrapped_key_off, 
 
 // OTP
 
-// HOTP
-
 int hs_botan_hotp_init(botan_hotp_t* hotp
                       ,const uint8_t key[], HsInt key_off, HsInt key_len
                       ,const char* hash_algo
@@ -337,18 +352,6 @@ int hs_botan_hotp_init(botan_hotp_t* hotp
     return botan_hotp_init(hotp
                           ,key+key_off, key_len
                           ,hash_algo, digits);}
-
-// int hs_botan_hotp_check(botan_hotp_t hotp
-//                        ,int has_counter
-//                        ,uint64_t* next_hotp_counter
-//                        ,uint32_t hotp_code
-//                        ,uint64_t hotp_counter
-//                        ,size_t resync_range){
-// uint64_t* ret_ptr = NULL;
-// if (has_counter) ret_ptr = next_hotp_counter;
-// return botan_hotp_check(hotp, ret_ptr, hotp_code, hotp_counter, resync_range);}
-
-// TOTP
 
 int hs_botan_totp_init(botan_totp_t* totp
                       ,const uint8_t key[], HsInt key_off, HsInt key_len

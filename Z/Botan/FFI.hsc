@@ -1,3 +1,16 @@
+{-|
+Module      : Z.Botan.Errno
+Description : Errno provided by botan
+Copyright   : (c) Dong Han, 2020 - 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
+
+INTERNAL MODULE, provides all botan FFI defs.
+
+-}
+
 module Z.Botan.FFI where
 
 import           Data.Word
@@ -615,17 +628,25 @@ foreign import ccall unsafe botan_x509_cert_to_string :: BotanStructT
 foreign import ccall unsafe botan_x509_cert_allowed_usage :: BotanStructT -> CUInt -> IO CInt
 
 foreign import ccall unsafe hs_botan_x509_cert_verify :: BotanStructT
-                                                      -> Ptr BotanStructT -> Int 
-                                                      -> Ptr BotanStructT -> Int 
-                                                      -> Ptr Word8 -> Int -> Ptr Word8 -> Word64
+                                                      -> BA## BotanStructT -> Int 
+                                                      -> BA## BotanStructT -> Int 
+                                                      -> Int -> BA## Word8 -> Word64
                                                       -> IO CInt
 
 foreign import ccall unsafe hs_botan_x509_cert_verify_with_crl :: BotanStructT
-                                                               -> Ptr BotanStructT -> Int 
-                                                               -> Ptr BotanStructT -> Int
-                                                               -> Ptr BotanStructT -> Int
-                                                               -> Ptr Word8 -> Int -> Ptr Word8 -> Word64
+                                                               -> BA## BotanStructT -> Int 
+                                                               -> BA## BotanStructT -> Int
+                                                               -> BA## BotanStructT -> Int
+                                                               -> Int -> BA## Word8 -> Word64
                                                                -> IO CInt
+
+foreign import ccall unsafe hs_botan_x509_cert_verify_with_certstore_crl
+    :: BotanStructT
+    -> BA## BotanStructT -> Int 
+    -> BotanStructT 
+    -> BA## BotanStructT -> Int
+    -> Int -> BA## Word8 -> Word64
+    -> IO CInt
 
 foreign import ccall unsafe botan_x509_cert_validation_status :: CInt -> IO CString
 
@@ -641,6 +662,13 @@ foreign import ccall unsafe botan_x509_crl_load_file :: MBA## BotanStructT -> BA
 foreign import ccall unsafe "&botan_x509_crl_destroy" botan_x509_crl_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStructT -> IO CInt
+
+--------------------------------------------------------------------------------
+-- X.509 Certificate Store
+
+foreign import ccall unsafe botan_x509_certstore_load_file :: MBA## BotanStructT -> BA## Word8 -> IO CInt
+
+foreign import ccall unsafe "&botan_x509_certstore_destroy" botan_x509_certstore_destroy :: FunPtr (BotanStructT -> IO ())
 
 --------------------------------------------------------------------------------
 -- Advanced Encryption Standard (AES) Key Wrap Algorithm
@@ -675,16 +703,8 @@ foreign import ccall unsafe botan_hotp_check :: BotanStructT
                                              -> MBA## Word64
                                              -> Word32
                                              -> Word64
-                                             -> Int
+                                             -> CSize
                                              -> IO CInt
-
--- foreign import ccall unsafe hs_botan_hotp_check :: BotanStructT
---                                                 -> Int
---                                                 -> MBA## Word64
---                                                 -> Word32
---                                                 -> Word64
---                                                 -> Int
---                                                 -> IO CInt
 
 foreign import ccall unsafe hs_botan_totp_init :: MBA## BotanStructT
                                                -> BA## Word8 -> Int -> Int
@@ -702,7 +722,7 @@ foreign import ccall unsafe botan_totp_generate :: BotanStructT
 foreign import ccall unsafe botan_totp_check :: BotanStructT
                                              -> Word32
                                              -> Word64
-                                             -> Int
+                                             -> CSize
                                              -> IO CInt
 
 --------------------------------------------------------------------------------

@@ -1,3 +1,16 @@
+{-|
+Module      : Z.Botan.Exception
+Description : Errno provided by botan
+Copyright   : (c) Dong Han, 2020 - 2021
+License     : BSD
+Maintainer  : winterland1989@gmail.com
+Stability   : experimental
+Portability : non-portable
+
+Provides botan exception hierarchy.
+
+-}
+
 module Z.Botan.Exception (
   -- * Botan exceptions
     SomeBotanException(..)

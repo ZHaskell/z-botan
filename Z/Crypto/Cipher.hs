@@ -647,7 +647,7 @@ finishCipher (Cipher ci _ ug _ tag_len _) input =
             pa' <- unsafeFreezePrimArray mpa
             return (V.PrimVector pa' 0 r)
 
--- | Wrap a cipher into a 'BIO' node.
+-- | Wrap a cipher into a 'BIO' node(experimental).
 --
 -- The cipher should have already started by setting key, nounce, etc.
 --
