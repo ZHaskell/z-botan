@@ -32,9 +32,12 @@ main = do
                     baseDir lbi' = fromMaybe "" (takeDirectory <$> cabalFilePath lbi')
                     configFile = baseDir lbi </> "third_party" </> "botan" </> "configure.py"
                     configFolder = baseDir lbi </> "third_party" </> "botan"
+                    placeholder = "build" </> "include" </> "external" </> "cabal.placeholder"
                 confExists <- doesFileExist configFile
                 if confExists
-                  then runConfigureScript configFolder configFile verbosity flags lbi
+                  then do
+                    runConfigureScript configFolder configFile verbosity flags lbi
+                    runTouch configFolder placeholder verbosity flags
                   else die' verbosity "botan configure script not found."
 
                 postConf simpleUserHooks args flags pkg_descr lbi
@@ -80,4 +83,20 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
                ++ "This requires python is discoverable in your path."
 
 
+runTouch :: FilePath -> FilePath -> Verbosity -> ConfigFlags -> IO ()
+runTouch configFolder placeholder verbosity flags = do
+    let extraPath = fromNubList $ configProgramPathExtra flags
+        progDb = modifyProgramSearchPath
+            (\p -> map ProgramSearchPathDir extraPath ++ p) emptyProgramDb
+        touchPG = simpleProgram "touch"
+    touch <- lookupProgram touchPG <$> configureProgram verbosity touchPG progDb
+    case touch of
+        Just touch' ->
+            runProgramInvocation verbosity $
+                 (programInvocation touch' [placeholder])
+                 { progInvokeCwd = Just configFolder }
+
+        Nothing -> die' verbosity notFoundMsg
+  where
+      notFoundMsg = "touch is required to keep a cabal placeholder file"
 
