@@ -39,6 +39,8 @@ module Z.Crypto.X509 (
   , CertStore
   , withCertStore
   , loadCertStoreFile
+  , mozillaCertStore
+  , systemCertStore
   -- * constants
   , KeyUsageConstraint
   , pattern NO_CONSTRAINTS
@@ -69,6 +71,7 @@ import qualified Z.Data.CBytes          as CB
 import           Z.Foreign
 import           Z.Foreign.CPtr
 import           System.IO.Unsafe
+import           Paths_Z_Botan           (getDataFileName)
 
 ------------------------
 -- X.509 Certificates --
@@ -85,10 +88,12 @@ newtype Cert = Cert { certStruct :: BotanStruct }
     deriving anyclass T.Print
 
 withCert :: HasCallStack => Cert -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withCert #-}
 withCert (Cert cert) = withBotanStruct cert
 
 -- | Load a certificate from the DER or PEM representation.
 loadCert :: HasCallStack => V.Bytes -> IO Cert
+{-# INLINABLE loadCert #-}
 loadCert cert = do
     withPrimVectorUnsafe cert $ \ cert' off len ->
         Cert <$> newBotanStruct
@@ -97,6 +102,7 @@ loadCert cert = do
 
 -- | Load a certificate from a file.
 loadCertFile :: HasCallStack => CBytes -> IO Cert
+{-# INLINABLE loadCertFile #-}
 loadCertFile name = do
     CB.withCBytesUnsafe name $ \ name' ->
         Cert <$> newBotanStruct
@@ -105,6 +111,7 @@ loadCertFile name = do
 
 -- | Create a new object that refers to the same certificate.
 dupCert :: HasCallStack => Cert -> IO Cert
+{-# INLINABLE dupCert #-}
 dupCert cert = do
     withCert cert $ \ cert' ->
         Cert <$> newBotanStruct
@@ -135,18 +142,21 @@ newCertSelfsigned (PrivKey key) rng common org =
 
 -- | Return the time the certificate becomes valid, as a 'T.Text' in form “YYYYMMDDHHMMSSZ” where Z is a literal character reflecting that this time is relative to UTC.
 certStartText :: Cert -> IO T.Text
+{-# INLINABLE certStartText #-}
 certStartText cert =
     withCert cert $ \ cert' ->
     allocBotanBufferUTF8Unsafe 16 (botan_x509_cert_get_time_starts cert')
 
 -- | Return the time the certificate expires, as a 'T.Text' in form “YYYYMMDDHHMMSSZ” where Z is a literal character reflecting that this time is relative to UTC.
 certExpireText :: Cert -> IO T.Text
+{-# INLINABLE certExpireText #-}
 certExpireText cert =
     withCert cert $ \ cert' ->
     allocBotanBufferUTF8Unsafe 16 (botan_x509_cert_get_time_expires cert')
 
 -- | Return the time the certificate becomes valid, as seconds since epoch.
 certStart :: Cert -> IO Word64
+{-# INLINABLE certStart #-}
 certStart cert =
     withCert cert $ \ cert' -> do
         (a, _) <- allocPrimUnsafe @Word64 $ botan_x509_cert_not_before cert'
@@ -154,12 +164,14 @@ certStart cert =
 
 -- | Return the time the certificate becomes valid.
 certStart' :: Cert -> IO SystemTime
+{-# INLINABLE certStart' #-}
 certStart' cert = do
     !r <- fromIntegral <$> certStart cert
     return (MkSystemTime r 0)
 
 -- | Return the time the certificate expires, as 'SystemTime'.
 certExpire :: Cert -> IO Word64
+{-# INLINABLE certExpire #-}
 certExpire cert =
     withCert cert $ \ cert' -> do
         (a, _) <- allocPrimUnsafe @Word64 $ botan_x509_cert_not_after cert'
@@ -167,12 +179,14 @@ certExpire cert =
 
 -- | Return the time the certificate expires, as 'SystemTime'.
 certExpire' :: Cert -> IO SystemTime
+{-# INLINABLE certExpire' #-}
 certExpire' cert = do
     !r <- fromIntegral <$> certExpire cert
     return (MkSystemTime r 0)
 
 -- | Return the finger print of the certificate.
 certFingerPrint :: Cert -> HashType -> IO T.Text
+{-# INLINABLE certFingerPrint #-}
 certFingerPrint cert ht =
     withCert cert $ \ cert' ->
     CB.withCBytesUnsafe (hashTypeToCBytes ht) $ \ ht' ->
@@ -181,6 +195,7 @@ certFingerPrint cert ht =
 
 -- | Return the serial number of the certificate.
 certSerial :: Cert -> IO V.Bytes
+{-# INLINABLE certSerial #-}
 certSerial cert =
     withCert cert $ \ cert' ->
     allocBotanBufferUnsafe 64 $
@@ -188,6 +203,7 @@ certSerial cert =
 
 -- | Return the authority key ID set in the certificate, which may be empty.
 certIDAuthority :: Cert -> IO V.Bytes
+{-# INLINABLE certIDAuthority #-}
 certIDAuthority cert =
     withCert cert $ \ cert' ->
     allocBotanBufferUnsafe 64 $
@@ -195,6 +211,7 @@ certIDAuthority cert =
 
 -- | Return the subject key ID set in the certificate, which may be empty.
 certIDSubject :: Cert -> IO V.Bytes
+{-# INLINABLE certIDSubject #-}
 certIDSubject cert =
     withCert cert $ \ cert' ->
     allocBotanBufferUnsafe 64 $
@@ -202,6 +219,7 @@ certIDSubject cert =
 
 -- | Get the serialized representation of the public key included in this certificate.
 certPubBits :: Cert -> IO V.Bytes
+{-# INLINABLE certPubBits #-}
 certPubBits cert =
     withCert cert $ \ cert' ->
     allocBotanBufferUnsafe V.smallChunkSize $
@@ -209,34 +227,39 @@ certPubBits cert =
 
 -- | Get the public key included in this certificate.
 certPubKey :: Cert -> IO PubKey
+{-# INLINABLE certPubKey #-}
 certPubKey cert = do
     withCert cert $ \ cert' ->
         PubKey <$> newBotanStruct
             (cert' `botan_x509_cert_get_public_key`)
             botan_pubkey_destroy
 
--- | Get a value from the issuer DN field.
+-- | Get a value from the issuer DN field, throw exception if not exists.
 certDNIssuer ::
+    HasCallStack =>
     Cert ->
     -- | key
     CBytes ->
     -- | index
     Int ->
     IO T.Text
+{-# INLINABLE  certDNIssuer #-}
 certDNIssuer cert key ix =
     withCert cert $ \ cert' ->
     CB.withCBytesUnsafe key $ \ key' -> do
     allocBotanBufferUTF8Unsafe 64 $
         botan_x509_cert_get_issuer_dn cert' key' ix
 
--- | Get a value from the subject DN field.
+-- | Get a value from the subject DN field, throw exception if not exists.
 certDNSubject ::
-  Cert ->
-  -- | key
-  CBytes ->
-  -- | index
-  Int ->
-  IO T.Text
+    HasCallStack =>
+    Cert ->
+    -- | key
+    CBytes ->
+    -- | index
+    Int ->
+    IO T.Text
+{-# INLINABLE  certDNSubject #-}
 certDNSubject cert key ix =
     withCert cert $ \ cert' ->
     CB.withCBytesUnsafe key $ \ key' ->
@@ -244,14 +267,16 @@ certDNSubject cert key ix =
         botan_x509_cert_get_subject_dn cert' key' ix
 
 -- | Format the certificate as a free-form string.
-certToText :: Cert -> IO T.Text
+certToText :: HasCallStack => Cert -> IO T.Text
+{-# INLINABLE certToText #-}
 certToText cert =
     withCert cert $ \ cert' ->
     T.Text . V.unsafeInit <$>
         allocBotanBufferUnsafe V.smallChunkSize (botan_x509_cert_to_string cert')
 
 -- | Change cert's 'KeyUsageConstraint'.
-certUsage :: Cert -> KeyUsageConstraint -> IO ()
+certUsage :: HasCallStack => Cert -> KeyUsageConstraint -> IO ()
+{-# INLINABLE certUsage #-}
 certUsage cert usage =
     withCert cert $ \ cert' ->
     throwBotanIfMinus_ $ botan_x509_cert_allowed_usage cert' usage
@@ -259,6 +284,7 @@ certUsage cert usage =
 -- Verify a certificate. Returns 'Nothing' if validation was successful, 'Just reason' if unsuccessful.
 --
 verifyCert ::
+    HasCallStack =>
     -- | Intermediate certificates, set to @[]@ if not needed.
     [Cert] ->
     -- | Trusted certificates, set to @[]@ if not needed.
@@ -272,6 +298,7 @@ verifyCert ::
     -- | The certificate to be verified.
     Cert ->
     IO (Maybe CBytes)
+{-# INLINABLE verifyCert #-}
 verifyCert intermediates trusted strength hostname refTime cert =
     withCert cert $ \ cert' ->
     withCPtrsUnsafe (map certStruct intermediates) $ \ intermediates' intermediatesLen ->
@@ -288,6 +315,7 @@ verifyCert intermediates trusted strength hostname refTime cert =
 
 -- | Return a (statically allocated) CString associated with the verification result.
 certValidateStatus :: CInt -> CBytes
+{-# INLINABLE certValidateStatus #-}
 certValidateStatus r =
     unsafeDupablePerformIO $ CB.fromCString =<< botan_x509_cert_validation_status r
 
@@ -296,6 +324,7 @@ certValidateStatus r =
 -- Verify a certificate. Returns 'Nothing' if validation was successful, 'Just reason' if unsuccessful.
 --
 verifyCertCRL ::
+    HasCallStack =>
     -- | Intermediate certificates, set to @[]@ if not needed.
     [Cert] ->
     -- | Trusted certificates, set to @[]@ if not needed.
@@ -311,6 +340,7 @@ verifyCertCRL ::
     -- | The certificate to be verified.
     Cert ->
     IO (Maybe CBytes)
+{-# INLINABLE verifyCertCRL #-}
 verifyCertCRL intermediates trusted crls strength hostname refTime cert =
     withCert cert $ \ cert' ->
     withCPtrsUnsafe (map certStruct intermediates) $ \ intermediates' intermediatesLen ->
@@ -332,6 +362,7 @@ verifyCertCRL intermediates trusted crls strength hostname refTime cert =
 -- Verify a certificate. Returns 'Nothing' if validation was successful, 'Just reason' if unsuccessful.
 --
 verifyCertCRL' ::
+    HasCallStack =>
     -- | Intermediate certificates, set to @[]@ if not needed.
     [Cert] ->
     -- | Trusted certificates in 'CertStore'
@@ -347,6 +378,7 @@ verifyCertCRL' ::
     -- | The certificate to be verified.
     Cert ->
     IO (Maybe CBytes)
+{-# INLINABLE verifyCertCRL' #-}
 verifyCertCRL' intermediates store crls strength hostname refTime cert =
     withCert cert $ \ cert' ->
     withCertStore store $ \ store' ->
@@ -380,10 +412,12 @@ newtype CRL = CRL { crlStruct :: BotanStruct }
     deriving anyclass T.Print
 
 withCRL :: HasCallStack => CRL -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withCRL #-}
 withCRL (CRL crl) = withBotanStruct crl
 
 -- | Load a CRL from the DER or PEM representation.
-loadCRL :: V.Bytes -> IO CRL
+loadCRL :: HasCallStack => V.Bytes -> IO CRL
+{-# INLINABLE loadCRL #-}
 loadCRL src =
     withPrimVectorUnsafe src $ \ src' off len ->
     CRL <$> newBotanStruct
@@ -391,7 +425,8 @@ loadCRL src =
         botan_x509_crl_destroy
 
 -- | Load a CRL from a file.
-loadCRLFile :: CBytes -> IO CRL
+loadCRLFile :: HasCallStack => CBytes -> IO CRL
+{-# INLINABLE loadCRLFile #-}
 loadCRLFile src =
     CB.withCBytesUnsafe src $ \ src' ->
     CRL <$> newBotanStruct
@@ -400,6 +435,7 @@ loadCRLFile src =
 
 -- | Check whether a given crl contains a given cert. Return True when the certificate is revoked, False otherwise.
 isRevokedX509 :: HasCallStack => CRL -> Cert -> IO Bool
+{-# INLINABLE isRevokedX509 #-}
 isRevokedX509 crl cert =
     withCRL crl $ \ crl' ->
     withCert cert $ \ cert' -> do
@@ -421,12 +457,32 @@ newtype CertStore = CertStore { certStoreStruct :: BotanStruct }
 
 -- | Use 'CertStore' as a 'botan_x509_certstore_t'.
 withCertStore :: HasCallStack => CertStore -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withCertStore #-}
 withCertStore (CertStore c) = withBotanStruct c
 
 -- | Load a CertStore from a file.
-loadCertStoreFile :: CBytes -> IO CertStore
+loadCertStoreFile :: HasCallStack => CBytes -> IO CertStore
+{-# INLINABLE loadCertStoreFile #-}
 loadCertStoreFile src =
     CB.withCBytesUnsafe src $ \ src' ->
     CertStore <$> newBotanStruct
         (`botan_x509_certstore_load_file` src')
+        botan_x509_certstore_destroy
+
+-- | The built-in mozilla CA 'CertStore'.
+--
+-- This is a certstore extracted from Mozilla, see <https://curl.se/docs/caextract.html>.
+mozillaCertStore :: CertStore
+{-# NOINLINE mozillaCertStore #-}
+mozillaCertStore = unsafePerformIO $ do
+    f <- getDataFileName "third_party/cacert.pem"
+    loadCertStoreFile (CB.pack f)
+
+-- | The CA 'CertStore' on your system.
+--
+systemCertStore :: CertStore
+{-# NOINLINE systemCertStore #-}
+systemCertStore = unsafePerformIO $ do
+    CertStore <$> newBotanStruct
+        botan_x509_certstore_load_system
         botan_x509_certstore_destroy

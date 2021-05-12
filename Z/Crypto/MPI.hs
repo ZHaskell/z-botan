@@ -324,35 +324,42 @@ zero :: MPI
 zero = unsafeNewMPI (\ _ -> return ())
 
 newMPI :: (BotanStructT -> IO a) -> IO MPI
+{-# INLINABLE newMPI #-}
 newMPI f = do
     mp <- newBotanStruct (\ bts -> botan_mp_init bts) botan_mp_destroy
     _ <- withBotanStruct mp f
     return (MPI mp)
 
 newMPI' :: (BotanStructT -> IO a) -> IO (MPI, a)
+{-# INLINABLE newMPI' #-}
 newMPI' f = do
     mp <- newBotanStruct (\ bts -> botan_mp_init bts) botan_mp_destroy
     r <- withBotanStruct mp f
     return (MPI mp, r)
 
 copyMPI :: MPI -> IO MPI
+{-# INLINABLE copyMPI #-}
 copyMPI (MPI a) = do
     withBotanStruct a $ \ btsa -> do
         newMPI (\ bts -> botan_mp_set_from_mp bts btsa)
 
 withMPI :: MPI -> (BotanStructT -> IO a) -> IO a
+{-# INLINABLE withMPI #-}
 withMPI (MPI bts) f = withBotanStruct bts f
 
 unsafeWithMPI :: MPI -> (BotanStructT -> IO a) -> a
+{-# INLINABLE unsafeWithMPI #-}
 unsafeWithMPI (MPI bts) f = unsafeDupablePerformIO (withBotanStruct bts f)
 
 unsafeNewMPI :: (BotanStructT -> IO a) -> MPI
+{-# INLINABLE unsafeNewMPI #-}
 unsafeNewMPI f = unsafeDupablePerformIO $ do
     mp <- newBotanStruct (\ bts -> botan_mp_init bts) botan_mp_destroy
     _ <- withBotanStruct mp f
     return (MPI mp)
 
 unsafeNewMPI' :: (BotanStructT -> IO a) -> (MPI, a)
+{-# INLINABLE unsafeNewMPI' #-}
 unsafeNewMPI' f = unsafeDupablePerformIO $ do
     mp <- newBotanStruct (\ bts -> botan_mp_init bts) botan_mp_destroy
     r <- withBotanStruct mp f
@@ -360,26 +367,31 @@ unsafeNewMPI' f = unsafeDupablePerformIO $ do
 
 -- | Get 'MPI' 's byte size.
 byteSize :: MPI -> Int
+{-# INLINABLE byteSize #-}
 byteSize mp = fromIntegral @CSize . fst . unsafeWithMPI mp $ \ bts ->
     allocPrimUnsafe (botan_mp_num_bytes bts)
 
 -- | Get 'MPI' 's bit size.
 bitSize :: MPI -> Int
+{-# INLINABLE bitSize #-}
 bitSize mp = fromIntegral @CSize . fst . unsafeWithMPI mp $ \ bts ->
     allocPrimUnsafe (botan_mp_num_bits bts)
 
 -- | Set 'MPI' from an integer value.
 fromCInt :: CInt -> MPI
+{-# INLINABLE fromCInt #-}
 fromCInt x = unsafeNewMPI $ \ bts ->
     botan_mp_set_from_int bts x
 
 -- | Convert a MPI to 'Word32', the sign is ignored.
-toWord32 :: HasCallStack => MPI -> Word32
+toWord32 :: MPI -> Word32
+{-# INLINABLE toWord32 #-}
 toWord32 mp = fst . unsafeWithMPI mp $ \ bts ->
     allocPrimUnsafe (botan_mp_to_uint32 bts)
 
 -- | Write a 'MPI' in decimal format, with negative sign if < 0.
 toDecimal :: MPI -> B.Builder ()
+{-# INLINABLE toDecimal #-}
 toDecimal mp = do
     when (isNegative mp) (B.word8 MINUS)
     -- botan write \NUL terminator
@@ -389,6 +401,7 @@ toDecimal mp = do
 
 -- | Parse a 'MPI' in decimal format, parse leading minus sign.
 fromDecimal :: P.Parser MPI
+{-# INLINABLE fromDecimal #-}
 fromDecimal = do
     sign <- P.peek
     let neg = sign == MINUS
@@ -404,6 +417,7 @@ fromDecimal = do
 
 -- | Write a 'MPI' in hexadecimal format(without '0x' prefix), the sign is ignored.
 toHex :: MPI -> B.Builder ()
+{-# INLINABLE toHex #-}
 toHex mp =
     -- botan write \NUL terminator
     let !siz = byteSize mp `unsafeShiftL` 1
@@ -414,6 +428,7 @@ toHex mp =
 
 -- | Parse a 'MPI' in hexadecimal format(without '0x' prefix), no sign is allowed.
 fromHex :: P.Parser MPI
+{-# INLINABLE fromHex #-}
 fromHex = do
     v@(V.PrimVector (A.PrimArray ba#) s l) <- P.takeWhile1 isHexDigit
     let (x, r) = unsafeNewMPI' $ \ bts -> hs_botan_mp_set_from_hex bts ba# s l
@@ -422,21 +437,25 @@ fromHex = do
     else return x
 
 isNegative :: MPI -> Bool
+{-# INLINABLE isNegative #-}
 isNegative mp = unsafeWithMPI mp $ \ bts -> do
     r <- botan_mp_is_negative bts
     return $! r == 1
 
 isZero :: MPI -> Bool
+{-# INLINABLE isZero #-}
 isZero mp = unsafeWithMPI mp $ \ bts -> do
     r <- botan_mp_is_zero bts
     return $! r == 1
 
 isOdd :: MPI -> Bool
+{-# INLINABLE isOdd #-}
 isOdd mp = unsafeWithMPI mp $ \ bts -> do
     r <- botan_mp_is_odd bts
     return $! r == 1
 
 isEven :: MPI -> Bool
+{-# INLINABLE isEven #-}
 isEven mp = unsafeWithMPI mp $ \ bts -> do
     r <- botan_mp_is_even bts
     return $! r == 1
@@ -445,6 +464,7 @@ isEven mp = unsafeWithMPI mp $ \ bts -> do
 
 -- | mulMod x y mod = x times y modulo mod
 mulMod :: MPI -> MPI -> MPI -> MPI
+{-# INLINABLE mulMod #-}
 mulMod x y m =
     unsafeNewMPI $ \ btsr ->
         withMPI x $ \ btsx ->
@@ -455,6 +475,7 @@ mulMod x y m =
 
 -- | Modular exponentiation. powMod base exp mod = base power exp module mod
 powMod :: MPI -> MPI -> MPI -> MPI
+{-# INLINABLE powMod #-}
 powMod x y m =
     unsafeNewMPI $ \ btsr ->
         withMPI x $ \ btsx ->
@@ -466,6 +487,7 @@ powMod x y m =
 --
 -- If no modular inverse exists (for instance because in and modulus are not relatively prime), return 0.
 modInverse :: MPI -> MPI -> MPI
+{-# INLINABLE modInverse #-}
 modInverse x y =
     unsafeNewMPI $ \ btsr ->
         withMPI x $ \ btsx ->
@@ -473,17 +495,20 @@ modInverse x y =
                     botan_mp_mod_inverse btsr btsx btsy
 
 -- | Create a random 'MPI' of the specified bit size.
-randBits :: RNG -> Int -> IO MPI
+randBits :: HasCallStack => RNG -> Int -> IO MPI
+{-# INLINABLE randBits #-}
 randBits rng x = do
     newMPI $ \ bts ->
         withRNG rng $ \ bts_rng ->
             throwBotanIfMinus_ (botan_mp_rand_bits bts bts_rng (fromIntegral (max x 0)))
 
 -- | Create a random 'MPI' within the provided range.
-randRange :: RNG
+randRange :: HasCallStack
+          => RNG
           -> MPI     -- ^ lower bound
           -> MPI     -- ^ upper bound
           -> IO MPI
+{-# INLINABLE randRange #-}
 randRange rng lower upper = do
     newMPI $ \ bts ->
         withRNG rng $ \ bts_rng ->
@@ -493,10 +518,11 @@ randRange rng lower upper = do
 
 -- | Compute the greatest common divisor of x and y.
 gcd :: MPI -> MPI -> MPI
+{-# INLINABLE gcd #-}
 gcd x y = unsafeNewMPI $ \ bts ->
     withMPI x $ \ bts_x ->
         withMPI y $ \ bts_y ->
-            throwBotanIfMinus_ (botan_mp_gcd bts bts_x bts_y)
+            botan_mp_gcd bts bts_x bts_y
 
 -- | Test if n is prime.
 --
@@ -504,7 +530,8 @@ gcd x y = unsafeNewMPI $ \ bts ->
 -- set test_prob to the desired assurance level.
 -- For example if test_prob is 64, then sufficient Miller-Rabin iterations will run to
 -- assure there is at most a 1/2**64 chance that n is composite.
-isPrim :: RNG -> MPI -> Int -> IO Bool
+isPrim :: HasCallStack => RNG -> MPI -> Int -> IO Bool
+{-# INLINABLE isPrim #-}
 isPrim rng x prob = do
     withRNG rng $ \ bts_rng ->
         withMPI x $ \ bts_x -> do

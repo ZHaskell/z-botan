@@ -175,6 +175,7 @@ data BlockCipherType
   deriving anyclass (T.Print, JSON)
 
 blockCipherTypeToCBytes :: BlockCipherType -> CBytes
+{-# INLINABLE blockCipherTypeToCBytes #-}
 blockCipherTypeToCBytes b = case b of
     AES128           ->    "AES-128"
     AES192           ->    "AES-192"
@@ -233,6 +234,7 @@ data BlockCipher = BlockCipher
 
 -- | Pass 'BlockCipher' to FFI as 'botan_block_cipher_t'.
 withBlockCipher :: HasCallStack => BlockCipher -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withBlockCipher #-}
 withBlockCipher (BlockCipher bc _ _ _) = withBotanStruct bc
 
 data KeySpec = KeySpec
@@ -246,6 +248,7 @@ data KeySpec = KeySpec
 -- | Create a new block cipher.
 --
 newBlockCipher :: HasCallStack => BlockCipherType -> IO BlockCipher
+{-# INLINABLE newBlockCipher #-}
 newBlockCipher typ = do
     let name = blockCipherTypeToCBytes typ
     bc <- newBotanStruct
@@ -266,6 +269,7 @@ newBlockCipher typ = do
 -- | Set the cipher key, which is required before encrypting or decrypting.
 --
 setBlockCipherKey :: HasCallStack => BlockCipher -> V.Bytes -> IO ()
+{-# INLINABLE setBlockCipherKey #-}
 setBlockCipherKey (BlockCipher bc _ _ _) key =
     withBotanStruct bc $ \ pbc -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
@@ -274,6 +278,7 @@ setBlockCipherKey (BlockCipher bc _ _ _) key =
 
 -- | Clear the internal state (such as keys) of this cipher object.
 clearBlockCipher :: HasCallStack => BlockCipher -> IO ()
+{-# INLINABLE clearBlockCipher #-}
 clearBlockCipher (BlockCipher bc _ _ _) =
     withBotanStruct bc (throwBotanIfMinus_ . botan_block_cipher_clear)
 
@@ -285,6 +290,7 @@ encryptBlocks :: HasCallStack
               -> V.Bytes    -- ^ blocks of data, length must be equal to block_size * number_of_blocks
               -> Int        -- ^ number of blocks
               -> IO V.Bytes
+{-# INLINABLE encryptBlocks #-}
 encryptBlocks (BlockCipher bc _ blockSiz _) blocks n = do
     let inputLen = V.length blocks
     when (inputLen /= blockSiz * n) $
@@ -303,6 +309,7 @@ decryptBlocks :: HasCallStack
               -> V.Bytes    -- ^ blocks of data, length must be equal to block_size * number_of_blocks
               -> Int        -- ^ number of blocks
               -> IO V.Bytes
+{-# INLINABLE decryptBlocks #-}
 decryptBlocks (BlockCipher bc _ blockSiz _) blocks n = do
     let inputLen = V.length blocks
     when (inputLen /= blockSiz * n) $
@@ -345,6 +352,7 @@ data StreamCipherType
   deriving anyclass (T.Print, JSON)
 
 streamCipherTypeToCBytes :: StreamCipherType -> CBytes
+{-# INLINABLE streamCipherTypeToCBytes #-}
 streamCipherTypeToCBytes s = case s of
     CTR_BE b  -> CB.concat ["CTR-BE(", blockCipherTypeToCBytes b, ")"]
     OFB b     -> CB.concat ["OFB(", blockCipherTypeToCBytes b, ")"]
@@ -358,6 +366,7 @@ streamCipherTypeToCBytes s = case s of
 -- | Create a new stream cipher.
 --
 newStreamCipher :: HasCallStack => StreamCipherType -> CipherDirection -> IO Cipher
+{-# INLINABLE newStreamCipher #-}
 newStreamCipher typ dir = do
     let name = streamCipherTypeToCBytes typ
     ci <- newBotanStruct
@@ -499,6 +508,7 @@ data CipherMode
   deriving anyclass (T.Print, JSON)
 
 cipherTypeToCBytes :: CipherMode -> CBytes
+{-# INLINABLE cipherTypeToCBytes #-}
 cipherTypeToCBytes ct = case ct of
     ChaCha20Poly1305 -> "ChaCha20Poly1305"
     GCM        bct -> blockCipherTypeToCBytes bct <> "/GCM"
@@ -535,11 +545,13 @@ data Cipher = Cipher
 
 -- | Pass 'Cipher' to FFI as 'botan_cipher_t'.
 withCipher :: HasCallStack => Cipher -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withCipher #-}
 withCipher (Cipher c _ _ _ _ _) = withBotanStruct c
 
 -- | Create a new cipher.
 --
 newCipher :: HasCallStack => CipherMode -> CipherDirection -> IO Cipher
+{-# INLINABLE newCipher #-}
 newCipher typ dir = do
     let name = cipherTypeToCBytes typ
     ci <- newBotanStruct
@@ -568,6 +580,7 @@ newCipher typ dir = do
 -- | Clear the internal state (such as keys) of this cipher object.
 --
 clearCipher :: HasCallStack => Cipher -> IO ()
+{-# INLINABLE clearCipher #-}
 clearCipher (Cipher ci _ _ _ _ _) =
     withBotanStruct ci (throwBotanIfMinus_ . botan_cipher_clear)
 
@@ -579,12 +592,14 @@ clearCipher (Cipher ci _ _ _ _ _) =
 -- by botan_cipher_set_key with the original key.
 --
 resetCipher :: HasCallStack => Cipher -> IO ()
+{-# INLINABLE resetCipher #-}
 resetCipher (Cipher ci _ _ _ _ _) =
     withBotanStruct ci (throwBotanIfMinus_ . botan_cipher_reset)
 
 -- | Set the key for this cipher object
 --
 setCipherKey :: HasCallStack => Cipher -> V.Bytes -> IO ()
+{-# INLINABLE setCipherKey #-}
 setCipherKey (Cipher ci _ _ _ _ _) key =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
@@ -594,6 +609,7 @@ setCipherKey (Cipher ci _ _ _ _ _) key =
 -- | Set the associated data. Will fail if cipher is not an AEAD.
 --
 setAssociatedData :: HasCallStack => Cipher -> V.Bytes -> IO ()
+{-# INLINABLE setAssociatedData #-}
 setAssociatedData (Cipher ci _ _ _ _ _) ad =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
@@ -606,6 +622,7 @@ startCipher :: HasCallStack
             => Cipher
             -> V.Bytes      -- ^ nonce
             -> IO ()
+{-# INLINABLE startCipher #-}
 startCipher (Cipher ci _ _ _ _ _) nonce =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len -> do
@@ -620,6 +637,7 @@ updateCipher :: HasCallStack
              => Cipher
              -> V.Bytes
              -> IO (V.Bytes, V.Bytes)   -- ^ trailing input, output
+{-# INLINABLE updateCipher #-}
 updateCipher (Cipher ci _ _ _ _ _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
@@ -636,6 +654,7 @@ finishCipher :: HasCallStack
              => Cipher
              -> V.Bytes
              -> IO V.Bytes
+{-# INLINABLE finishCipher #-}
 finishCipher (Cipher ci _ ug _ tag_len _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
@@ -656,6 +675,7 @@ finishCipher (Cipher ci _ ug _ tag_len _) input =
 -- which may not be suitable for arbitrary bytes streams.
 --
 cipherBIO :: HasCallStack => Cipher -> IO (BIO V.Bytes V.Bytes)
+{-# INLINABLE cipherBIO #-}
 cipherBIO c = do
     trailingRef <- newIORef V.empty
     return $ \ k mbs -> case mbs of

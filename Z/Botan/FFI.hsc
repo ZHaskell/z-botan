@@ -668,6 +668,8 @@ foreign import ccall unsafe botan_x509_is_revoked :: BotanStructT -> BotanStruct
 
 foreign import ccall unsafe botan_x509_certstore_load_file :: MBA## BotanStructT -> BA## Word8 -> IO CInt
 
+foreign import ccall unsafe botan_x509_certstore_load_system :: MBA## BotanStructT -> IO CInt
+
 foreign import ccall unsafe "&botan_x509_certstore_destroy" botan_x509_certstore_destroy :: FunPtr (BotanStructT -> IO ())
 
 --------------------------------------------------------------------------------

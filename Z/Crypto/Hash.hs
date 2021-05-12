@@ -179,10 +179,12 @@ data Hash = Hash
 
 -- | Pass Hash to FFI as @botan_hash_t@
 withHash :: HasCallStack => Hash -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withHash #-}
 withHash (Hash h _ _) = withBotanStruct h
 
 -- | Create a new 'Hash' object.
 newHash :: HasCallStack => HashType -> IO Hash
+{-# INLINABLE newHash #-}
 newHash typ = do
     let name = hashTypeToCBytes typ
     bs <- newBotanStruct
@@ -196,6 +198,7 @@ newHash typ = do
 
 -- | Copies the state of the hash object to a new hash object.
 copyHash :: HasCallStack => Hash -> IO Hash
+{-# INLINABLE copyHash #-}
 copyHash (Hash bts0 name siz) = do
     s <- newBotanStruct
         (\ bts -> withBotanStruct bts0 $ \ pbts0 ->
@@ -205,11 +208,13 @@ copyHash (Hash bts0 name siz) = do
 
 -- | Reset the state of Hash object back to clean, as if no input has been supplied.
 clearHash :: HasCallStack => Hash -> IO ()
+{-# INLINABLE clearHash #-}
 clearHash (Hash bts _ _) =
     throwBotanIfMinus_ (withBotanStruct bts botan_hash_clear)
 
 -- | Feed a chunk of input into a hash object.
-updateHash :: Hash -> V.Bytes -> IO ()
+updateHash :: HasCallStack => Hash -> V.Bytes -> IO ()
+{-# INLINABLE updateHash #-}
 updateHash (Hash bts _ _) bs =
     withBotanStruct bts $ \ pbts ->
         withPrimVectorUnsafe bs $ \ pbs off len ->

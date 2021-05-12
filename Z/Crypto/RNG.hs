@@ -45,7 +45,8 @@ newtype RNG = RNG BotanStruct
     deriving anyclass T.Print
 
 -- | Initialize a random number generator object from the given 'RNGType'
-newRNG :: RNGType -> IO RNG
+newRNG :: HasCallStack => RNGType -> IO RNG
+{-# INLINABLE newRNG #-}
 newRNG typ = RNG <$> newBotanStruct
     (\ bts -> withCBytesUnsafe (rngTypeCBytes typ) (botan_rng_init bts))
     botan_rng_destroy
@@ -55,7 +56,8 @@ newRNG typ = RNG <$> newBotanStruct
     rngTypeCBytes ProcessorRNG  = "hwrng"
 
 -- | Use RNG as a `botan_rng_t` object.
-withRNG :: RNG -> (BotanStructT -> IO a) -> IO a
+withRNG :: HasCallStack => RNG -> (BotanStructT -> IO a) -> IO a
+{-# INLINABLE withRNG #-}
 withRNG (RNG rng) f = withBotanStruct rng f
 
 -- | Get an autoseeded RNG from a global RNG pool divide by haskell capability.
@@ -63,7 +65,8 @@ withRNG (RNG rng) f = withBotanStruct rng f
 -- Botan internal use a lock to protect user-space RNG, which may cause contention if shared.
 -- This function will fetch an autoseeded RNG from a global RNG pool, which is recommended under
 -- concurrent settings.
-getRNG :: IO RNG
+getRNG :: HasCallStack => IO RNG
+{-# INLINABLE getRNG #-}
 getRNG = do
     (cap, _) <- threadCapability =<< myThreadId
     rngArray <- readIORef rngArrayRef
@@ -80,19 +83,22 @@ getRNG = do
         newIORef irngArray
 
 -- | Get random bytes from a random number generator.
-getRandom :: RNG -> Int -> IO V.Bytes
+getRandom :: HasCallStack => RNG -> Int -> IO V.Bytes
+{-# INLINABLE getRandom #-}
 getRandom r siz =  withRNG r $ \ rng -> do
     (b, _) <- allocPrimVectorUnsafe siz $ \ buf ->
         throwBotanIfMinus_ (botan_rng_get rng buf (fromIntegral siz))
     return b
 
 -- | Reseeds the random number generator with bits number of bits from the 'SystemRNG'.
-reseedRNG :: RNG -> Int -> IO ()
+reseedRNG :: HasCallStack => RNG -> Int -> IO ()
+{-# INLINABLE reseedRNG #-}
 reseedRNG r siz = withRNG r $ \ rng -> do
     throwBotanIfMinus_ (botan_rng_reseed rng (fromIntegral siz))
 
 -- | Reseeds the random number generator with bits number of bits from the given source RNG.
-reseedRNGFromRNG :: RNG -> RNG -> Int -> IO ()
+reseedRNGFromRNG :: HasCallStack => RNG -> RNG -> Int -> IO ()
+{-# INLINABLE reseedRNGFromRNG #-}
 reseedRNGFromRNG r1 r2 siz =
     withRNG r1 $ \ rng1 -> do
         withRNG r2 $ \ rng2 -> do
@@ -101,7 +107,8 @@ reseedRNGFromRNG r1 r2 siz =
 -- | Adds the provided seed material to the internal RNG state.
 --
 -- This call may be ignored by certain RNG instances (such as 'ProcessorRNG' or, on some systems, the 'SystemRNG').
-addEntropyRNG :: RNG -> V.Bytes -> IO ()
+addEntropyRNG :: HasCallStack => RNG -> V.Bytes -> IO ()
+{-# INLINABLE addEntropyRNG #-}
 addEntropyRNG r seed =
     withRNG r $ \ rng -> do
         withPrimVectorUnsafe seed $ \ pseed offseed lseed -> do

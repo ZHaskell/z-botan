@@ -8,14 +8,12 @@ Maintainer  : winterland1989@gmail.com
 Stability   : experimental
 Portability : non-portable
 
-This module is used for Public Key Cryptography.
-Public key cryptography (also called asymmetric cryptography) is a collection of techniques allowing for encryption, signatures, and key agreement.
+This module is used for Public key cryptography. Public key cryptography (also called asymmetric cryptography) is a collection of techniques allowing for encryption, signatures, and key agreement.
 -}
 
 module Z.Crypto.PubKey (
   -- * Asymmetric cryptography algorithms
-    KeyType(..), pattern RSADefault, pattern McElieceDefault, pattern XMSSDefault
-  , ECCType(..), DLType(..)
+    KeyType(..)
   -- * Key generation and manipulation
   , PrivKey(..), PubKey(..)
   , newPrivKey, newKeyPair, privKeyToPubKey
@@ -34,6 +32,8 @@ module Z.Crypto.PubKey (
   -- * Encrypt & Decrypt
   , pkEncrypt
   , pkDecrypt
+  , sm2Encrypt
+  , sm2Decrypt
   , EMEPadding(..)
   -- * Sign & verify
   , EMSA(..), SignFmt(..)
@@ -159,48 +159,42 @@ import           Z.IO.BIO
 -- Key Types --
 ---------------
 
--- | Public Key Cryptography Algorithms.
+-- | Public key cryptography algorithms.
 data KeyType
-    = Curve25519
-    | -- | RSA key of the given size, namely n bits
-        RSA Word32
-     -- | eXtended Merkle Signature Scheme, see <xmss https://botan.randombit.net/handbook/api_ref/pubkey.html#extended-merkle-signature-scheme-xmss>
-    | XMSS XMSSType
-      -- | Ed25519 high-speed high-security signatures
-    | Ed25519
-      -- | Elliptic-curve cryptography, see 'ECCType'
-    | ECC ECCType ECGroup
-      -- | Asymmetric algorithm based on the discrete logarithm problem, see 'DLType'
-    | DL DLType DLGroup
-      -- | McEliece is a cryptographic scheme based on error correcting codes which is thought to be resistant to quantum computers. See <mceliece https://botan.randombit.net/handbook/api_ref/pubkey.html#mceliece>.
-    | McEliece
-        Word32 -- ^ n
-        Word32 -- ^ t
+    = RSA Word32        -- ^ RSA key of the given size, namely n bits, support encryption and signature.
+    | SM2 ECGroup       -- ^ Public key algorithms specified by China, support encryption and signature.
+    | ElGamal DLGroup   -- ^ ElGamal encryption system, support encryption.
 
+    | DSA DLGroup     -- ^ Digital Signature Algorithm based on the discrete logarithm problem.
+    | ECDSA ECGroup   -- ^ Digital Signature Algorithm which uses elliptic curve cryptography.
+    | ECKCDSA ECGroup -- ^ Korean Certificate-based Digital Signature Algorithm.
+    | ECGDSA ECGroup  -- ^ Elliptic Curve German Digital Signature Algorithm.
+    | GOST_34'10 ECGroup -- ^ Cryptographic algorithms defined by the Russian national standards, support signature.
+    | Ed25519         -- ^ Ed25519 elliptic-curve signatures, see <https://ed25519.cr.yp.to/ ed25519>.
+    | XMSS XMSSType   -- ^ eXtended Merkle Signature Scheme, see <xmss https://botan.randombit.net/handbook/api_ref/pubkey.html#extended-merkle-signature-scheme-xmss>.
+
+    | DH DLGroup        -- ^ The Diffie–Hellman key exchange.
+    | ECDH ECGroup      -- ^ The Elliptic-curve Diffie–Hellman key exchange.
+    | Curve25519        -- ^ The Curve25519 Diffie–Hellman key exchange.
 
 keyTypeToCBytes :: KeyType -> (CBytes, CBytes)
-keyTypeToCBytes keyType' = case keyType' of
-    Curve25519 -> ("Curve25519", "")
-    RSA bits -> ("RSA", CB.buildCBytes $ B.int bits)
-    McEliece n t -> ("McEliece", CB.buildCBytes $ B.int n >> B.char8 ',' >> B.int t)
-    XMSS xmss -> ("XMSS", xmss)
-    Ed25519 -> ("Ed25519", "")
-    ECC ecc grp -> (eccToCBytes ecc, grp)
-    DL dl grp -> (dlToCBytes dl, grp)
-
--- | Default RSA Key type(3072 bits).
-pattern RSADefault :: KeyType
-pattern RSADefault = RSA 3072
-
--- | Default McEliece key type.
-pattern McElieceDefault :: KeyType
-pattern McElieceDefault = McEliece 2960 57
+keyTypeToCBytes keyType = case keyType of
+    RSA bits    -> ("RSA", CB.buildCBytes $ B.int bits)
+    SM2 grp     -> ("SM2", grp)
+    ElGamal grp -> ("ElGamal", grp)
+    DSA grp         -> ("DSA", grp)
+    ECDSA grp       -> ("ECDSA", grp)
+    ECKCDSA grp     -> ("ECKCDSA", grp)
+    ECGDSA grp      -> ("ECGDSA", grp)
+    GOST_34'10 grp  -> ("GOST_34.10", grp)
+    Ed25519         -> ("Ed25519", "")
+    XMSS xms        -> ("XMSS", xms)
+    DH grp      -> ("DH", grp)
+    ECDH grp    -> ("ECDH", grp)
+    Curve25519  -> ("Curve25519", "")
 
 -- | A type wrapper.
 type XMSSType = CBytes
-
-pattern XMSSDefault :: KeyType
-pattern XMSSDefault = XMSS XMSS_SHA2_10_512
 
 pattern XMSS_SHA2_10_256 :: XMSSType
 pattern XMSS_SHA2_10_256 = "XMSS-SHA2_10_256"
@@ -237,24 +231,6 @@ pattern XMSS_SHAKE_16_512 = "XMSS-SHAKE_16_512"
 
 pattern XMSS_SHAKE_20_512 :: XMSSType
 pattern XMSS_SHAKE_20_512 = "XMSS-SHAKE_20_512"
-
--- | Algorithms based on elliptic curve.
-data ECCType
-    = ECDSA | ECDH | ECKCDSA | ECGDSA | SM2 | SM2_Sig
-    | SM2_Enc | GOST_34_10 | GOST_34_10_2012_256 | GOST_34_10_2012_512
-
-eccToCBytes :: ECCType -> CBytes
-eccToCBytes = \ case
-    ECDSA -> "ECDSA"
-    ECDH -> "ECDH"
-    ECKCDSA -> "ECKCDSA"
-    ECGDSA -> "ECGDSA"
-    SM2 -> "SM2"
-    SM2_Sig -> "SM2_Sig"
-    SM2_Enc -> "SM2_Enc"
-    GOST_34_10 -> "GOST-34.10"
-    GOST_34_10_2012_256 -> "GOST-34.10-2012-256"
-    GOST_34_10_2012_512 -> "GOST-34.10-2012-512"
 
 -- | An elliptic curve.
 type ECGroup = CBytes
@@ -340,18 +316,6 @@ pattern Frp256v1 = "frp256v1"
 pattern Sm2p256v1 :: ECGroup
 pattern Sm2p256v1 = "sm2p256v1"
 
--- | Discrete Logarithm
-data DLType
-    = DH        -- ^ Diffie-Hellman key exchange
-    | DSA       -- ^ Digital Signature Algorithm
-    | ElGamal
-
-dlToCBytes :: DLType -> CBytes
-dlToCBytes = \ case
-    DH -> "DH"
-    DSA -> "DSA"
-    ElGamal -> "ElGamal"
-
 -- | Discrete Logarithm Group
 type DLGroup = CBytes
 
@@ -433,15 +397,16 @@ newtype PrivKey = PrivKey BotanStruct
 -- | Pass 'PrivKey' to FFI.
 withPrivKey :: HasCallStack
             => PrivKey -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withPrivKey  #-}
 withPrivKey (PrivKey key) = withBotanStruct key
 
 -- | Creating a new key pair.
 --
-newKeyPair ::
-    -- | Algorithm name and some algorithm specific arguments.
-    KeyType ->
-    RNG ->
-    IO (PrivKey, PubKey)
+newKeyPair :: HasCallStack
+           => KeyType   -- ^ Algorithm name and some algorithm specific arguments.
+           -> RNG
+           -> IO (PrivKey, PubKey)
+{-# INLINABLE newKeyPair  #-}
 newKeyPair kt rng = do
     priv <- newPrivKey kt rng
     let !pub = privKeyToPubKey priv
@@ -454,11 +419,11 @@ newKeyPair kt rng = do
 -- * a source of random numbers
 -- * some algorithm specific arguments that define the security level of the resulting key.
 --
-newPrivKey ::
-    -- | Algorithm name and some algorithm specific arguments.
-    KeyType ->
-    RNG ->
-    IO PrivKey
+newPrivKey :: HasCallStack
+           => KeyType   -- ^ Algorithm name and some algorithm specific arguments.
+           -> RNG
+           -> IO PrivKey
+{-# INLINABLE newPrivKey  #-}
 newPrivKey keyTyp rng =
     withRNG rng $ \ rng' ->
     CB.withCBytes algo $ \ algo' ->
@@ -470,12 +435,13 @@ newPrivKey keyTyp rng =
         (algo, args) = keyTypeToCBytes keyTyp
 
 -- | Load a private key. If the key is encrypted, password will be used to attempt decryption.
-loadPrivKey ::
+loadPrivKey :: HasCallStack =>
     RNG ->
     V.Bytes ->
     -- | Password.
     CBytes ->
     IO PrivKey
+{-# INLINABLE loadPrivKey  #-}
 loadPrivKey rng buf passwd =
     withRNG rng $ \ rng' ->
     withPrimVectorUnsafe buf $ \ buf' off len ->
@@ -485,13 +451,14 @@ loadPrivKey rng buf passwd =
             botan_privkey_destroy
 
 -- | Get the algorithm name of a private key.
-privKeyAlgoName :: PrivKey -> IO V.Bytes
+privKeyAlgoName :: PrivKey -> IO T.Text
+{-# INLINABLE privKeyAlgoName  #-}
 privKeyAlgoName key =
-    withPrivKey key $ allocBotanBufferUnsafe 16 . botan_privkey_algo_name
+    withPrivKey key $ allocBotanBufferUTF8Unsafe 16 . botan_privkey_algo_name
 
 -- | Export a private key in DER binary format.
 exportPrivKeyDER :: HasCallStack => PrivKey -> V.Bytes
-{-# INLINE exportPrivKeyDER #-}
+{-# INLINABLE exportPrivKeyDER  #-}
 exportPrivKeyDER key = unsafePerformIO $
     withPrivKey key $ \ key' ->
     allocBotanBufferUnsafe V.smallChunkSize $ \ buf siz ->
@@ -499,16 +466,18 @@ exportPrivKeyDER key = unsafePerformIO $
 
 -- | Export a private key in PEM textual format.
 exportPrivKeyPEM :: HasCallStack => PrivKey -> T.Text
-{-# INLINE exportPrivKeyPEM #-}
+{-# INLINABLE exportPrivKeyPEM  #-}
 exportPrivKeyPEM key = unsafePerformIO $
     withPrivKey key $ \ key' ->
     allocBotanBufferUTF8Unsafe V.smallChunkSize $ \ buf siz ->
     botan_privkey_export key' buf siz 1
 
 -- | Export a private key with password.
-exportPrivKeyEncryptedDER :: PrivKey -> RNG
+exportPrivKeyEncryptedDER :: HasCallStack
+                          => PrivKey -> RNG
                           -> CBytes        -- ^ password
                           -> IO V.Bytes
+{-# INLINABLE exportPrivKeyEncryptedDER  #-}
 exportPrivKeyEncryptedDER key rng pwd =
     withPrivKey key $ \ key' ->
     withRNG rng $ \ rng' ->
@@ -518,9 +487,11 @@ exportPrivKeyEncryptedDER key rng pwd =
     botan_privkey_export_encrypted key' buf siz rng' pwd' pbe' 0
 
 -- | Export a private key with password in PEM textual format.
-exportPrivKeyEncryptedPEM :: PrivKey -> RNG
+exportPrivKeyEncryptedPEM :: HasCallStack
+                          => PrivKey -> RNG
                           -> CBytes        -- ^ password
                           -> IO T.Text
+{-# INLINABLE exportPrivKeyEncryptedPEM  #-}
 exportPrivKeyEncryptedPEM key rng pwd =
     withPrivKey key $ \ key' ->
     withRNG rng $ \ rng' ->
@@ -531,7 +502,7 @@ exportPrivKeyEncryptedPEM key rng pwd =
 
 -- | Export a public key from a given key pair.
 privKeyToPubKey :: PrivKey -> PubKey
-{-# INLINE privKeyToPubKey #-}
+{-# INLINABLE privKeyToPubKey  #-}
 privKeyToPubKey (PrivKey priv) = unsafePerformIO $ do
     withBotanStruct priv $ \ priv' ->
         PubKey <$> newBotanStruct (`botan_privkey_export_pubkey` priv') botan_privkey_destroy
@@ -541,7 +512,7 @@ privKeyParam :: HasCallStack
              => PrivKey      -- ^ key
              -> CBytes       -- ^ field name
              -> MPI
-{-# INLINE privKeyParam #-}
+{-# INLINABLE privKeyParam  #-}
 privKeyParam key name =
     unsafeNewMPI $ \ mp ->
     withPrivKey key $ \ key' -> do
@@ -553,21 +524,20 @@ newtype PubKey = PubKey BotanStruct
     deriving anyclass T.Print
 
 -- | Pass 'PubKey' to FFI.
-withPubKey :: HasCallStack
-            => PubKey -> (BotanStructT -> IO r) -> IO r
+withPubKey :: PubKey -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withPubKey  #-}
 withPubKey (PubKey key) = withBotanStruct key
 
 -- | Load a publickey.
-loadPubKey :: HasCallStack
-           => V.Bytes -> IO PubKey
-{-# INLINE loadPubKey #-}
+loadPubKey :: HasCallStack => V.Bytes -> IO PubKey
+{-# INLINABLE loadPubKey  #-}
 loadPubKey buf = do
     withPrimVectorUnsafe buf $ \ buf' off len ->
         PubKey <$> newBotanStruct (\ pubKey -> hs_botan_pubkey_load pubKey buf' off len) botan_pubkey_destroy
 
 -- | Export a public key in DER binary format..
 exportPubKeyDER :: HasCallStack => PubKey -> V.Bytes
-{-# INLINE exportPubKeyDER #-}
+{-# INLINABLE exportPubKeyDER  #-}
 exportPubKeyDER pubKey = unsafePerformIO $
     withPubKey pubKey $ \ pubKey' ->
     allocBotanBufferUnsafe V.smallChunkSize $ \ buf siz ->
@@ -575,7 +545,7 @@ exportPubKeyDER pubKey = unsafePerformIO $
 
 -- | Export a public key in PEM textual format.
 exportPubKeyPEM :: HasCallStack => PubKey -> T.Text
-{-# INLINE exportPubKeyPEM #-}
+{-# INLINABLE exportPubKeyPEM  #-}
 exportPubKeyPEM pubKey = unsafePerformIO $
     withPubKey pubKey $ \ pubKey' ->
     allocBotanBufferUTF8Unsafe V.smallChunkSize $ \ buf siz ->
@@ -583,7 +553,7 @@ exportPubKeyPEM pubKey = unsafePerformIO $
 
 -- | Get the algorithm name of a public key.
 pubKeyAlgoName :: PubKey -> CBytes
-{-# INLINE pubKeyAlgoName #-}
+{-# INLINABLE pubKeyAlgoName  #-}
 pubKeyAlgoName pubKey = unsafePerformIO $
     withPubKey pubKey $ \ pubKey' ->
         CB.fromBytes <$> allocBotanBufferUnsafe 16
@@ -591,7 +561,7 @@ pubKeyAlgoName pubKey = unsafePerformIO $
 
 -- | Estimate the strength of a public key.
 estStrength :: PubKey -> Int
-{-# INLINE estStrength #-}
+{-# INLINABLE estStrength  #-}
 estStrength pubKey = unsafePerformIO $
     withPubKey pubKey $ \ pubKey' -> do
         (a, _) <- allocPrimUnsafe @CSize $ \ est ->
@@ -600,7 +570,7 @@ estStrength pubKey = unsafePerformIO $
 
 -- | Fingerprint a given publickey.
 fingerPrintPubKey :: PubKey -> HashType -> V.Bytes
-{-# INLINE fingerPrintPubKey #-}
+{-# INLINABLE fingerPrintPubKey  #-}
 fingerPrintPubKey pubKey ht = unsafePerformIO $
     withPubKey pubKey $ \ pubKey' ->
     CB.withCBytesUnsafe (hashTypeToCBytes ht) $ \ hash' ->
@@ -608,10 +578,10 @@ fingerPrintPubKey pubKey ht = unsafePerformIO $
     botan_pubkey_fingerprint pubKey' hash' buf siz
 
 -- | Read an algorithm specific field from the public key object.
-pubKeyParam :: HasCallStack
-                    => PubKey       -- ^ key
-                    -> CBytes       -- ^ field name
-                    -> MPI
+pubKeyParam :: PubKey       -- ^ key
+            -> CBytes       -- ^ field name
+            -> MPI
+{-# INLINABLE pubKeyParam  #-}
 pubKeyParam pubKey name =
     unsafeNewMPI $ \ mp ->
     withPubKey pubKey $ \ pubKey' -> do
@@ -632,6 +602,7 @@ pubKeyParam pubKey name =
 --
 getRSAParams :: PrivKey
              -> (MPI, MPI, MPI, MPI, MPI)   -- ^ (p, q, n, d, e)
+{-# INLINABLE getRSAParams  #-}
 getRSAParams key = (p, q, n, d, e)
   where
     !p = privKeyParam key "p"
@@ -647,13 +618,15 @@ getRSAParams key = (p, q, n, d, e)
 --
 getRSAPubParams :: PubKey
                 -> (MPI, MPI)   -- ^ (n, e)
+{-# INLINABLE getRSAPubParams  #-}
 getRSAPubParams key = (n, e)
   where
     !n = pubKeyParam key "n"
     !e = pubKeyParam key "e"
 
 -- | Initialize a RSA key pair using arguments p, q, and e.
-newRSAPrivKey :: MPI -> MPI -> MPI -> PrivKey
+newRSAPrivKey :: HasCallStack => MPI -> MPI -> MPI -> PrivKey
+{-# INLINABLE newRSAPrivKey  #-}
 newRSAPrivKey p q e =
     unsafeWithMPI p $ \ p' ->
     withMPI q $ \ q' ->
@@ -663,7 +636,8 @@ newRSAPrivKey p q e =
             botan_privkey_destroy
 
 -- | Initialize a public RSA key using arguments n and e.
-newRSAPubKey :: MPI -> MPI -> PubKey
+newRSAPubKey :: HasCallStack => MPI -> MPI -> PubKey
+{-# INLINABLE newRSAPubKey  #-}
 newRSAPubKey n e = do
     unsafeWithMPI n $ \ n' ->
         withMPI e $ \ e' ->
@@ -679,7 +653,8 @@ newRSAPubKey n e = do
 -- * Set x to the private key
 --
 getDSAPrivParams :: PrivKey
-             -> (MPI, MPI, MPI, MPI)   -- ^ (p, q, g, x)
+                 -> (MPI, MPI, MPI, MPI)   -- ^ (p, q, g, x)
+{-# INLINABLE getDSAPrivParams  #-}
 getDSAPrivParams key = (p, q, g, x)
   where
     !p = privKeyParam key "p"
@@ -688,7 +663,8 @@ getDSAPrivParams key = (p, q, g, x)
     !x = privKeyParam key "x"
 
 -- | Initialize a DSA key pair using arguments p, q, g and x.
-newDSAPrivKey :: MPI -> MPI -> MPI -> MPI -> PrivKey
+newDSAPrivKey :: HasCallStack => MPI -> MPI -> MPI -> MPI -> PrivKey
+{-# INLINABLE newDSAPrivKey  #-}
 newDSAPrivKey p q g x =
     unsafeWithMPI p $ \ p' ->
     withMPI q $ \ q' ->
@@ -705,6 +681,7 @@ newDSAPrivKey p q g x =
 --
 getDSAPubParams :: PubKey
                 -> (MPI, MPI, MPI, MPI)   -- ^ (p, q, g, y)
+{-# INLINABLE getDSAPubParams  #-}
 getDSAPubParams key = (p, q, g, y)
   where
     !p = pubKeyParam key "p"
@@ -713,7 +690,8 @@ getDSAPubParams key = (p, q, g, y)
     !y = pubKeyParam key "y"
 
 -- | Initialize a DSA public key using arguments p, q, g and y.
-newDSAPubKey :: MPI -> MPI -> MPI -> MPI -> PubKey
+newDSAPubKey :: HasCallStack => MPI -> MPI -> MPI -> MPI -> PubKey
+{-# INLINABLE newDSAPubKey  #-}
 newDSAPubKey p q g y =
     unsafeWithMPI p $ \ p' ->
     withMPI q $ \ q' ->
@@ -734,13 +712,15 @@ newDSAPubKey p q g y =
 --
 getElGamalPrivParams :: PrivKey
                  -> (MPI, MPI, MPI)   -- ^ (p, g, x)
+{-# INLINABLE getElGamalPrivParams  #-}
 getElGamalPrivParams key = (p, g, x)
   where
     !p = privKeyParam key "p"
     !g = privKeyParam key "g"
     !x = privKeyParam key "x"
 
-newElGamalPrivKey :: MPI -> MPI -> MPI -> PrivKey
+newElGamalPrivKey :: HasCallStack => MPI -> MPI -> MPI -> PrivKey
+{-# INLINABLE newElGamalPrivKey  #-}
 newElGamalPrivKey p g x =
     unsafeWithMPI p $ \ p' ->
     withMPI g $ \ g' ->
@@ -756,13 +736,15 @@ newElGamalPrivKey p g x =
 --
 getElGamalPubParams :: PubKey
                     -> (MPI, MPI, MPI)   -- ^ (p, g, y)
+{-# INLINABLE getElGamalPubParams  #-}
 getElGamalPubParams key = (p, g, y)
   where
     !p = pubKeyParam key "p"
     !g = pubKeyParam key "g"
     !y = pubKeyParam key "y"
 
-newElGamalPubKey :: MPI -> MPI -> MPI -> PubKey
+newElGamalPubKey :: HasCallStack => MPI -> MPI -> MPI -> PubKey
+{-# INLINABLE newElGamalPubKey  #-}
 newElGamalPubKey p g y =
     unsafeWithMPI p $ \ p' ->
     withMPI g $ \ g' ->
@@ -782,13 +764,15 @@ newElGamalPubKey p g y =
 --
 getDHPrivParams :: PrivKey
                  -> (MPI, MPI, MPI)   -- ^ (p, g, x)
+{-# INLINABLE getDHPrivParams  #-}
 getDHPrivParams key = (p, g, x)
   where
     !p = privKeyParam key "p"
     !g = privKeyParam key "g"
     !x = privKeyParam key "x"
 
-newDHPrivKey :: MPI -> MPI -> MPI -> PrivKey
+newDHPrivKey :: HasCallStack => MPI -> MPI -> MPI -> PrivKey
+{-# INLINABLE newDHPrivKey  #-}
 newDHPrivKey p g x = do
     unsafeWithMPI p $ \ p' -> withMPI g $ \ g' -> withMPI x $ \ x' ->
         PrivKey <$> newBotanStruct (\ key -> botan_privkey_load_dh key p' g' x') botan_privkey_destroy
@@ -800,13 +784,15 @@ newDHPrivKey p g x = do
 --
 getDHPubParams :: PubKey
                -> (MPI, MPI, MPI)   -- ^ (p, g, y)
+{-# INLINABLE getDHPubParams  #-}
 getDHPubParams key = (p, g, y)
   where
     !p = pubKeyParam key "p"
     !g = pubKeyParam key "g"
     !y = pubKeyParam key "y"
 
-newDHPubKey :: MPI -> MPI -> MPI -> PubKey
+newDHPubKey :: HasCallStack => MPI -> MPI -> MPI -> PubKey
+{-# INLINABLE newDHPubKey  #-}
 newDHPubKey p g y = do
     unsafeWithMPI p $ \ p' ->
         withMPI g $ \ g' ->
@@ -828,6 +814,7 @@ data EMEPadding
     | EME_OAEP' HashType HashType CBytes    -- ^ hash, mask gen hash, labal
 
 emeToCBytes :: EMEPadding -> CBytes
+{-# INLINABLE emeToCBytes  #-}
 emeToCBytes EME_RAW              = "Raw"
 emeToCBytes EME_PKCS1_v1'5       = "PKCS1v15"
 emeToCBytes (EME_OAEP  ht label)
@@ -842,19 +829,31 @@ emeToCBytes (EME_OAEP' ht ht' label)
 
 -- |  Encrypt a message, returning the ciphertext.
 --
--- Though botan support DLIES and ECIES but only EME are exported via FFI, please use an algorithm that directly
--- support encryption such as RSA and ElGamal.
+-- Though botan support DLIES and ECIES but only EME are exported via FFI, please use an algorithm that directly support eme encryption such as RSA and ElGamal.
 --
-pkEncrypt :: PubKey -> EMEPadding -> RNG
+pkEncrypt :: HasCallStack
+          => PubKey -> EMEPadding -> RNG
           -> V.Bytes        -- ^ plaintext
           -> IO V.Bytes     -- ^ ciphertext
-pkEncrypt pubKey padding rng ptext = do
-    let paddingStr = emeToCBytes padding
+{-# INLINABLE pkEncrypt  #-}
+pkEncrypt pubKey padding = encrypt_ pubKey (emeToCBytes padding)
+
+-- |  Encrypt a message using SM2, returning the ciphertext.
+sm2Encrypt :: HasCallStack
+           => PubKey -> HashType -> RNG
+           -> V.Bytes        -- ^ plaintext
+           -> IO V.Bytes     -- ^ ciphertext
+{-# INLINABLE sm2Encrypt  #-}
+sm2Encrypt pubKey ht = encrypt_ pubKey (hashTypeToCBytes ht)
+
+encrypt_ :: HasCallStack => PubKey -> CBytes -> RNG -> V.Bytes -> IO V.Bytes
+{-# INLINABLE encrypt_  #-}
+encrypt_ pubKey param rng ptext = do
     encryptor <-
         withPubKey pubKey $ \ pubKey' ->
-        CB.withCBytesUnsafe paddingStr $ \ padding' ->
+        CB.withCBytesUnsafe param $ \ param' ->
             newBotanStruct
-                (\ op -> botan_pk_op_encrypt_create op pubKey' padding' 0) -- Flags should be 0 in this version.
+                (\ op -> botan_pk_op_encrypt_create op pubKey' param' 0) -- Flags should be 0 in this version.
                 botan_pk_op_encrypt_destroy
 
     withBotanStruct encryptor $ \ op -> do
@@ -866,21 +865,31 @@ pkEncrypt pubKey padding rng ptext = do
             allocBotanBufferUnsafe (fromIntegral len) $ \ out len' ->
                 hs_botan_pk_op_encrypt op rng' out len' ptext' ptextOff' ptextLen'
 
--- |  Decrypt a message, returning the ciphertext.
+-- |  Decrypt a message, returning the plaintext.
 --
--- Though botan support DLIES and ECIES but only EME are exported via FFI, please use an algorithm that directly
--- support decryption such as RSA and ElGamal.
+-- Though botan support DLIES and ECIES but only EME are exported via FFI, please use an algorithm that directly support decryption such as 'RSA' and 'ElGamal'.
 --
-pkDecrypt :: PrivKey -> EMEPadding
+pkDecrypt :: HasCallStack => PrivKey -> EMEPadding
           -> V.Bytes        -- ^ ciphertext
           -> V.Bytes        -- ^ plaintext
-pkDecrypt key padding ctext = unsafePerformIO $ do
-    let paddingStr = emeToCBytes padding
+{-# INLINABLE pkDecrypt  #-}
+pkDecrypt pubKey padding = decrypt_ pubKey (emeToCBytes padding)
+
+-- |  Decrypt a message using SM2, returning the plaintext.
+sm2Decrypt :: HasCallStack => PrivKey -> HashType
+           -> V.Bytes        -- ^ plaintext
+           -> V.Bytes     -- ^ ciphertext
+{-# INLINABLE sm2Decrypt  #-}
+sm2Decrypt privKey ht = decrypt_ privKey (hashTypeToCBytes ht)
+
+decrypt_ :: HasCallStack => PrivKey -> CBytes -> V.Bytes -> V.Bytes
+{-# INLINABLE decrypt_  #-}
+decrypt_ key param ctext = unsafePerformIO $ do
     decryptor <-
         withPrivKey key $ \ key' ->
-        CB.withCBytesUnsafe paddingStr $ \ padding' ->
+        CB.withCBytesUnsafe param $ \ param' ->
             newBotanStruct
-                (\ op -> botan_pk_op_decrypt_create op key' padding' 0) -- Flags should be 0 in this version.
+                (\ op -> botan_pk_op_decrypt_create op key' param' 0) -- Flags should be 0 in this version.
                 botan_pk_op_decrypt_destroy
 
     withBotanStruct decryptor $ \ op -> do
@@ -912,6 +921,7 @@ data EMSA
     | EMSA_Raw
 
 emsaToCBytes :: EMSA -> CBytes
+{-# INLINABLE emsaToCBytes  #-}
 emsaToCBytes (EMSA1 ht) = CB.concat ["EMSA1(", hashTypeToCBytes ht, ")"]
 emsaToCBytes (EMSA3_RAW (Just ht)) =
     CB.concat ["EMSA3(Raw,", hashTypeToCBytes ht, ")"]
@@ -946,6 +956,7 @@ data SignFmt = DER_SEQUENCE | IEEE_1363
     deriving anyclass T.Print
 
 signFmtToFlag :: SignFmt -> Word32
+{-# INLINABLE signFmtToFlag  #-}
 signFmtToFlag DER_SEQUENCE = 1
 signFmtToFlag IEEE_1363    = 0
 
@@ -958,7 +969,8 @@ data Signer = Signer
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-newSigner :: PrivKey -> EMSA -> SignFmt -> IO Signer
+newSigner :: HasCallStack => PrivKey -> EMSA -> SignFmt -> IO Signer
+{-# INLINABLE newSigner  #-}
 newSigner key emsa fmt = do
     let name = emsaToCBytes emsa
     withPrivKey key $ \ key' ->
@@ -971,7 +983,8 @@ newSigner key emsa fmt = do
                     throwBotanIfMinus_ $ botan_pk_op_sign_output_length op' siz')
             return (Signer op name fmt (fromIntegral siz))
 
-updateSigner :: Signer -> V.Bytes -> IO ()
+updateSigner :: HasCallStack => Signer -> V.Bytes -> IO ()
+{-# INLINABLE updateSigner  #-}
 updateSigner (Signer op _ _ _) msg =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe msg $ \ m moff mlen ->
@@ -979,7 +992,8 @@ updateSigner (Signer op _ _ _) msg =
 
 -- | Produce a signature over all of the bytes passed to 'Signer'.
 -- Afterwards, the sign operator is reset and may be used to sign a new message.
-finalSigner :: Signer -> RNG -> IO V.Bytes
+finalSigner :: HasCallStack => Signer -> RNG -> IO V.Bytes
+{-# INLINABLE finalSigner  #-}
 finalSigner (Signer op _ _ siz) rng =
     withBotanStruct op $ \ op' ->
     withRNG rng $ \ rng' ->
@@ -987,7 +1001,7 @@ finalSigner (Signer op _ _ siz) rng =
 
 -- | Trun 'Signer' to a 'V.Bytes' sink, update 'Signer' by write bytes to the sink.
 --
-sinkToSigner :: HasCallStack => Signer -> Sink V.Bytes
+sinkToSigner :: HasCallStack => HasCallStack => Signer -> Sink V.Bytes
 {-# INLINABLE sinkToSigner #-}
 sinkToSigner h = \ k mbs -> case mbs of
     Just bs -> updateSigner h bs
@@ -1027,7 +1041,8 @@ data Verifier = Verifier
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-newVerifier :: PubKey -> EMSA -> SignFmt -> IO Verifier
+newVerifier :: HasCallStack => PubKey -> EMSA -> SignFmt -> IO Verifier
+{-# INLINABLE newVerifier  #-}
 newVerifier pubKey emsa fmt = do
     let name = emsaToCBytes emsa
     withPubKey pubKey $ \ pubKey' ->
@@ -1037,15 +1052,15 @@ newVerifier pubKey emsa fmt = do
                 botan_pk_op_verify_destroy
             return (Verifier op name fmt)
 
-updateVerifier :: Verifier -> V.Bytes -> IO ()
+updateVerifier :: HasCallStack => Verifier -> V.Bytes -> IO ()
+{-# INLINABLE updateVerifier  #-}
 updateVerifier (Verifier op _ _) msg = do
     withBotanStruct op $ \ op' ->
         withPrimVectorUnsafe msg $ \ msg' off len ->
             throwBotanIfMinus_ $ hs_botan_pk_op_verify_update op' msg' off len
 
-finalVerifier :: Verifier
-              -> V.Bytes
-              -> IO Bool
+finalVerifier :: HasCallStack => Verifier -> V.Bytes -> IO Bool
+{-# INLINABLE finalVerifier  #-}
 finalVerifier (Verifier op _ _) msg =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe msg $ \ msg' off len -> do
@@ -1058,7 +1073,7 @@ finalVerifier (Verifier op _ _) msg =
 -- | Trun 'Verifier' to a 'V.Bytes' sink, update 'Verifier' by write bytes to the sink.
 --
 sinkToVerifier :: HasCallStack => Verifier -> Sink V.Bytes
-{-# INLINABLE sinkToVerifier #-}
+{-# INLINABLE sinkToVerifier  #-}
 sinkToVerifier h = \ k mbs -> case mbs of
     Just bs -> updateVerifier h bs
     _       -> k EOF
@@ -1081,7 +1096,7 @@ verifyChunks :: HasCallStack
            -> [V.Bytes]
            -> V.Bytes           -- ^ signature
            -> Bool
-{-# INLINABLE verifyChunks #-}
+{-# INLINABLE verifyChunks  #-}
 verifyChunks key emsa fmt inps sig = unsafePerformIO $ do
     m <- newVerifier key emsa fmt
     mapM_ (updateVerifier m) inps
@@ -1101,15 +1116,10 @@ data KeyAgreement = KeyAgreement
 
 -- | Create a new key agreement operation with a given key pair and KDF algorithm.
 --
--- Use a key type that support key agreement, such as 'DH' or 'ECDH',
--- Botan implements the following key agreement methods:
--- * ECDH over GF(p) Weierstrass curves
--- * ECDH over x25519
--- * DH over prime fields
--- * McEliece
--- * NewHope
+-- Please use a key type that support key agreement, such as 'DH', 'ECDH', or 'Curve25519'.
 --
-newKeyAgreement :: PrivKey -> KDFType -> IO KeyAgreement
+newKeyAgreement :: HasCallStack => PrivKey -> KDFType -> IO KeyAgreement
+{-# INLINABLE newKeyAgreement  #-}
 newKeyAgreement key kdf =
     withPrivKey key $ \ key' ->
     CB.withCBytesUnsafe (kdfTypeToCBytes kdf) $ \ kdf' -> do
@@ -1121,19 +1131,22 @@ newKeyAgreement key kdf =
                 throwBotanIfMinus_ $ botan_pk_op_key_agreement_size op' siz')
         return (KeyAgreement op (fromIntegral siz))
 
-exportKeyAgreementPublic :: PrivKey -> IO V.Bytes
+exportKeyAgreementPublic :: HasCallStack => PrivKey -> IO V.Bytes
+{-# INLINABLE exportKeyAgreementPublic  #-}
 exportKeyAgreementPublic key =
     withPrivKey key $ \ key' ->
     allocBotanBufferUnsafe 128 $ botan_pk_op_key_agreement_export_public key'
 
 -- | How key agreement works is that you trade public values with some other party, and then each of you runs a computation with the other’s value and your key (this should return the same result to both parties).
 keyAgree ::
+    HasCallStack =>
     KeyAgreement ->
     -- | other key
     V.Bytes ->
     -- | salt
     V.Bytes ->
     IO V.Bytes
+{-# INLINABLE keyAgree  #-}
 keyAgree (KeyAgreement op siz) others salt =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe others $ \ others' others_off others_len ->

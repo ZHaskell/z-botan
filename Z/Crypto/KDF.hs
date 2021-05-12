@@ -14,7 +14,6 @@ KDF(Key Derivation Function) and PBKDF(Password Based Key Derivation Function).
 module Z.Crypto.KDF (
   -- * KDF
     KDFType(..)
-  , BlockCipherType (..)
   , HashType(..)
   , MACType(..)
   , kdf
@@ -30,7 +29,6 @@ module Z.Crypto.KDF (
 
 import           Z.Botan.Exception
 import           Z.Botan.FFI
-import           Z.Crypto.Cipher   (BlockCipherType (..))
 import           Z.Crypto.Hash     (HashType (..), hashTypeToCBytes)
 import           Z.Crypto.MAC      (MACType (..), macTypeToCBytes)
 import           Z.Data.CBytes     (CBytes, withCBytes, withCBytesUnsafe)
@@ -90,13 +88,14 @@ kdfTypeToCBytes (SP800_56AMAC mt      ) = CB.concat [ "SP800-56A(" , macTypeToCB
 kdfTypeToCBytes (SP800_56C mt         ) = CB.concat [ "SP800-56C(" , macTypeToCBytes mt, ")"]
 
 -- | Derive a key using the given KDF algorithm.
-kdf
-  :: KDFType    -- ^ the name of the given PBKDF algorithm
-  -> Int        -- ^ length of output key
-  -> V.Bytes    -- ^ secret
-  -> V.Bytes    -- ^ salt
-  -> V.Bytes    -- ^ label
-  -> IO V.Bytes
+kdf :: HasCallStack
+    => KDFType    -- ^ the name of the given PBKDF algorithm
+    -> Int        -- ^ length of output key
+    -> V.Bytes    -- ^ secret
+    -> V.Bytes    -- ^ salt
+    -> V.Bytes    -- ^ label
+    -> IO V.Bytes
+{-# INLINABLE kdf #-}
 kdf algo siz secret salt label =
     withCBytesUnsafe (kdfTypeToCBytes algo) $ \ algoBA ->
         withPrimVectorUnsafe secret $ \ secretBA secretOff secretLen ->
@@ -112,11 +111,12 @@ kdf algo siz secret salt label =
                                 labelBA labelOff labelLen)
 
 -- | Derive a key using the given KDF algorithm, with default empty salt and label.
-kdf'
-  :: KDFType    -- ^ the name of the given PBKDF algorithm
-  -> Int        -- ^ length of output key
-  -> V.Bytes    -- ^ secret
-  -> IO V.Bytes
+kdf' :: HasCallStack
+     => KDFType    -- ^ the name of the given PBKDF algorithm
+     -> Int        -- ^ length of output key
+     -> V.Bytes    -- ^ secret
+     -> IO V.Bytes
+{-# INLINABLE kdf' #-}
 kdf' algo siz secret = kdf algo siz secret mempty mempty
 
 --------------------------------------------
@@ -152,11 +152,13 @@ pbkdfTypeToParam (Bcrypt i        ) = ("Bcrypt-PBKDF", i, 0, 0)
 pbkdfTypeToParam (OpenPGP_S2K ht i) = (CB.concat [ "OpenPGP-S2K(" , hashTypeToCBytes ht, ")"], i, 0, 0)
 
 -- | Derive a key from a passphrase for a number of iterations using the given PBKDF algorithm and params.
-pbkdf :: PBKDFType  -- ^ PBKDF algorithm type
+pbkdf :: HasCallStack
+      => PBKDFType  -- ^ PBKDF algorithm type
       -> Int        -- ^ length of output key
       -> CBytes     -- ^ passphrase
       -> V.Bytes    -- ^ salt
       -> IO V.Bytes
+{-# INLINABLE pbkdf #-}
 pbkdf typ siz pwd salt = do
     withCBytesUnsafe algo $ \ algoBA ->
         withCBytesUnsafe pwd $ \ pwdBA ->
@@ -174,12 +176,14 @@ pbkdf typ siz pwd salt = do
 
 -- | Derive a key from a passphrase using the given PBKDF algorithm, the iteration params are
 -- ignored and PBKDF is run until given milliseconds have passed.
-pbkdfTimed :: PBKDFType  -- ^ the name of the given PBKDF algorithm
+pbkdfTimed :: HasCallStack
+           => PBKDFType  -- ^ the name of the given PBKDF algorithm
            -> Int        -- ^ run until milliseconds have passwd
            -> Int        -- ^ length of output key
            -> CBytes     -- ^ passphrase
            -> V.Bytes    -- ^ salt
            -> IO V.Bytes
+{-# INLINABLE pbkdfTimed #-}
 pbkdfTimed typ msec siz pwd s = do
     -- we want run it in new OS thread without stop GC from running
     -- if the expected time is too long(>0.1s)

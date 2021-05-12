@@ -31,9 +31,11 @@ newtype FPE = FPE BotanStruct
 -- | Initialize an FPE operation to encrypt/decrypt integers less than n. It is
 --   expected that n is trivially factorable into small integers. Common usage
 --   would be n to be a power of 10.
-newFPE :: MPI     -- ^ mod (n)
+newFPE :: HasCallStack
+       => MPI     -- ^ mod (n)
        -> V.Bytes -- ^ key
        -> IO FPE
+{-# INLINABLE newFPE #-}
 newFPE mpi key =
     withMPI mpi $ \ mpi' ->
     withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
@@ -42,10 +44,12 @@ newFPE mpi key =
             botan_fpe_destroy
 
 -- | Encrypts the value x modulo the value n using the key and tweak specified. Returns an integer less than n. The tweak is a value that does not need to be secret that parameterizes the encryption function. For instance, if you were encrypting a database column with a single key, you could use a per-row-unique integer index value as the tweak. The same tweak value must be used during decryption.
-encryptFPE :: FPE
+encryptFPE :: HasCallStack
+           =>FPE
            -> MPI
            -> V.Bytes   -- ^ tweak
            -> IO MPI
+{-# INLINABLE encryptFPE #-}
 encryptFPE (FPE fpe) mpi tweak = do
     mpi' <- copyMPI mpi
     withBotanStruct fpe $ \ fpe' ->
@@ -57,10 +61,12 @@ encryptFPE (FPE fpe) mpi tweak = do
 
 -- | Decrypts an FE1 ciphertext. The tweak must be the same as that provided to the encryption function. Returns the plaintext integer.
 -- Note that there is not any implicit authentication or checking of data in FE1, so if you provide an incorrect key or tweak the result is simply a random integer.
-decryptFPE :: FPE
+decryptFPE :: HasCallStack
+           => FPE
            -> MPI
            -> V.Bytes   -- ^ tweak
            -> IO MPI
+{-# INLINABLE decryptFPE #-}
 decryptFPE (FPE fpe) mpi tweak = do
     mpi' <- copyMPI mpi
     withBotanStruct fpe $ \ fpe' ->

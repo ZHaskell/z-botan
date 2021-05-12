@@ -57,7 +57,8 @@ pattern OTP_DIGIT_6 = 6
 pattern OTP_DIGIT_7 = 7
 pattern OTP_DIGIT_8 = 8
 
-newHOTP :: V.Bytes -> OTPAlgo -> OTPDigitLen -> IO HOTP
+newHOTP :: HasCallStack => V.Bytes -> OTPAlgo -> OTPDigitLen -> IO HOTP
+{-# INLINABLE newHOTP #-}
 newHOTP key otpAlgo digits =
     withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
     withCBytesUnsafe (hashTypeToCBytes otpAlgo) $ \ hashAlgo' ->
@@ -66,19 +67,23 @@ newHOTP key otpAlgo digits =
             botan_hotp_destroy
 
 -- | Generate a HOTP code for the provided counter.
-genHOTP :: HOTP   -- ^ the HOTP object
+genHOTP :: HasCallStack
+        => HOTP   -- ^ the HOTP object
         -> Word64 -- ^ HOTP counter
         -> IO Word32
+{-# INLINABLE genHOTP #-}
 genHOTP (HOTP hotp) counter =
     withBotanStruct hotp $ \ hotp' ->
     fst <$> allocPrimUnsafe (\ code -> botan_hotp_generate hotp' code counter)
 
 -- | Verify a HOTP code.
-checkHOTP :: HOTP   -- ^ the HOTP object
+checkHOTP :: HasCallStack
+          => HOTP   -- ^ the HOTP object
           -> Word32 -- ^ the presented HOTP code
           -> Word64 -- ^ the HOTP counter
           -> Int    -- ^ resync range
           -> IO (Bool, Word64)
+{-# INLINABLE checkHOTP #-}
 checkHOTP (HOTP totp) code c range = do
     withBotanStruct totp $ \ totp' -> do
         (nc, ret) <- allocPrimUnsafe $ \ nc' ->
@@ -96,7 +101,8 @@ newtype TOTP = TOTP BotanStruct
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-newTOTP :: V.Bytes -> OTPAlgo -> OTPDigitLen -> Int -> IO TOTP
+newTOTP :: HasCallStack => V.Bytes -> OTPAlgo -> OTPDigitLen -> Int -> IO TOTP
+{-# INLINABLE newTOTP #-}
 newTOTP key otpAlgo digits timeStep =
     withPrimVectorUnsafe key $ \ key' keyOff keyLen ->
     withCBytesUnsafe (hashTypeToCBytes otpAlgo) $ \ hashAlgo' ->
@@ -105,20 +111,24 @@ newTOTP key otpAlgo digits timeStep =
             botan_totp_destroy
 
 -- | Generate a TOTP code for the provided timestamp.
-genTOTP :: TOTP   -- ^ the TOTP object
+genTOTP :: HasCallStack
+        => TOTP   -- ^ the TOTP object
         -> Word64 -- ^ the current local timestamp
         -> IO Word32
+{-# INLINABLE genTOTP #-}
 genTOTP (TOTP totp) timestamp =
     withBotanStruct totp $ \ totp' ->
     fst <$> allocPrimUnsafe (\ code -> botan_totp_generate totp' code timestamp)
 
 -- | Verify a TOTP code.
-checkTOTP :: TOTP   -- ^ the TOTP object
+checkTOTP :: HasCallStack
+          => TOTP   -- ^ the TOTP object
           -> Word32 -- ^ the presented OTP
           -> Word64 -- ^ timestamp the current local timestamp
           -> Int    -- ^ specifies the acceptable amount of clock drift
                     --   (in terms of time steps) between the two hosts.
           -> IO Bool
+{-# INLINABLE checkTOTP #-}
 checkTOTP (TOTP totp) code timestamp driftAmount = do
     withBotanStruct totp $ \ totp' -> do
         ret <- botan_totp_check totp' code timestamp (fromIntegral driftAmount)

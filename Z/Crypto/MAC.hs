@@ -46,8 +46,6 @@ import           Z.IO.BIO
 data MACType = CMAC BlockCipherType
                 -- ^ A modern CBC-MAC variant that avoids the security problems of plain CBC-MAC.
                 -- Approved by NIST. Also sometimes called OMAC.
-             | OMAC BlockCipherType
-               -- ^
              | GMAC BlockCipherType
                -- ^ GMAC is related to the GCM authenticated cipher mode.
                -- It is quite slow unless hardware support for carryless multiplications is available.
@@ -74,7 +72,6 @@ data MACType = CMAC BlockCipherType
 
 macTypeToCBytes :: MACType -> CBytes
 macTypeToCBytes (CMAC bc   ) = CB.concat ["CMAC(", blockCipherTypeToCBytes bc, ")"]
-macTypeToCBytes (OMAC bc   ) = CB.concat ["OMAC(", blockCipherTypeToCBytes bc, ")"]
 macTypeToCBytes (GMAC bc   ) = CB.concat ["GMAC(", blockCipherTypeToCBytes bc, ")"]
 macTypeToCBytes (CBC_MAC bc) = CB.concat ["CBC-MAC(", blockCipherTypeToCBytes bc, ")"]
 macTypeToCBytes (HMAC ht)    = CB.concat ["HMAC(", hashTypeToCBytes ht, ")"]
@@ -94,10 +91,12 @@ data MAC = MAC
 
 -- | Pass MAC to FFI as 'botan_mac_t'.
 withMAC :: HasCallStack => MAC -> (BotanStructT -> IO r) -> IO r
+{-# INLINABLE withMAC #-}
 withMAC (MAC m _ _) = withBotanStruct m
 
 -- | Create a new 'MAC' object.
-newMAC :: MACType -> IO MAC
+newMAC :: HasCallStack => MACType -> IO MAC
+{-# INLINABLE newMAC #-}
 newMAC typ = do
     let name = macTypeToCBytes typ
     bs <- newBotanStruct
@@ -111,6 +110,7 @@ newMAC typ = do
 
 -- | Set the random key.
 setKeyMAC :: HasCallStack => MAC -> V.Bytes -> IO ()
+{-# INLINABLE setKeyMAC #-}
 setKeyMAC (MAC bts _ _) bs =
     withBotanStruct bts $ \pbts->
         withPrimVectorUnsafe bs $ \pbs off len ->
@@ -118,6 +118,7 @@ setKeyMAC (MAC bts _ _) bs =
 
 -- | Feed a chunk of input into a 'MAC' object.
 updateMAC :: HasCallStack => MAC -> V.Bytes -> IO ()
+{-# INLINABLE updateMAC #-}
 updateMAC (MAC bts _ _) bs =
     withBotanStruct bts $ \ pbts ->
         withPrimVectorUnsafe bs $ \ pbs off len ->
@@ -132,6 +133,7 @@ finalMAC (MAC bts _ siz) =
 
 -- | Reset the state of MAC object back to clean, as if no input has been supplied.
 clearMAC :: HasCallStack => MAC -> IO ()
+{-# INLINABLE clearMAC #-}
 clearMAC (MAC bts _ _) =
     throwBotanIfMinus_ (withBotanStruct bts hs_botan_mac_clear)
 

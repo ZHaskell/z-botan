@@ -12,12 +12,14 @@ This module provides RFC3394 key Wrapping. It uses a 128-bit, 192-bit, or 256-bi
 -}
 module Z.Crypto.KeyWrap where
 
+import           Z.Botan.Exception
 import           Z.Botan.FFI
 import qualified Z.Data.Vector as V
 import           Z.Foreign
 
 -- | Wrap the input key using kek (the key encryption key), and return the result. It will be 8 bytes longer than the input key.
-keyWrap :: V.Bytes -- ^ key
+keyWrap :: HasCallStack
+        => V.Bytes -- ^ key
         -> V.Bytes -- ^ kek
         -> IO V.Bytes
 {-# INLINABLE keyWrap #-}
@@ -28,7 +30,8 @@ keyWrap key kek =
         hs_botan_key_wrap3394 key' keyOff keyLen kek' kekOff kekLen
 
 -- | Unwrap a key wrapped with rfc3394_keywrap.
-keyUnwrap :: V.Bytes -- ^ wrapped key
+keyUnwrap :: HasCallStack
+          => V.Bytes -- ^ wrapped key
           -> V.Bytes -- ^ kek
           -> IO V.Bytes
 {-# INLINABLE keyUnwrap #-}
