@@ -1065,7 +1065,6 @@ finalVerifier (Verifier op _ _) msg =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe msg $ \ msg' off len -> do
         r <- throwBotanIfMinus $ hs_botan_pk_op_verify_finish op' msg' off len
-        print r
         return $ r == BOTAN_FFI_SUCCESS
 --    BOTAN_FFI_SUCCESS = 0,
 --    BOTAN_FFI_INVALID_VERIFIER = 1
