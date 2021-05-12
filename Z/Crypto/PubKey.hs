@@ -919,6 +919,8 @@ data EMSA
     | ISO_9796_DS2 HashType Bool (Maybe Int)    -- ^ hash, implicit, salt size
     | ISO_9796_DS3 HashType Bool                -- ^ hash, implicit
     | EMSA_Raw
+    | Ed25519_Pure
+    | Ed25519ph
 
 emsaToCBytes :: EMSA -> CBytes
 {-# INLINABLE emsaToCBytes  #-}
@@ -949,6 +951,8 @@ emsaToCBytes (ISO_9796_DS3 ht imp) =
               ]
 emsaToCBytes (EMSA2 ht) = CB.concat ["EMSA2(", hashTypeToCBytes ht, ")"]
 emsaToCBytes EMSA_Raw = "Raw"
+emsaToCBytes Ed25519_Pure = "Pure"
+emsaToCBytes Ed25519ph = "Ed25519ph"
 
 -- The format defaults to IEEE_1363 which is the only available format for RSA. For DSA, ECDSA, ECGDSA and ECKCDSA you can also use DER_SEQUENCE, which will format the signature as an ASN.1 SEQUENCE value.
 data SignFmt = DER_SEQUENCE | IEEE_1363
