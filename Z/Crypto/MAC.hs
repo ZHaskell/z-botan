@@ -90,7 +90,7 @@ data MAC = MAC
     deriving anyclass T.Print
 
 -- | Pass MAC to FFI as 'botan_mac_t'.
-withMAC :: HasCallStack => MAC -> (BotanStructT -> IO r) -> IO r
+withMAC :: MAC -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withMAC #-}
 withMAC (MAC m _ _) = withBotanStruct m
 

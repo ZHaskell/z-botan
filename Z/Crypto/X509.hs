@@ -12,8 +12,7 @@ X.509 Certificates read, write and verification.
 -}
 module Z.Crypto.X509 (
   -- * X509 Certificates
-    Cert, withCert
-  , loadCert, loadCertFile, dupCert
+    Cert, withCert, loadCert, loadCertFile, dupCert
   -- * read X509 field
   , certStart, certExpire
   , certStart', certExpire'
@@ -36,9 +35,7 @@ module Z.Crypto.X509 (
   , CRL
   , withCRL, loadCRL, loadCRLFile, isRevokedX509
   -- * CertStore
-  , CertStore
-  , withCertStore
-  , loadCertStoreFile
+  , CertStore, withCertStore, loadCertStoreFile
   , mozillaCertStore
   , systemCertStore
   -- * constants
@@ -61,7 +58,7 @@ import           GHC.Generics
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Crypto.Hash          (HashType, hashTypeToCBytes)
-import           Z.Crypto.PubKey        (PubKey (..))
+import           Z.Crypto.PubKey        (PubKey, botanStructToPubKey)
 import qualified Z.Data.Text            as T
 import qualified Z.Data.Text.Base       as T
 import qualified Z.Data.Vector          as V
@@ -87,7 +84,8 @@ newtype Cert = Cert { certStruct :: BotanStruct }
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-withCert :: HasCallStack => Cert -> (BotanStructT -> IO r) -> IO r
+-- | Use 'Cert' as a `botan_cert_t`.
+withCert :: Cert -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withCert #-}
 withCert (Cert cert) = withBotanStruct cert
 
@@ -230,7 +228,7 @@ certPubKey :: Cert -> IO PubKey
 {-# INLINABLE certPubKey #-}
 certPubKey cert = do
     withCert cert $ \ cert' ->
-        PubKey <$> newBotanStruct
+        botanStructToPubKey <$> newBotanStruct
             (cert' `botan_x509_cert_get_public_key`)
             botan_pubkey_destroy
 
@@ -411,7 +409,8 @@ newtype CRL = CRL { crlStruct :: BotanStruct }
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-withCRL :: HasCallStack => CRL -> (BotanStructT -> IO r) -> IO r
+-- | Use 'CRL' as a `botan_crl_t`.
+withCRL :: CRL -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withCRL #-}
 withCRL (CRL crl) = withBotanStruct crl
 
@@ -456,7 +455,7 @@ newtype CertStore = CertStore { certStoreStruct :: BotanStruct }
     deriving anyclass T.Print
 
 -- | Use 'CertStore' as a 'botan_x509_certstore_t'.
-withCertStore :: HasCallStack => CertStore -> (BotanStructT -> IO r) -> IO r
+withCertStore :: CertStore -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withCertStore #-}
 withCertStore (CertStore c) = withBotanStruct c
 

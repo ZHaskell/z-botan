@@ -56,7 +56,7 @@ newRNG typ = RNG <$> newBotanStruct
     rngTypeCBytes ProcessorRNG  = "hwrng"
 
 -- | Use RNG as a `botan_rng_t` object.
-withRNG :: HasCallStack => RNG -> (BotanStructT -> IO a) -> IO a
+withRNG :: RNG -> (BotanStructT -> IO a) -> IO a
 {-# INLINABLE withRNG #-}
 withRNG (RNG rng) f = withBotanStruct rng f
 

@@ -178,7 +178,7 @@ data Hash = Hash
     deriving anyclass T.Print
 
 -- | Pass Hash to FFI as @botan_hash_t@
-withHash :: HasCallStack => Hash -> (BotanStructT -> IO r) -> IO r
+withHash :: Hash -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withHash #-}
 withHash (Hash h _ _) = withBotanStruct h
 

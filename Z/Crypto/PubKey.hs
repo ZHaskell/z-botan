@@ -15,7 +15,7 @@ module Z.Crypto.PubKey (
   -- * Asymmetric cryptography algorithms
     KeyType(..)
   -- * Key generation and manipulation
-  , PrivKey(..), PubKey(..)
+  , PrivKey, PubKey
   , newPrivKey, newKeyPair, privKeyToPubKey
   , loadPrivKey
   , privKeyAlgoName
@@ -132,9 +132,11 @@ module Z.Crypto.PubKey (
   -- * re-exports
   , HashType(..)
   , KDFType(..)
+  , RNG, getRNG
   -- * internal
   , withPrivKey
   , withPubKey
+  , botanStructToPubKey
   ) where
 
 import           Data.Word
@@ -522,6 +524,11 @@ privKeyParam key name =
 newtype PubKey = PubKey BotanStruct
     deriving (Show, Eq, Ord, Generic)
     deriving anyclass T.Print
+
+-- | Unsafe construct a 'PubKey' from a botan struct.
+botanStructToPubKey :: BotanStruct -> PubKey
+{-# INLINABLE botanStructToPubKey  #-}
+botanStructToPubKey = PubKey
 
 -- | Pass 'PubKey' to FFI.
 withPubKey :: PubKey -> (BotanStructT -> IO r) -> IO r

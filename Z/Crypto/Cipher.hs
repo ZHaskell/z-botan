@@ -233,7 +233,7 @@ data BlockCipher = BlockCipher
     deriving anyclass T.Print
 
 -- | Pass 'BlockCipher' to FFI as 'botan_block_cipher_t'.
-withBlockCipher :: HasCallStack => BlockCipher -> (BotanStructT -> IO r) -> IO r
+withBlockCipher :: BlockCipher -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withBlockCipher #-}
 withBlockCipher (BlockCipher bc _ _ _) = withBotanStruct bc
 
@@ -544,7 +544,7 @@ data Cipher = Cipher
     deriving anyclass T.Print
 
 -- | Pass 'Cipher' to FFI as 'botan_cipher_t'.
-withCipher :: HasCallStack => Cipher -> (BotanStructT -> IO r) -> IO r
+withCipher :: Cipher -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withCipher #-}
 withCipher (Cipher c _ _ _ _ _) = withBotanStruct c
 
