@@ -1,5 +1,11 @@
 # Revision history for z-botan
 
+## 0.2.0.0  -- 2020-05-14
+
+* Change `EMEPadding` to `EncParam`, add `SM2EncParam`.
+* Change `EMSA` to `SignParam`, add `Ed25519Pure`, `Ed25519ph`, `Ed25519Hash`, `SM2SignParam`.
+* Change PubKey decrypt, verify type to `IO`. 
+
 ## 0.2.0.0  -- 2020-05-12
 
 * Simplify `KeyType` in `Z.Crypto.PubKey`.

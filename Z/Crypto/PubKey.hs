@@ -32,9 +32,7 @@ module Z.Crypto.PubKey (
   -- * Encrypt & Decrypt
   , pkEncrypt
   , pkDecrypt
-  , sm2Encrypt
-  , sm2Decrypt
-  , EMEPadding(..)
+  , EncParam(..)
   -- * Sign & verify
   , SignParam(..), SignFmt(..), Signer, signerSize, Verifier
   , newSigner, updateSigner, finalSigner, sinkToSigner, sign, signChunks
@@ -810,55 +808,47 @@ newDHPubKey p g y = do
 -- Public Key Encryption / Decryption --
 ----------------------------------------
 
--- | Sets of allowed padding schemes for public key types.
+-- | Sets of allowed params for public key types.
 --
 -- The recommended values for eme is 'EME1_SHA1' or 'EME1_SHA256'.
 -- If you need compatibility with protocols using the PKCS #1 v1.5 standard, you can also use 'EME_PKCS1_v1'5'.
-data EMEPadding
+--
+-- To use SM2 encryption, use 'SM2EncParam'.
+data EncParam
     = EME_RAW
     | EME_PKCS1_v1'5
     | EME_OAEP HashType CBytes              -- ^ hash, label
     | EME_OAEP' HashType HashType CBytes    -- ^ hash, mask gen hash, labal
+    | SM2EncParam HashType
 
-emeToCBytes :: EMEPadding -> CBytes
-{-# INLINABLE emeToCBytes  #-}
-emeToCBytes EME_RAW              = "Raw"
-emeToCBytes EME_PKCS1_v1'5       = "PKCS1v15"
-emeToCBytes (EME_OAEP  ht label)
+encParamToCBytes :: EncParam -> CBytes
+{-# INLINABLE encParamToCBytes  #-}
+encParamToCBytes EME_RAW              = "Raw"
+encParamToCBytes EME_PKCS1_v1'5       = "PKCS1v15"
+encParamToCBytes (EME_OAEP  ht label)
     | CB.null label = CB.concat ["OAEP(", hashTypeToCBytes ht, ",MGF1)" ]
     | otherwise = CB.concat ["OAEP(", hashTypeToCBytes ht, ",MGF1,", label, ")"]
 
-emeToCBytes (EME_OAEP' ht ht' label)
+encParamToCBytes (EME_OAEP' ht ht' label)
     | CB.null label =
         CB.concat ["OAEP(", hashTypeToCBytes ht, ",MGF1(", hashTypeToCBytes ht', "))"]
     | otherwise =
         CB.concat ["OAEP(", hashTypeToCBytes ht, ",MGF1(", hashTypeToCBytes ht', "),", label, ")"]
+encParamToCBytes (SM2EncParam ht) = hashTypeToCBytes ht
 
 -- |  Encrypt a message, returning the ciphertext.
 --
 -- Though botan support DLIES and ECIES but only EME are exported via FFI, please use an algorithm that directly support eme encryption such as RSA and ElGamal.
 --
 pkEncrypt :: HasCallStack
-          => PubKey -> EMEPadding -> RNG
+          => PubKey -> EncParam -> RNG
           -> V.Bytes        -- ^ plaintext
           -> IO V.Bytes     -- ^ ciphertext
 {-# INLINABLE pkEncrypt  #-}
-pkEncrypt pubKey padding = encrypt_ pubKey (emeToCBytes padding)
-
--- |  Encrypt a message using SM2, returning the ciphertext.
-sm2Encrypt :: HasCallStack
-           => PubKey -> HashType -> RNG
-           -> V.Bytes        -- ^ plaintext
-           -> IO V.Bytes     -- ^ ciphertext
-{-# INLINABLE sm2Encrypt  #-}
-sm2Encrypt pubKey ht = encrypt_ pubKey (hashTypeToCBytes ht)
-
-encrypt_ :: HasCallStack => PubKey -> CBytes -> RNG -> V.Bytes -> IO V.Bytes
-{-# INLINABLE encrypt_  #-}
-encrypt_ pubKey param rng ptext = do
+pkEncrypt pubKey padding rng ptext = do
     encryptor <-
         withPubKey pubKey $ \ pubKey' ->
-        CB.withCBytesUnsafe param $ \ param' ->
+        CB.withCBytesUnsafe (encParamToCBytes padding) $ \ param' ->
             newBotanStruct
                 (\ op -> botan_pk_op_encrypt_create op pubKey' param' 0) -- Flags should be 0 in this version.
                 botan_pk_op_encrypt_destroy
@@ -876,25 +866,14 @@ encrypt_ pubKey param rng ptext = do
 --
 -- Though botan support DLIES and ECIES but only EME are exported via FFI, please use an algorithm that directly support decryption such as 'RSA' and 'ElGamal'.
 --
-pkDecrypt :: HasCallStack => PrivKey -> EMEPadding
-          -> V.Bytes        -- ^ ciphertext
-          -> IO V.Bytes        -- ^ plaintext
+pkDecrypt :: HasCallStack => PrivKey -> EncParam
+          -> V.Bytes            -- ^ ciphertext
+          -> IO V.Bytes         -- ^ plaintext
 {-# INLINABLE pkDecrypt  #-}
-pkDecrypt pubKey padding = decrypt_ pubKey (emeToCBytes padding)
-
--- |  Decrypt a message using SM2, returning the plaintext.
-sm2Decrypt :: HasCallStack => PrivKey -> HashType
-           -> V.Bytes        -- ^ plaintext
-           -> IO V.Bytes     -- ^ ciphertext
-{-# INLINABLE sm2Decrypt  #-}
-sm2Decrypt privKey ht = decrypt_ privKey (hashTypeToCBytes ht)
-
-decrypt_ :: HasCallStack => PrivKey -> CBytes -> V.Bytes -> IO V.Bytes
-{-# INLINABLE decrypt_  #-}
-decrypt_ key param ctext = do
+pkDecrypt key padding ctext = do
     decryptor <-
         withPrivKey key $ \ key' ->
-        CB.withCBytesUnsafe param $ \ param' ->
+        CB.withCBytesUnsafe (encParamToCBytes padding) $ \ param' ->
             newBotanStruct
                 (\ op -> botan_pk_op_decrypt_create op key' param' 0) -- Flags should be 0 in this version.
                 botan_pk_op_decrypt_destroy
@@ -911,7 +890,7 @@ decrypt_ key param ctext = do
 -- Signature Generation --
 --------------------------
 
--- |  Currently available values for 'EMSA', examples are “EMSA1(SHA-1)” and “EMSA4(SHA-256)”.
+-- | Signature params.
 --
 -- Currently available values for 'EMSA' include EMSA1, EMSA2, EMSA3, EMSA4, and Raw. All of them, except Raw, take a parameter naming a message digest function to hash the message with. The Raw encoding signs the input directly; if the message is too big, the signing operation will fail. Raw is not useful except in very specialized applications.
 -- For RSA, use EMSA4 (also called PSS) unless you need compatibility with software that uses the older PKCS #1 v1.5 standard, in which case use EMSA3 (also called “EMSA-PKCS1-v1_5”). For DSA, ECDSA, ECKCDSA, ECGDSA and GOST 34.10-2001 you should use EMSA1.
@@ -929,7 +908,7 @@ data SignParam
     | Ed25519Pure                               -- ^ pure Ed25519
     | Ed25519ph                                 -- ^ rfc8032 HashEdDSA variant
     | Ed25519Hash HashType                      -- ^ HashEdDSA
-    | SM2Param CBytes HashType                  -- ^ userid, hash(GM/T 0009-2012 specifies
+    | SM2SignParam CBytes HashType                  -- ^ userid, hash(GM/T 0009-2012 specifies
                                                 -- @"1234567812345678"@ as the default userid)
     | XMSSEmptyParam                            -- ^ XMSS do not have param
   deriving (Show, Read, Eq, Ord, Generic)
@@ -967,7 +946,7 @@ emsaToCBytes EMSA_Raw = "Raw"
 emsaToCBytes Ed25519Pure = "Pure"
 emsaToCBytes Ed25519ph = "Ed25519ph"
 emsaToCBytes (Ed25519Hash ht) = hashTypeToCBytes ht
-emsaToCBytes (SM2Param uid ht) = CB.concat [uid, ",", hashTypeToCBytes ht]
+emsaToCBytes (SM2SignParam uid ht) = CB.concat [uid, ",", hashTypeToCBytes ht]
 emsaToCBytes _ = ""
 
 -- The format defaults to IEEE_1363 which is the only available format for RSA. For DSA, ECDSA, ECGDSA and ECKCDSA you can also use DER_SEQUENCE, which will format the signature as an ASN.1 SEQUENCE value.
