@@ -36,11 +36,11 @@ module Z.Crypto.PubKey (
   , sm2Decrypt
   , EMEPadding(..)
   -- * Sign & verify
-  , EMSA(..), SignFmt(..)
+  , SignParam(..), SignFmt(..), Signer, signerSize, Verifier
   , newSigner, updateSigner, finalSigner, sinkToSigner, sign, signChunks
   , newVerifier, updateVerifier, finalVerifier, sinkToVerifier, verify, verifyChunks
   -- * Key agreement
-  , KeyAgreement(..)
+  , KeyAgreement, keyAgreementSize
   , newKeyAgreement
   , exportKeyAgreementPublic
   , keyAgree
@@ -150,8 +150,8 @@ import           Z.Crypto.MPI
 import           Z.Crypto.RNG        (RNG, getRNG, withRNG)
 import qualified Z.Data.Builder      as B
 import           Z.Data.CBytes       (CBytes)
-
 import qualified Z.Data.CBytes       as CB
+import           Z.Data.JSON       (JSON)
 import qualified Z.Data.Text         as T
 import qualified Z.Data.Vector       as V
 import           Z.Foreign
@@ -878,20 +878,20 @@ encrypt_ pubKey param rng ptext = do
 --
 pkDecrypt :: HasCallStack => PrivKey -> EMEPadding
           -> V.Bytes        -- ^ ciphertext
-          -> V.Bytes        -- ^ plaintext
+          -> IO V.Bytes        -- ^ plaintext
 {-# INLINABLE pkDecrypt  #-}
 pkDecrypt pubKey padding = decrypt_ pubKey (emeToCBytes padding)
 
 -- |  Decrypt a message using SM2, returning the plaintext.
 sm2Decrypt :: HasCallStack => PrivKey -> HashType
            -> V.Bytes        -- ^ plaintext
-           -> V.Bytes     -- ^ ciphertext
+           -> IO V.Bytes     -- ^ ciphertext
 {-# INLINABLE sm2Decrypt  #-}
 sm2Decrypt privKey ht = decrypt_ privKey (hashTypeToCBytes ht)
 
-decrypt_ :: HasCallStack => PrivKey -> CBytes -> V.Bytes -> V.Bytes
+decrypt_ :: HasCallStack => PrivKey -> CBytes -> V.Bytes -> IO V.Bytes
 {-# INLINABLE decrypt_  #-}
-decrypt_ key param ctext = unsafePerformIO $ do
+decrypt_ key param ctext = do
     decryptor <-
         withPrivKey key $ \ key' ->
         CB.withCBytesUnsafe param $ \ param' ->
@@ -916,7 +916,7 @@ decrypt_ key param ctext = unsafePerformIO $ do
 -- Currently available values for 'EMSA' include EMSA1, EMSA2, EMSA3, EMSA4, and Raw. All of them, except Raw, take a parameter naming a message digest function to hash the message with. The Raw encoding signs the input directly; if the message is too big, the signing operation will fail. Raw is not useful except in very specialized applications.
 -- For RSA, use EMSA4 (also called PSS) unless you need compatibility with software that uses the older PKCS #1 v1.5 standard, in which case use EMSA3 (also called “EMSA-PKCS1-v1_5”). For DSA, ECDSA, ECKCDSA, ECGDSA and GOST 34.10-2001 you should use EMSA1.
 --
-data EMSA
+data SignParam
     = EMSA1 HashType
     | EMSA2 HashType
     | EMSA3_RAW (Maybe HashType)
@@ -926,10 +926,16 @@ data EMSA
     | ISO_9796_DS2 HashType Bool (Maybe Int)    -- ^ hash, implicit, salt size
     | ISO_9796_DS3 HashType Bool                -- ^ hash, implicit
     | EMSA_Raw
-    | Ed25519_Pure
-    | Ed25519ph
+    | Ed25519Pure                               -- ^ pure Ed25519
+    | Ed25519ph                                 -- ^ rfc8032 HashEdDSA variant
+    | Ed25519Hash HashType                      -- ^ HashEdDSA
+    | SM2Param CBytes HashType                  -- ^ userid, hash(GM/T 0009-2012 specifies
+                                                -- @"1234567812345678"@ as the default userid)
+    | XMSSEmptyParam                            -- ^ XMSS do not have param
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (T.Print, JSON)
 
-emsaToCBytes :: EMSA -> CBytes
+emsaToCBytes :: SignParam -> CBytes
 {-# INLINABLE emsaToCBytes  #-}
 emsaToCBytes (EMSA1 ht) = CB.concat ["EMSA1(", hashTypeToCBytes ht, ")"]
 emsaToCBytes (EMSA3_RAW (Just ht)) =
@@ -958,8 +964,11 @@ emsaToCBytes (ISO_9796_DS3 ht imp) =
               ]
 emsaToCBytes (EMSA2 ht) = CB.concat ["EMSA2(", hashTypeToCBytes ht, ")"]
 emsaToCBytes EMSA_Raw = "Raw"
-emsaToCBytes Ed25519_Pure = "Pure"
+emsaToCBytes Ed25519Pure = "Pure"
 emsaToCBytes Ed25519ph = "Ed25519ph"
+emsaToCBytes (Ed25519Hash ht) = hashTypeToCBytes ht
+emsaToCBytes (SM2Param uid ht) = CB.concat [uid, ",", hashTypeToCBytes ht]
+emsaToCBytes _ = ""
 
 -- The format defaults to IEEE_1363 which is the only available format for RSA. For DSA, ECDSA, ECGDSA and ECKCDSA you can also use DER_SEQUENCE, which will format the signature as an ASN.1 SEQUENCE value.
 data SignFmt = DER_SEQUENCE | IEEE_1363
@@ -973,14 +982,12 @@ signFmtToFlag IEEE_1363    = 0
 
 data Signer = Signer
     { signerStruct :: {-# UNPACK #-} !BotanStruct
-    , signerName   :: {-# UNPACK #-} !CBytes
-    , signerFmt    :: !SignFmt
-    , signerSiz    :: {-# UNPACK #-} !Int           -- ^ output length
+    , signerSize   :: {-# UNPACK #-} !Int           -- ^ output signature length
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-newSigner :: HasCallStack => PrivKey -> EMSA -> SignFmt -> IO Signer
+newSigner :: HasCallStack => PrivKey -> SignParam -> SignFmt -> IO Signer
 {-# INLINABLE newSigner  #-}
 newSigner key emsa fmt = do
     let name = emsaToCBytes emsa
@@ -992,11 +999,11 @@ newSigner key emsa fmt = do
             siz <- withBotanStruct op $ \ op' ->
                 fst <$> allocPrimUnsafe @CSize (\ siz' ->
                     throwBotanIfMinus_ $ botan_pk_op_sign_output_length op' siz')
-            return (Signer op name fmt (fromIntegral siz))
+            return (Signer op (fromIntegral siz))
 
 updateSigner :: HasCallStack => Signer -> V.Bytes -> IO ()
 {-# INLINABLE updateSigner  #-}
-updateSigner (Signer op _ _ _) msg =
+updateSigner (Signer op _) msg =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe msg $ \ m moff mlen ->
         throwBotanIfMinus_ (hs_botan_pk_op_sign_update op' m moff mlen)
@@ -1005,7 +1012,7 @@ updateSigner (Signer op _ _ _) msg =
 -- Afterwards, the sign operator is reset and may be used to sign a new message.
 finalSigner :: HasCallStack => Signer -> RNG -> IO V.Bytes
 {-# INLINABLE finalSigner  #-}
-finalSigner (Signer op _ _ siz) rng =
+finalSigner (Signer op siz) rng =
     withBotanStruct op $ \ op' ->
     withRNG rng $ \ rng' ->
     allocBotanBufferUnsafe siz $ botan_pk_op_sign_finish op' rng'
@@ -1020,7 +1027,7 @@ sinkToSigner h = \ k mbs -> case mbs of
 
 -- | Directly sign a message, with system RNG.
 sign :: HasCallStack
-     => PrivKey -> EMSA -> SignFmt
+     => PrivKey -> SignParam -> SignFmt
      -> V.Bytes         -- ^ input
      -> IO V.Bytes      -- ^ signature
 {-# INLINABLE sign #-}
@@ -1031,7 +1038,7 @@ sign key emsa fmt inp = do
 
 -- | Directly compute a chunked message's mac with system RNG.
 signChunks :: HasCallStack
-           => PrivKey -> EMSA -> SignFmt
+           => PrivKey -> SignParam -> SignFmt
            -> [V.Bytes]
            -> IO V.Bytes
 {-# INLINABLE signChunks #-}
@@ -1044,35 +1051,31 @@ signChunks key emsa fmt inps = do
 -- Signature Verification --
 ----------------------------
 
-data Verifier = Verifier
-    { verifierStruct :: {-# UNPACK #-} !BotanStruct
-    , verifierName   :: {-# UNPACK #-} !CBytes
-    , verifierFmt    :: !SignFmt
-    }
+newtype Verifier = Verifier BotanStruct
     deriving (Show, Generic)
     deriving anyclass T.Print
 
-newVerifier :: HasCallStack => PubKey -> EMSA -> SignFmt -> IO Verifier
+newVerifier :: HasCallStack => PubKey -> SignParam -> SignFmt -> IO Verifier
 {-# INLINABLE newVerifier  #-}
 newVerifier pubKey emsa fmt = do
-    let name = emsaToCBytes emsa
+    let param = emsaToCBytes emsa
     withPubKey pubKey $ \ pubKey' ->
-        CB.withCBytesUnsafe name $ \ arg -> do
+        CB.withCBytesUnsafe param $ \ arg -> do
             op <- newBotanStruct
                 (\ ret -> botan_pk_op_verify_create ret pubKey' arg (signFmtToFlag fmt))
                 botan_pk_op_verify_destroy
-            return (Verifier op name fmt)
+            return (Verifier op)
 
 updateVerifier :: HasCallStack => Verifier -> V.Bytes -> IO ()
 {-# INLINABLE updateVerifier  #-}
-updateVerifier (Verifier op _ _) msg = do
+updateVerifier (Verifier op) msg = do
     withBotanStruct op $ \ op' ->
         withPrimVectorUnsafe msg $ \ msg' off len ->
             throwBotanIfMinus_ $ hs_botan_pk_op_verify_update op' msg' off len
 
 finalVerifier :: HasCallStack => Verifier -> V.Bytes -> IO Bool
 {-# INLINABLE finalVerifier  #-}
-finalVerifier (Verifier op _ _) msg =
+finalVerifier (Verifier op) msg =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe msg $ \ msg' off len -> do
         r <- throwBotanIfMinus $ hs_botan_pk_op_verify_finish op' msg' off len
@@ -1090,24 +1093,24 @@ sinkToVerifier h = \ k mbs -> case mbs of
 
 -- | Directly sign a message.
 verify :: HasCallStack
-       => PubKey -> EMSA -> SignFmt
+       => PubKey -> SignParam -> SignFmt
        -> V.Bytes  -- ^ input
        -> V.Bytes  -- ^ signature
-       -> Bool
+       -> IO Bool
 {-# INLINABLE verify #-}
-verify key emsa fmt inp sig = unsafePerformIO $ do
+verify key emsa fmt inp sig = do
     m <- newVerifier key emsa fmt
     updateVerifier m inp
     finalVerifier m sig
 
 -- | Directly compute a chunked message's mac.
 verifyChunks :: HasCallStack
-           => PubKey -> EMSA -> SignFmt
+           => PubKey -> SignParam -> SignFmt
            -> [V.Bytes]
            -> V.Bytes           -- ^ signature
-           -> Bool
+           -> IO Bool
 {-# INLINABLE verifyChunks  #-}
-verifyChunks key emsa fmt inps sig = unsafePerformIO $ do
+verifyChunks key emsa fmt inps sig = do
     m <- newVerifier key emsa fmt
     mapM_ (updateVerifier m) inps
     finalVerifier m sig
@@ -1119,7 +1122,7 @@ verifyChunks key emsa fmt inps sig = unsafePerformIO $ do
 -- | Key agreement object.
 data KeyAgreement = KeyAgreement
     { keyAgreementStruct :: {-# UNPACK #-} !BotanStruct
-    , keyAgreementSize   :: {-# UNPACK #-} !Int
+    , keyAgreementSize   :: {-# UNPACK #-} !Int     -- ^ size of the agreed key
     }
     deriving (Show, Generic)
     deriving anyclass T.Print

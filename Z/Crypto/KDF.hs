@@ -27,12 +27,15 @@ module Z.Crypto.KDF (
   , pbkdfTypeToParam
   ) where
 
+import           GHC.Generics
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Crypto.Hash     (HashType (..), hashTypeToCBytes)
 import           Z.Crypto.MAC      (MACType (..), macTypeToCBytes)
 import           Z.Data.CBytes     (CBytes, withCBytes, withCBytesUnsafe)
 import qualified Z.Data.CBytes     as CB
+import           Z.Data.JSON       (JSON)
+import qualified Z.Data.Text       as T
 import qualified Z.Data.Vector     as V
 import           Z.Foreign
 
@@ -70,6 +73,8 @@ data KDFType
     -- ^ NIST SP 800-56A KDF using HMAC
     | SP800_56C MACType
     -- ^ NIST SP 800-56C KDF using HMAC
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (T.Print, JSON)
 
 kdfTypeToCBytes :: KDFType -> CBytes
 kdfTypeToCBytes (HKDF mt        ) = CB.concat [ "HKDF(" , macTypeToCBytes mt, ")"]

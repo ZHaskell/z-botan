@@ -37,6 +37,7 @@ import           Z.Botan.FFI
 import           Z.Crypto.Cipher   (BlockCipherType, blockCipherTypeToCBytes)
 import           Z.Crypto.Hash     (HashType, hashTypeToCBytes)
 import           Z.Data.CBytes     as CB
+import           Z.Data.JSON       (JSON)
 import qualified Z.Data.Text       as T
 import qualified Z.Data.Vector     as V
 import           Z.Foreign
@@ -69,6 +70,8 @@ data MACType = CMAC BlockCipherType
              -- ^ A CBC-MAC variant sometimes used in finance. Always uses DES.
              -- Sometimes called the “DES retail MAC”, also standardized in ISO 9797-1.
              -- It is slow and has known attacks. Avoid unless required.
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (T.Print, JSON)
 
 macTypeToCBytes :: MACType -> CBytes
 macTypeToCBytes (CMAC bc   ) = CB.concat ["CMAC(", blockCipherTypeToCBytes bc, ")"]
