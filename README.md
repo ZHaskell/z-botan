@@ -17,7 +17,7 @@ This package is part of [ZHaskell](https://z.haskell.world) project, providing c
 * MAC.
 * Key derivation functions.
 * Password hash.
-* Constant time multiple precision integers.
+* Multiple precision integers.
 * Public key creation, import and export.
 * Public key encryption/decryption
 * Diffie-Hellman key exchange.

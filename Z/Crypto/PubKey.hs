@@ -910,7 +910,7 @@ data SignParam
     | Ed25519Hash HashType                      -- ^ HashEdDSA
     | SM2SignParam CBytes HashType                  -- ^ userid, hash(GM/T 0009-2012 specifies
                                                 -- @"1234567812345678"@ as the default userid)
-    | XMSSEmptyParam                            -- ^ XMSS do not have param
+    | XMSSEmptyParam                            -- ^ XMSS do not need param
   deriving (Show, Read, Eq, Ord, Generic)
   deriving anyclass (T.Print, JSON)
 
@@ -951,7 +951,7 @@ emsaToCBytes _ = ""
 
 -- The format defaults to IEEE_1363 which is the only available format for RSA. For DSA, ECDSA, ECGDSA and ECKCDSA you can also use DER_SEQUENCE, which will format the signature as an ASN.1 SEQUENCE value.
 data SignFmt = DER_SEQUENCE | IEEE_1363
-    deriving (Eq, Ord, Show, Generic)
+    deriving (Eq, Ord, Show, Enum, Generic)
     deriving anyclass T.Print
 
 signFmtToFlag :: SignFmt -> Word32
