@@ -1,6 +1,10 @@
 # Revision history for z-botan
 
-## 0.2.0.0  -- 2020-05-14
+## 0.3.1.0  -- 2020-05-14
+
+* Change `cipherBIO` to buffer an extra chunk so that the last chunk is larger than minimum final chunk size, add a file encryption example.
+
+## 0.3.0.0  -- 2020-05-14
 
 * Change `EMEPadding` to `EncParam`, add `SM2EncParam`.
 * Change `EMSA` to `SignParam`, add `Ed25519Pure`, `Ed25519ph`, `Ed25519Hash`, `SM2SignParam`.

@@ -387,10 +387,13 @@ newStreamCipher typ dir = do
         (t, _) <- allocPrimUnsafe $ \ pt ->
             botan_cipher_get_tag_length pci pt
 
+        (f, _) <- allocPrimUnsafe $ \ pt ->
+            botan_cipher_get_minimum_final_size pci pt
+
         (n, _) <- allocPrimUnsafe $ \ pn ->
             botan_cipher_get_default_nonce_length pci pn
 
-        return (Cipher ci name g (KeySpec a b c) t n)
+        return (Cipher ci name g (KeySpec a b c) t f n)
 
 --------------------------------------------------------------------------------
 --
@@ -538,7 +541,8 @@ data Cipher = Cipher
     , cipherKeySpec           :: {-# UNPACK #-} !KeySpec       -- ^ cipher keyspec
     , cipherTagLength         :: {-# UNPACK #-} !Int    -- ^ AEAD tag length,
                                                         -- will be zero for non-authenticated ciphers.
-    , defaultNonceLength      :: {-# UNPACK #-} !Int    -- ^ a proper default nonce length
+    , cipherMinFinalSize      :: {-# UNPACK #-} !Int    -- ^ Minimum input size for final chunk.
+    , defaultNonceLength      :: {-# UNPACK #-} !Int    -- ^ a proper default nonce length.
     }
     deriving (Show, Generic)
     deriving anyclass T.Print
@@ -546,7 +550,7 @@ data Cipher = Cipher
 -- | Pass 'Cipher' to FFI as 'botan_cipher_t'.
 withCipher :: Cipher -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withCipher #-}
-withCipher (Cipher c _ _ _ _ _) = withBotanStruct c
+withCipher (Cipher c _ _ _ _ _ _) = withBotanStruct c
 
 -- | Create a new cipher.
 --
@@ -572,17 +576,20 @@ newCipher typ dir = do
         (t, _) <- allocPrimUnsafe $ \ pt ->
             botan_cipher_get_tag_length pci pt
 
+        (f, _) <- allocPrimUnsafe $ \ pt ->
+            botan_cipher_get_minimum_final_size pci pt
+
         (n, _) <- allocPrimUnsafe $ \ pn ->
             botan_cipher_get_default_nonce_length pci pn
 
-        return (Cipher ci name g (KeySpec a b c) t n)
+        return (Cipher ci name g (KeySpec a b c) t f n)
 
 -- | Clear the internal state (such as keys) of this cipher object.
 --
 clearCipher :: HasCallStack => Cipher -> IO ()
 {-# INLINABLE clearCipher #-}
-clearCipher (Cipher ci _ _ _ _ _) =
-    withBotanStruct ci (throwBotanIfMinus_ . botan_cipher_clear)
+clearCipher ci =
+    withCipher ci (throwBotanIfMinus_ . botan_cipher_clear)
 
 -- | Reset the message specific state for this cipher.
 -- Without resetting the keys, this resets the nonce, and any state
@@ -593,15 +600,15 @@ clearCipher (Cipher ci _ _ _ _ _) =
 --
 resetCipher :: HasCallStack => Cipher -> IO ()
 {-# INLINABLE resetCipher #-}
-resetCipher (Cipher ci _ _ _ _ _) =
-    withBotanStruct ci (throwBotanIfMinus_ . botan_cipher_reset)
+resetCipher ci =
+    withCipher ci (throwBotanIfMinus_ . botan_cipher_reset)
 
 -- | Set the key for this cipher object
 --
 setCipherKey :: HasCallStack => Cipher -> V.Bytes -> IO ()
 {-# INLINABLE setCipherKey #-}
-setCipherKey (Cipher ci _ _ _ _ _) key =
-    withBotanStruct ci $ \ pci -> do
+setCipherKey ci key =
+    withCipher ci $ \ pci -> do
         withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_key
                 pci pkey key_off key_len)
@@ -610,8 +617,8 @@ setCipherKey (Cipher ci _ _ _ _ _) key =
 --
 setAssociatedData :: HasCallStack => Cipher -> V.Bytes -> IO ()
 {-# INLINABLE setAssociatedData #-}
-setAssociatedData (Cipher ci _ _ _ _ _) ad =
-    withBotanStruct ci $ \ pci -> do
+setAssociatedData ci ad =
+    withCipher ci $ \ pci -> do
         withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_associated_data
                 pci pad ad_off ad_len)
@@ -623,8 +630,8 @@ startCipher :: HasCallStack
             -> V.Bytes      -- ^ nonce
             -> IO ()
 {-# INLINABLE startCipher #-}
-startCipher (Cipher ci _ _ _ _ _) nonce =
-    withBotanStruct ci $ \ pci -> do
+startCipher ci nonce =
+    withCipher ci $ \ pci -> do
         withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_start
                 pci pnonce nonce_off nonce_len)
@@ -638,8 +645,8 @@ updateCipher :: HasCallStack
              -> V.Bytes
              -> IO (V.Bytes, V.Bytes)   -- ^ trailing input, output
 {-# INLINABLE updateCipher #-}
-updateCipher (Cipher ci _ _ _ _ _) input =
-    withBotanStruct ci $ \ pci -> do
+updateCipher ci input =
+    withCipher ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
             (out, r) <- allocPrimVectorUnsafe in_len $ \ out_p ->
                 throwBotanIfMinus (hs_botan_cipher_update pci
@@ -655,7 +662,7 @@ finishCipher :: HasCallStack
              -> V.Bytes
              -> IO V.Bytes
 {-# INLINABLE finishCipher #-}
-finishCipher (Cipher ci _ ug _ tag_len _) input =
+finishCipher (Cipher ci _ ug _ tag_len _ _) input =
     withBotanStruct ci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
             let !out_len = in_len + ug + tag_len
@@ -669,25 +676,41 @@ finishCipher (Cipher ci _ ug _ tag_len _) input =
 
 -- | Wrap a cipher into a 'BIO' node(experimental).
 --
--- The cipher should have already started by setting key, nounce, etc.
+-- The cipher should have already started by setting key, nounce, etc,
+-- for example to encrypt a file in constant memory:
 --
--- Note some cipher modes have a minimal input length requirement for last chunk(CBC_CTS, XTS, etc.),
--- which may not be suitable for arbitrary bytes streams.
+-- @
+-- encryptFile :: CBytes -> CBytes -> IO ()
+-- encryptFile origin target = do
+--     let demoKey = "12345678123456781234567812345678"
+--         nonce = "demo only, use random nonce"
+--     cipher <- newCipher (EAX AES256) CipherEncrypt
+--     setCipherKey cipher demoKey
+--     startCipher cipher nonce
+--     encryptor <- cipherBIO cipher
+--
+--     withResource (initSourceFromFile origin) $ \ src ->
+--         withResource (initSinkToFile target) $ \ sink ->
+--             runBIO_ $ src . encryptor . sink
+-- @
 --
 cipherBIO :: HasCallStack => Cipher -> IO (BIO V.Bytes V.Bytes)
 {-# INLINABLE cipherBIO #-}
 cipherBIO c = do
     trailingRef <- newIORef V.empty
     return $ \ k mbs -> case mbs of
-        Just bs -> do
+        Just chunk -> do
             trailing <- readIORef trailingRef
-            let chunk =  trailing `V.append` bs
-            (rest, out) <- updateCipher c chunk
-            writeIORef trailingRef rest
-            unless (V.null out) (k (Just out))
+            if (V.length trailing >= cipherUpdateGranularity c)
+                && (V.length chunk >= cipherMinFinalSize c)
+            then do
+                (rest, out) <- updateCipher c trailing
+                k (Just out)
+                writeIORef trailingRef (rest `V.append` chunk)
+            else writeIORef trailingRef (trailing `V.append` chunk)
         _ -> do
             trailing <- readIORef trailingRef
             bs <- finishCipher c trailing
             if V.null bs
-            then k (Just bs) >> k EOF
-            else k EOF
+            then k EOF
+            else k (Just bs) >> k EOF

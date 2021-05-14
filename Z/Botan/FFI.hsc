@@ -218,6 +218,7 @@ foreign import ccall unsafe botan_cipher_valid_nonce_length :: BotanStructT -> C
 foreign import ccall unsafe botan_cipher_get_default_nonce_length :: BotanStructT -> MBA## Int -> IO CInt
 foreign import ccall unsafe botan_cipher_get_update_granularity :: BotanStructT -> MBA## Int -> IO CInt
 foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA## Int -> IO CInt
+foreign import ccall unsafe botan_cipher_get_minimum_final_size :: BotanStructT -> MBA## Int -> IO CInt
 
 --------------------------------------------------------------------------------
 -- PBKDF
