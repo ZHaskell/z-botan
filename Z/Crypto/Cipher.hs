@@ -680,6 +680,11 @@ finishCipher (Cipher ci _ ug _ tag_len _ _) input =
 -- for example to encrypt a file in constant memory:
 --
 -- @
+-- import Z.Data.CBytes (CBytes)
+-- import Z.IO.BIO
+-- import Z.IO
+-- import Z.Crypto.Cipher
+--
 -- encryptFile :: CBytes -> CBytes -> IO ()
 -- encryptFile origin target = do
 --     let demoKey = "12345678123456781234567812345678"
@@ -689,11 +694,14 @@ finishCipher (Cipher ci _ ug _ tag_len _ _) input =
 --     startCipher cipher nonce
 --     encryptor <- cipherBIO cipher
 --
---     withResource (initSourceFromFile origin) $ \ src ->
---         withResource (initSinkToFile target) $ \ sink ->
+--     withResource (initSourceFromFile origin) $ \\ src ->
+--         withResource (initSinkToFile target) $ \\ sink ->
 --             runBIO_ $ src . encryptor . sink
 -- @
 --
+-- Note that many cipher modes have a maximum length limit on the plaintext under a security context,
+-- i.e. a key nonce combination. If you want to encrypt a large message, please consider divide it into
+-- smaller chunks, and re-key or change the iv.
 cipherBIO :: HasCallStack => Cipher -> IO (BIO V.Bytes V.Bytes)
 {-# INLINABLE cipherBIO #-}
 cipherBIO c = do

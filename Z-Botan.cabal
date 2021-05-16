@@ -1,4 +1,4 @@
-cabal-version:      2.4
+cabal-version:      3.2.1
 name:               Z-Botan
 version:            0.3.1.0
 synopsis:           Crypto for Haskell
@@ -34,7 +34,7 @@ data-files:         third_party/cacert.pem
 custom-setup
   setup-depends:
     , base       >=4.5     && <5.0
-    , Cabal      >=2.4.0.0 && <4
+    , Cabal      >=3.2.1.0 && <4
     , directory  >=1.2.3.0
     , filepath
 

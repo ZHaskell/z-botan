@@ -29,7 +29,7 @@ This package is part of [ZHaskell](https://z.haskell.world) project, providing c
 
 ## Requirements
 
-* A working haskell compiler system, GHC(>=8.6), cabal-install(>=2.4), hsc2hs.
+* A working haskell compiler system, GHC(>=8.6), cabal-install(>=3.2.1), hsc2hs.
 
 * A working python interpreter in `$PATH`.
 
