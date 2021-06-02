@@ -14,6 +14,7 @@ import qualified Z.Data.Vector      as V
 import qualified Z.Data.Text        as T
 import           Z.Crypto.Cipher
 import           Z.Crypto.Hash
+import           Z.Crypto.SafeMem
 import           Utils
 
 spec :: Spec
@@ -54,7 +55,10 @@ spec = do
                 it (T.unpack $ T.validate algoName) $ do
                     tvMap <- parseBlockCipherTestVector =<< "./third_party/botan/src/tests/data/block/" `FS.join` file
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
-                    forM_ tvs $ \ (key, i, o) -> do
+                    forM_ tvs $ \ (key0, i, o) -> do
+
+                        key <- unsafeSecretFromBytes key0
+
                         c <- newBlockCipher cipherType
                         setBlockCipherKey c key
                         o' <- encryptBlocks c i (V.length i `quot` blockCipherSize c)
@@ -102,19 +106,19 @@ spec = do
                 it (T.unpack $ T.validate algoName) $ do
                     tvMap <- parseCipherModeTestVector =<< "./third_party/botan/src/tests/data/modes/" `FS.join` file
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
-                    forM_ tvs $ \ (key, nonce, i, o) -> do
+                    forM_ tvs $ \ (key0, nonce, i, o) -> do
+
+                        key <- unsafeSecretFromBytes key0
 
                         c <- newCipher cipherType CipherEncrypt
                         setCipherKey c key
-                        startCipher c nonce
 
                         d <- newCipher cipherType CipherDecrypt
                         setCipherKey d key
-                        startCipher d nonce
 
-                        o' <- finishCipher c i
+                        o' <- runCipher c nonce i ""
                         o' @=? o
-                        i' <- finishCipher d o
+                        i' <- runCipher d nonce o ""
                         i' @=? i
 
     describe "Crypto.Cipher.StreamCipher(I)" $ do
@@ -125,17 +129,19 @@ spec = do
                 it (T.unpack $ T.validate algoName) $ do
                     tvMap <- parseCipherModeTestVector =<< "./third_party/botan/src/tests/data/modes/" `FS.join` file
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
-                    forM_ tvs $ \ (key, nonce, i, o) -> do
+                    forM_ tvs $ \ (key0, nonce, i, o) -> do
+
+                        key <- unsafeSecretFromBytes key0
 
                         c <- newStreamCipher cipherType CipherEncrypt
-                        setCipherKey c key
-                        startCipher c nonce
+                        setStreamCipherKey c key
+                        setStreamCipherIV nonce
 
                         d <- newStreamCipher cipherType CipherDecrypt
-                        setCipherKey d key
-                        startCipher d nonce
+                        setStreamCipherKey d key
+                        setStreamCipherIV nonce
 
-                        o' <- finishCipher c i
+                        o' <- runStreamCipher c i
                         o' @?= o
-                        i' <- finishCipher d o
+                        i' <- runStreamCipher d o
                         i' @?= i

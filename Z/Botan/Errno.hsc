@@ -15,7 +15,7 @@ module Z.Botan.Errno where
 
 import Foreign.C.Types
 
-#include "hs_botan.h"
+#include <botan/ffi.h>
 
 -- | Generally returned to indicate success
 pattern BOTAN_FFI_SUCCESS                         :: CInt

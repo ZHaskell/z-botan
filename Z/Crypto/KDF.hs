@@ -16,6 +16,7 @@ module Z.Crypto.KDF (
     KDFType(..)
   , HashType(..)
   , MACType(..)
+  , Secret
   , kdf
   , kdf'
   -- * PBKDF
@@ -32,6 +33,7 @@ import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Crypto.Hash     (HashType (..), hashTypeToCBytes)
 import           Z.Crypto.MAC      (MACType (..), macTypeToCBytes)
+import           Z.Crypto.SafeMem
 import           Z.Data.CBytes     (CBytes, withCBytes, withCBytesUnsafe)
 import qualified Z.Data.CBytes     as CB
 import           Z.Data.JSON       (JSON)
@@ -96,22 +98,22 @@ kdfTypeToCBytes (SP800_56C mt         ) = CB.concat [ "SP800-56C(" , macTypeToCB
 kdf :: HasCallStack
     => KDFType    -- ^ the name of the given PBKDF algorithm
     -> Int        -- ^ length of output key
-    -> V.Bytes    -- ^ secret
+    -> Secret     -- ^ secret
     -> V.Bytes    -- ^ salt
     -> V.Bytes    -- ^ label
-    -> IO V.Bytes
+    -> IO Secret
 {-# INLINABLE kdf #-}
 kdf algo siz secret salt label =
     withCBytesUnsafe (kdfTypeToCBytes algo) $ \ algoBA ->
-        withPrimVectorUnsafe secret $ \ secretBA secretOff secretLen ->
+        withSecret secret $ \ psecret secretLen ->
             withPrimVectorUnsafe salt $ \ saltBA saltOff saltLen ->
                 withPrimVectorUnsafe label $ \ labelBA labelOff labelLen ->
-                    fst <$> allocPrimVectorUnsafe siz (\ buf -> do
+                    newSecret siz (\ buf -> do
                         -- some kdf needs xor output buffer, so we clear it first
-                        clearMBA buf siz
+                        clearPtr buf siz
                         throwBotanIfMinus_ $
                             hs_botan_kdf algoBA buf (fromIntegral siz)
-                                secretBA secretOff secretLen
+                                psecret secretLen
                                 saltBA saltOff saltLen
                                 labelBA labelOff labelLen)
 
@@ -119,8 +121,8 @@ kdf algo siz secret salt label =
 kdf' :: HasCallStack
      => KDFType    -- ^ the name of the given PBKDF algorithm
      -> Int        -- ^ length of output key
-     -> V.Bytes    -- ^ secret
-     -> IO V.Bytes
+     -> Secret     -- ^ secret
+     -> IO Secret
 {-# INLINABLE kdf' #-}
 kdf' algo siz secret = kdf algo siz secret mempty mempty
 
@@ -160,21 +162,21 @@ pbkdfTypeToParam (OpenPGP_S2K ht i) = (CB.concat [ "OpenPGP-S2K(" , hashTypeToCB
 pbkdf :: HasCallStack
       => PBKDFType  -- ^ PBKDF algorithm type
       -> Int        -- ^ length of output key
-      -> CBytes     -- ^ passphrase
+      -> Password   -- ^ passphrase
       -> V.Bytes    -- ^ salt
-      -> IO V.Bytes
+      -> IO Secret
 {-# INLINABLE pbkdf #-}
 pbkdf typ siz pwd salt = do
     withCBytesUnsafe algo $ \ algoBA ->
-        withCBytesUnsafe pwd $ \ pwdBA ->
+        withPasswordUnsafe pwd $ \ pwdBA ->
             withPrimVectorUnsafe salt $ \ saltBA saltOff saltLen -> do
-                fst <$> allocPrimVectorUnsafe siz (\ buf -> do
-                    clearMBA buf siz
+                newSecret siz (\ buf -> do
+                    clearPtr buf siz
                     throwBotanIfMinus_ $
                         hs_botan_pwdhash algoBA
                             i1 i2 i3
                             buf (fromIntegral siz)
-                            pwdBA (CB.length pwd)
+                            pwdBA (passwordSize pwd)
                             saltBA saltOff saltLen)
   where
     (algo, i1, i2, i3) = pbkdfTypeToParam typ
@@ -187,7 +189,7 @@ pbkdfTimed :: HasCallStack
            -> Int        -- ^ length of output key
            -> CBytes     -- ^ passphrase
            -> V.Bytes    -- ^ salt
-           -> IO V.Bytes
+           -> IO Secret
 {-# INLINABLE pbkdfTimed #-}
 pbkdfTimed typ msec siz pwd s = do
     -- we want run it in new OS thread without stop GC from running
@@ -196,7 +198,7 @@ pbkdfTimed typ msec siz pwd s = do
     then withCBytes algo $ \algo' ->
         withCBytes pwd $ \ pwd' ->
             withPrimVectorSafe s $ \s' sLen ->
-                fst <$> allocPrimVectorSafe siz (\ buf -> do
+                newSecret siz (\ buf -> do
                     clearPtr buf siz
                     throwBotanIfMinus_ $
                         hs_botan_pwdhash_timed_safe
@@ -205,8 +207,8 @@ pbkdfTimed typ msec siz pwd s = do
     else withCBytesUnsafe algo $ \algo' ->
         withCBytesUnsafe pwd $ \ pwd' ->
             withPrimVectorUnsafe s $ \s' sOff sLen ->
-                fst <$> allocPrimVectorUnsafe siz (\ buf -> do
-                    clearMBA buf siz
+                newSecret siz (\ buf -> do
+                    clearPtr buf siz
                     throwBotanIfMinus_ $
                         hs_botan_pwdhash_timed
                             algo' msec buf (fromIntegral siz)

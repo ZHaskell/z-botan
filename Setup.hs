@@ -42,10 +42,10 @@ main = do
 
                 postConf simpleUserHooks args flags pkg_descr lbi
         ,   regHook = \ _ _ _ _ -> return ()
-#if __GLASGOW_HASKELL__ < 810
-        } (mainArgs)
-#else
+#if MIN_VERSION_Cabal(3,2,1)
         } mainArgs
+#else
+        } ("--ghc-options":"-optcxx-std=c++11":mainArgs)
 #endif
     else defaultMain
 

@@ -20,32 +20,31 @@ module Z.Crypto.Cipher
   , BlockCipher, blockCipherName, blockCipherKeySpec, blockCipherSize
   , newBlockCipher, setBlockCipherKey, clearBlockCipher
   , encryptBlocks, decryptBlocks
-    -- * Stream Cipher & Cipher Mode
-  , StreamCipherType(..), newStreamCipher
+    -- * Cipher Mode
   , CipherMode(..), CipherDirection(..)
-  , Cipher, cipherName, cipherUpdateGranularity
-  , cipherKeySpec, cipherTagLength, defaultNonceLength
-  , newCipher
-    -- * Cipher operations
-  , setCipherKey, clearCipher, resetCipher, setAssociatedData
-  , startCipher, updateCipher, finishCipher, cipherBIO
+  , Cipher, cipherName, cipherKeySpec, cipherTagLength, defaultNonceLength
+  , newCipher, setCipherKey, clearCipher, runCipher
+    -- * Stream Cipher
+  , StreamCipherType(..), StreamCipher, streamCipherName, streamCipherKeySpec, defaultIVLength
+  , newStreamCipher, setStreamCipherKey, clearStreamCipher
+  , setStreamCipherIV, seekStreamCipher, runStreamCipher, streamCipherKeyStream, streamCipherBIO, keyStreamSource
     -- * Internal helps
   , blockCipherTypeToCBytes
   , withBlockCipher
   , withCipher
+  , withStreamCipher
   ) where
 
 import           Control.Monad
-import           Data.IORef
 import           GHC.Generics
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Crypto.Hash
+import           Z.Crypto.SafeMem
 import           Z.Data.CBytes       as CB
 import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Text         as T
 import qualified Z.Data.Vector.Base  as V
-import qualified Z.Data.Vector.Extra as V
 import           Z.Foreign
 import           Z.IO.BIO
 
@@ -268,13 +267,12 @@ newBlockCipher typ = do
 
 -- | Set the cipher key, which is required before encrypting or decrypting.
 --
-setBlockCipherKey :: HasCallStack => BlockCipher -> V.Bytes -> IO ()
+setBlockCipherKey :: HasCallStack => BlockCipher -> Secret -> IO ()
 {-# INLINABLE setBlockCipherKey #-}
 setBlockCipherKey (BlockCipher bc _ _ _) key =
     withBotanStruct bc $ \ pbc -> do
-        withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
-            throwBotanIfMinus_ (hs_botan_block_cipher_set_key
-                pbc pkey key_off key_len)
+        withSecret key $ \ pkey key_len ->
+            throwBotanIfMinus_ (botan_block_cipher_set_key pbc pkey key_len)
 
 -- | Clear the internal state (such as keys) of this cipher object.
 clearBlockCipher :: HasCallStack => BlockCipher -> IO ()
@@ -320,80 +318,6 @@ decryptBlocks (BlockCipher bc _ blockSiz _) blocks n = do
                 throwBotanIfMinus_ (hs_botan_block_cipher_decrypt_blocks
                     pbc pb pboff pbuf n))
 
---------------------------------------------------------------------------------
-
--- | In contrast to block ciphers, stream ciphers operate on a plaintext stream instead of blocks. Thus encrypting data results in changing the internal state of the cipher and encryption of plaintext with arbitrary length is possible in one go (in byte amounts).
-data StreamCipherType
-      -- | A cipher mode that converts a block cipher into a stream cipher.
-      --  It offers parallel execution and can seek within the output stream, both useful properties.
-    = CTR_BE BlockCipherType
-      -- | Another stream cipher based on a block cipher.
-      -- Unlike CTR mode, it does not allow parallel execution or seeking within the output stream. Prefer CTR.
-    | OFB BlockCipherType
-      -- | A very fast cipher, now widely deployed in TLS as part of the ChaCha20Poly1305 AEAD.
-      -- Can be used with 8 (fast but dangerous), 12 (balance), or 20 rounds (conservative).
-      -- Even with 20 rounds, ChaCha is very fast. Use 20 rounds.
-    | ChaCha8
-    | ChaCha12
-    | ChaCha20
-      -- | An earlier iteration of the ChaCha design,
-      -- this cipher is popular due to its use in the libsodium library. Prefer ChaCha.
-    | Salsa20
-      -- | This is the SHAKE-128 XOF exposed as a stream cipher.
-      -- It is slower than ChaCha and somewhat obscure.
-      -- It does not support IVs or seeking within the cipher stream.
-    | SHAKE128'
-      -- | An old and very widely deployed stream cipher notable for its simplicity.
-      -- It does not support IVs or seeking within the cipher stream.
-      -- Warning: RC4 is now badly broken. Avoid in new code and use only if
-      -- required for compatibility with existing systems.
-    | RC4
-  deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass (T.Print, JSON)
-
-streamCipherTypeToCBytes :: StreamCipherType -> CBytes
-{-# INLINABLE streamCipherTypeToCBytes #-}
-streamCipherTypeToCBytes s = case s of
-    CTR_BE b  -> CB.concat ["CTR-BE(", blockCipherTypeToCBytes b, ")"]
-    OFB b     -> CB.concat ["OFB(", blockCipherTypeToCBytes b, ")"]
-    ChaCha8   -> "ChaCha(8)"
-    ChaCha12  -> "ChaCha(12)"
-    ChaCha20  -> "ChaCha(20)"
-    Salsa20   -> "Salsa20"
-    SHAKE128' ->  "SHAKE-128"
-    RC4       -> "RC4"
-
--- | Create a new stream cipher.
---
-newStreamCipher :: HasCallStack => StreamCipherType -> CipherDirection -> IO Cipher
-{-# INLINABLE newStreamCipher #-}
-newStreamCipher typ dir = do
-    let name = streamCipherTypeToCBytes typ
-    ci <- newBotanStruct
-        (\ bts -> withCBytesUnsafe name $ \ pb ->
-            botan_cipher_init bts pb (cipherDirectionToFlag dir))
-        botan_cipher_destroy
-
-    withBotanStruct ci $ \ pci -> do
-        (g, _) <- allocPrimUnsafe $ \ pg ->
-            botan_cipher_get_update_granularity pci pg
-
-        (a, (b, (c, _))) <- allocPrimUnsafe $ \ pa ->
-            allocPrimUnsafe $ \ pb ->
-                allocPrimUnsafe $ \ pc ->
-                    throwBotanIfMinus_
-                        (botan_cipher_get_keyspec pci pa pb pc)
-
-        (t, _) <- allocPrimUnsafe $ \ pt ->
-            botan_cipher_get_tag_length pci pt
-
-        (f, _) <- allocPrimUnsafe $ \ pt ->
-            botan_cipher_get_minimum_final_size pci pt
-
-        (n, _) <- allocPrimUnsafe $ \ pn ->
-            botan_cipher_get_default_nonce_length pci pn
-
-        return (Cipher ci name g (KeySpec a b c) t f n)
 
 --------------------------------------------------------------------------------
 --
@@ -537,11 +461,8 @@ cipherTypeToCBytes ct = case ct of
 data Cipher = Cipher
     { cipher                  :: {-# UNPACK #-} !BotanStruct
     , cipherName              :: {-# UNPACK #-} !CBytes        -- ^ cipher algo name
-    , cipherUpdateGranularity :: {-# UNPACK #-} !Int           -- ^ cipher input chunk granularity
     , cipherKeySpec           :: {-# UNPACK #-} !KeySpec       -- ^ cipher keyspec
-    , cipherTagLength         :: {-# UNPACK #-} !Int    -- ^ AEAD tag length,
-                                                        -- will be zero for non-authenticated ciphers.
-    , cipherMinFinalSize      :: {-# UNPACK #-} !Int    -- ^ Minimum input size for final chunk.
+    , cipherTagLength         :: {-# UNPACK #-} !Int           -- ^ AEAD tag length, will be 0 for non-authenticated ciphers.
     , defaultNonceLength      :: {-# UNPACK #-} !Int    -- ^ a proper default nonce length.
     }
     deriving (Show, Generic)
@@ -550,7 +471,7 @@ data Cipher = Cipher
 -- | Pass 'Cipher' to FFI as 'botan_cipher_t'.
 withCipher :: Cipher -> (BotanStructT -> IO r) -> IO r
 {-# INLINABLE withCipher #-}
-withCipher (Cipher c _ _ _ _ _ _) = withBotanStruct c
+withCipher (Cipher c _ _ _ _) = withBotanStruct c
 
 -- | Create a new cipher.
 --
@@ -564,8 +485,6 @@ newCipher typ dir = do
         botan_cipher_destroy
 
     withBotanStruct ci $ \ pci -> do
-        (g, _) <- allocPrimUnsafe $ \ pg ->
-            botan_cipher_get_update_granularity pci pg
 
         (a, (b, (c, _))) <- allocPrimUnsafe $ \ pa ->
             allocPrimUnsafe $ \ pb ->
@@ -576,103 +495,189 @@ newCipher typ dir = do
         (t, _) <- allocPrimUnsafe $ \ pt ->
             botan_cipher_get_tag_length pci pt
 
-        (f, _) <- allocPrimUnsafe $ \ pt ->
-            botan_cipher_get_minimum_final_size pci pt
-
         (n, _) <- allocPrimUnsafe $ \ pn ->
             botan_cipher_get_default_nonce_length pci pn
 
-        return (Cipher ci name g (KeySpec a b c) t f n)
+        return (Cipher ci name (KeySpec a b c) t n)
 
 -- | Clear the internal state (such as keys) of this cipher object.
 --
 clearCipher :: HasCallStack => Cipher -> IO ()
 {-# INLINABLE clearCipher #-}
-clearCipher ci =
-    withCipher ci (throwBotanIfMinus_ . botan_cipher_clear)
-
--- | Reset the message specific state for this cipher.
--- Without resetting the keys, this resets the nonce, and any state
--- associated with any message bits that have been processed so far.
---
--- It is conceptually equivalent to calling botan_cipher_clear followed
--- by botan_cipher_set_key with the original key.
---
-resetCipher :: HasCallStack => Cipher -> IO ()
-{-# INLINABLE resetCipher #-}
-resetCipher ci =
-    withCipher ci (throwBotanIfMinus_ . botan_cipher_reset)
+clearCipher ci = withCipher ci (throwBotanIfMinus_ . botan_cipher_clear)
 
 -- | Set the key for this cipher object
 --
-setCipherKey :: HasCallStack => Cipher -> V.Bytes -> IO ()
+setCipherKey :: HasCallStack => Cipher -> Secret -> IO ()
 {-# INLINABLE setCipherKey #-}
 setCipherKey ci key =
     withCipher ci $ \ pci -> do
-        withPrimVectorUnsafe key $ \ pkey key_off key_len -> do
-            throwBotanIfMinus_ (hs_botan_cipher_set_key
-                pci pkey key_off key_len)
+        withSecret key $ \ pkey key_len -> do
+            throwBotanIfMinus_ (botan_cipher_set_key pci pkey key_len)
 
--- | Set the associated data. Will fail if cipher is not an AEAD.
---
-setAssociatedData :: HasCallStack => Cipher -> V.Bytes -> IO ()
-{-# INLINABLE setAssociatedData #-}
-setAssociatedData ci ad =
+-- | Do the encryption or decryption.
+runCipher :: HasCallStack
+          => Cipher
+          -> Nonce         -- ^ nonce
+          -> V.Bytes       -- ^ input
+          -> V.Bytes       -- ^ associated data, ignored if not an AEAD
+          -> IO V.Bytes
+{-# INLINABLE runCipher #-}
+runCipher ci nonce inp ad =
     withCipher ci $ \ pci -> do
-        withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
+        withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len ->
+            throwBotanIfMinus_ (hs_botan_cipher_start pci pnonce nonce_off nonce_len)
+
+        when (cipherTagLength ci /= 0) . withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_associated_data
                 pci pad ad_off ad_len)
 
--- | Begin processing a new message using the provided nonce.
+        osiz <- hs_botan_cipher_output_size pci (V.length inp)
+        (out, _) <- allocPrimVectorUnsafe osiz $ \ out ->
+            withPrimVectorUnsafe inp $ \ pinp inp_off inp_len ->
+                throwBotanIfMinus_ (hs_botan_cipher_finish pci out osiz pinp inp_off inp_len)
+        return out
+
+--------------------------------------------------------------------------------
+
+-- | In contrast to block ciphers, stream ciphers operate on a plaintext stream instead of blocks. Thus encrypting data results in changing the internal state of the cipher and encryption of plaintext with arbitrary length is possible in one go (in byte amounts).
+data StreamCipherType
+      -- | A cipher mode that converts a block cipher into a stream cipher.
+      --  It offers parallel execution and can seek within the output stream, both useful properties.
+    = CTR_BE BlockCipherType
+      -- | Another stream cipher based on a block cipher.
+      -- Unlike CTR mode, it does not allow parallel execution or seeking within the output stream. Prefer CTR.
+    | OFB BlockCipherType
+      -- | A very fast cipher, now widely deployed in TLS as part of the ChaCha20Poly1305 AEAD.
+      -- Can be used with 8 (fast but dangerous), 12 (balance), or 20 rounds (conservative).
+      -- Even with 20 rounds, ChaCha is very fast. Use 20 rounds.
+    | ChaCha8
+    | ChaCha12
+    | ChaCha20
+      -- | An earlier iteration of the ChaCha design,
+      -- this cipher is popular due to its use in the libsodium library. Prefer ChaCha.
+    | Salsa20
+      -- | This is the SHAKE-128 XOF exposed as a stream cipher.
+      -- It is slower than ChaCha and somewhat obscure.
+      -- It does not support IVs or seeking within the cipher stream.
+    | SHAKE128'
+      -- | An old and very widely deployed stream cipher notable for its simplicity.
+      -- It does not support IVs or seeking within the cipher stream.
+      -- Warning: RC4 is now badly broken. Avoid in new code and use only if
+      -- required for compatibility with existing systems.
+    | RC4
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (T.Print, JSON)
+
+-- | A Botan stream cipher.
+data StreamCipher = StreamCipher
+    { streamCipher                  :: {-# UNPACK #-} !BotanStruct
+    , streamCipherName              :: {-# UNPACK #-} !CBytes        -- ^ cipher algo name
+    , streamCipherKeySpec           :: {-# UNPACK #-} !KeySpec       -- ^ cipher keyspec
+    , defaultIVLength               :: {-# UNPACK #-} !Int           -- ^ a proper default IV length.
+    }
+
+withStreamCipher :: StreamCipher -> (BotanStructT -> IO r) -> IO r
+{-# INLINE withStreamCipher #-}
+withStreamCipher (StreamCipher sci _ _ _) = withBotanStruct sci
+
+streamCipherTypeToCBytes :: StreamCipherType -> CBytes
+{-# INLINABLE streamCipherTypeToCBytes #-}
+streamCipherTypeToCBytes s = case s of
+    CTR_BE b  -> CB.concat ["CTR-BE(", blockCipherTypeToCBytes b, ")"]
+    OFB b     -> CB.concat ["OFB(", blockCipherTypeToCBytes b, ")"]
+    ChaCha8   -> "ChaCha(8)"
+    ChaCha12  -> "ChaCha(12)"
+    ChaCha20  -> "ChaCha(20)"
+    Salsa20   -> "Salsa20"
+    SHAKE128' ->  "SHAKE-128"
+    RC4       -> "RC4"
+
+-- | Create a new stream cipher.
 --
-startCipher :: HasCallStack
-            => Cipher
-            -> V.Bytes      -- ^ nonce
-            -> IO ()
-{-# INLINABLE startCipher #-}
-startCipher ci nonce =
-    withCipher ci $ \ pci -> do
-        withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len -> do
-            throwBotanIfMinus_ (hs_botan_cipher_start
-                pci pnonce nonce_off nonce_len)
+newStreamCipher :: HasCallStack => StreamCipherType -> CipherDirection -> IO StreamCipher
+{-# INLINABLE newStreamCipher #-}
+newStreamCipher typ dir = do
+    let name = streamCipherTypeToCBytes typ
+    ci <- newBotanStruct
+        (\ bts -> withCBytesUnsafe name $ \ pb ->
+            botan_stream_cipher_init bts pb (cipherDirectionToFlag dir))
+        botan_stream_cipher_destroy
+
+    withBotanStruct ci $ \ pci -> do
+
+        (a, (b, (c, _))) <- allocPrimUnsafe $ \ pa ->
+            allocPrimUnsafe $ \ pb ->
+                allocPrimUnsafe $ \ pc ->
+                    throwBotanIfMinus_
+                        (botan_stream_cipher_get_keyspec pci pa pb pc)
+
+        (n, _) <- allocPrimUnsafe $ \ pn ->
+            botan_stream_cipher_get_default_iv_length pci pn
+
+        return (StreamCipher ci name (KeySpec a b c) n)
+
+-- | Set the key for this cipher object
+--
+setStreamCipherKey :: HasCallStack => StreamCipher -> Secret -> IO ()
+{-# INLINABLE setStreamCipherKey #-}
+setStreamCipherKey ci key =
+    withStreamCipher ci $ \ pci ->
+    withSecret key $ \ pkey key_len ->
+        throwBotanIfMinus_ (botan_stream_cipher_set_key pci pkey key_len)
+
+-- | Set the initail vector for a 'StreamCipher'.
+setStreamCipherIV :: StreamCipher -> Nonce -> IO ()
+{-# INLINABLE setStreamCipherIV #-}
+setStreamCipherIV sc nonce =
+    withStreamCipher sc $ \ psc ->
+    withPrimVectorUnsafe nonce $ \ n noff nlen ->
+        throwBotanIfMinus_ $ hs_botan_stream_cipher_set_iv psc n noff nlen
+
+-- | Clear the internal state (such as keys) of this cipher object.
+--
+clearStreamCipher :: HasCallStack => StreamCipher -> IO ()
+{-# INLINABLE clearStreamCipher #-}
+clearStreamCipher ci = withStreamCipher ci (throwBotanIfMinus_ . botan_stream_cipher_clear)
+
+-- | Seek 'StreamCipher' 's state to given offset.
+seekStreamCipher :: StreamCipher -> Int -> IO ()
+{-# INLINABLE seekStreamCipher #-}
+seekStreamCipher sc off =
+    withStreamCipher sc $ \ psc ->
+        throwBotanIfMinus_ $ botan_stream_cipher_seek psc (fromIntegral off)
 
 -- | Update cipher with some data.
 --
 -- If the input size is not a multiplier of 'cipherUpdateGranularity', there'll
 -- be some trailing input.
-updateCipher :: HasCallStack
-             => Cipher
-             -> V.Bytes
-             -> IO (V.Bytes, V.Bytes)   -- ^ trailing input, output
-{-# INLINABLE updateCipher #-}
-updateCipher ci input =
-    withCipher ci $ \ pci -> do
+runStreamCipher :: HasCallStack
+                   => StreamCipher
+                   -> V.Bytes
+                   -> IO V.Bytes        -- ^ trailing input, output
+{-# INLINABLE runStreamCipher #-}
+runStreamCipher sci input =
+    withStreamCipher sci $ \ pci -> do
         withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
-            (out, r) <- allocPrimVectorUnsafe in_len $ \ out_p ->
-                throwBotanIfMinus (hs_botan_cipher_update pci
+            (out, _) <- allocPrimVectorUnsafe in_len $ \ out_p ->
+                throwBotanIfMinus (hs_botan_stream_cipher_cipher pci
                     out_p in_p in_off in_len)
-            return (V.unsafeDrop r input, V.unsafeTake r out)
+            return out
 
 -- | Finish cipher with some data.
 --
 -- You can directly call this function to encrypt a whole message,
 -- Note some cipher modes have a minimal input length requirement for last chunk(CTS, XTS, etc.).
-finishCipher :: HasCallStack
-             => Cipher
-             -> V.Bytes
-             -> IO V.Bytes
-{-# INLINABLE finishCipher #-}
-finishCipher (Cipher ci _ ug _ tag_len _ _) input =
-    withBotanStruct ci $ \ pci -> do
-        withPrimVectorUnsafe input $ \ in_p in_off in_len -> do
-            let !out_len = in_len + ug + tag_len
-            (pa, r) <- allocPrimArrayUnsafe out_len $ \ out_p -> do
-                throwBotanIfMinus (hs_botan_cipher_finish pci
-                    out_p out_len in_p in_off in_len)
-            mpa <- unsafeThawPrimArray pa
-            shrinkMutablePrimArray mpa r
-            pa' <- unsafeFreezePrimArray mpa
-            return (V.PrimVector pa' 0 r)
+streamCipherKeyStream :: HasCallStack
+                      => StreamCipher
+                      -> Int
+                      -> IO V.Bytes
+{-# INLINABLE streamCipherKeyStream #-}
+streamCipherKeyStream sci siz =
+    withStreamCipher sci $ \ pci -> do
+        (pa, _) <- allocPrimVectorUnsafe siz $ \ out_p -> do
+            throwBotanIfMinus (botan_stream_cipher_write_keystream pci out_p (fromIntegral siz))
+        return pa
 
 -- | Wrap a cipher into a 'BIO' node(experimental).
 --
@@ -688,9 +693,9 @@ finishCipher (Cipher ci _ ug _ tag_len _ _) input =
 -- encryptFile :: CBytes -> CBytes -> IO ()
 -- encryptFile origin target = do
 --     let demoKey = "12345678123456781234567812345678"
---         nonce = "demo only, use random nonce"
---     cipher <- newCipher (EAX AES256) CipherEncrypt
---     setCipherKey cipher demoKey
+--         iv = "demo only, use random nonce"
+--     cipher <- newStreamCipher (CTR_BE AES256) CipherEncrypt
+--     setStreamCipherKey cipher demoKey
 --     startCipher cipher nonce
 --     encryptor <- cipherBIO cipher
 --
@@ -702,23 +707,14 @@ finishCipher (Cipher ci _ ug _ tag_len _ _) input =
 -- Note that many cipher modes have a maximum length limit on the plaintext under a security context,
 -- i.e. a key nonce combination. If you want to encrypt a large message, please consider divide it into
 -- smaller chunks, and re-key or change the iv.
-cipherBIO :: HasCallStack => Cipher -> IO (BIO V.Bytes V.Bytes)
-{-# INLINABLE cipherBIO #-}
-cipherBIO c = do
-    trailingRef <- newIORef V.empty
-    return $ \ k mbs -> case mbs of
-        Just chunk -> do
-            trailing <- readIORef trailingRef
-            if (V.length trailing >= cipherUpdateGranularity c)
-                && (V.length chunk >= cipherMinFinalSize c)
-            then do
-                (rest, out) <- updateCipher c trailing
-                k (Just out)
-                writeIORef trailingRef (rest `V.append` chunk)
-            else writeIORef trailingRef (trailing `V.append` chunk)
-        _ -> do
-            trailing <- readIORef trailingRef
-            bs <- finishCipher c trailing
-            if V.null bs
-            then k EOF
-            else k (Just bs) >> k EOF
+streamCipherBIO :: HasCallStack => StreamCipher -> BIO V.Bytes V.Bytes
+{-# INLINABLE streamCipherBIO #-}
+streamCipherBIO c = \ k mbs -> case mbs of
+    Just chunk -> k . Just =<< runStreamCipher c chunk
+    _ -> k EOF
+
+-- | Turn a 'StreamCipher' into a source, with each chunk size equal to 'defaultIVLength'.
+--
+keyStreamSource :: HasCallStack => StreamCipher -> Source V.Bytes
+{-# INLINABLE keyStreamSource #-}
+keyStreamSource c = \ k _ -> k . Just =<< streamCipherKeyStream c (defaultIVLength c)

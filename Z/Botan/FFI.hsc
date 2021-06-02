@@ -27,13 +27,17 @@ import qualified Z.Data.Text            as T
 import           Z.Foreign
 import           Z.Foreign.CPtr
 
-#include "hs_botan.h"
+#include <botan/ffi.h>
 
 --------------------------------------------------------------------------------
 
-foreign import ccall unsafe hs_botan_hex_encode :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
-foreign import ccall unsafe hs_botan_hex_encode_lower :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
-foreign import ccall unsafe hs_botan_hex_decode :: BA## Word8 -> Int -> Int -> MBA## Word8 -> IO ()
+foreign import ccall unsafe hs_botan_allocate_memory :: Int -> IO (Ptr Word8)
+foreign import ccall unsafe "&hs_botan_deallocate_memory" hs_botan_deallocate_memory_p :: FunPtr (Ptr Word8 -> Ptr Word8 -> IO ())
+foreign import ccall unsafe hs_botan_deallocate_memory :: Ptr Word8 -> Ptr Word8 -> IO ()
+
+foreign import ccall unsafe "botan_constant_time_compare" botan_constant_time_compare_ba :: BA## Word8 -> BA## Word8 -> CSize -> CInt
+foreign import ccall unsafe botan_constant_time_compare :: Ptr Word8 -> Ptr Word8 -> CSize -> CInt
+
 
 allocBotanBufferUTF8Unsafe :: (HasCallStack, Integral r)
                            => Int -> (MBA## Word8 -> MBA## CSize -> IO r) -> IO T.Text
@@ -142,8 +146,7 @@ foreign import ccall unsafe botan_block_cipher_get_keyspec :: BotanStructT
                                                            -> MBA## Int   -- ^ keylength_modulo
                                                            -> IO CInt
 foreign import ccall unsafe botan_block_cipher_clear :: BotanStructT -> IO CInt
-foreign import ccall unsafe hs_botan_block_cipher_set_key
-    :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe botan_block_cipher_set_key :: BotanStructT -> Ptr Word8 -> CSize -> IO CInt
 foreign import ccall unsafe hs_botan_block_cipher_encrypt_blocks
     :: BotanStructT
     -> BA## Word8   -- ^ in_buf
@@ -184,23 +187,14 @@ foreign import ccall unsafe botan_cipher_init :: MBA## BotanStructT -> BA## Word
 foreign import ccall unsafe "&botan_cipher_destroy"
     botan_cipher_destroy :: FunPtr (BotanStructT -> IO ())
 foreign import ccall unsafe botan_cipher_clear :: BotanStructT -> IO CInt
-foreign import ccall unsafe botan_cipher_reset :: BotanStructT -> IO CInt
 foreign import ccall unsafe botan_cipher_get_keyspec :: BotanStructT
-                                                     -> MBA## Int   -- ^ minimum_keylength
-                                                     -> MBA## Int   -- ^ maximum_keylength
-                                                     -> MBA## Int   -- ^ keylength_modulo
+                                                     -> MBA## CSize   -- ^ minimum_keylength
+                                                     -> MBA## CSize   -- ^ maximum_keylength
+                                                     -> MBA## CSize   -- ^ keylength_modulo
                                                      -> IO CInt
-foreign import ccall unsafe hs_botan_cipher_set_key
-    :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe botan_cipher_set_key :: BotanStructT -> Ptr Word8 -> CSize -> IO CInt
 foreign import ccall unsafe hs_botan_cipher_start
     :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
-foreign import ccall unsafe hs_botan_cipher_update
-    :: BotanStructT
-    -> MBA## Word8  -- ^ output
-    -> BA## Word8   -- ^ input
-    -> Int          -- ^ input offset
-    -> Int          -- ^ input len
-    -> IO Int       -- ^ output written
 
 foreign import ccall unsafe hs_botan_cipher_finish
     :: BotanStructT
@@ -216,23 +210,54 @@ foreign import ccall unsafe hs_botan_cipher_set_associated_data
 
 foreign import ccall unsafe botan_cipher_valid_nonce_length :: BotanStructT -> CSize -> IO CInt
 foreign import ccall unsafe botan_cipher_get_default_nonce_length :: BotanStructT -> MBA## Int -> IO CInt
-foreign import ccall unsafe botan_cipher_get_update_granularity :: BotanStructT -> MBA## Int -> IO CInt
 foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA## Int -> IO CInt
-foreign import ccall unsafe botan_cipher_get_minimum_final_size :: BotanStructT -> MBA## Int -> IO CInt
+foreign import ccall unsafe hs_botan_cipher_output_size :: BotanStructT -> Int -> IO Int
+
+
+foreign import ccall unsafe botan_stream_cipher_init :: MBA## BotanStructT -> BA## Word8 -> Word32 -> IO CInt
+foreign import ccall unsafe "&botan_stream_cipher_destroy"
+    botan_stream_cipher_destroy :: FunPtr (BotanStructT -> IO ())
+foreign import ccall unsafe botan_stream_cipher_seek :: BotanStructT -> CSize -> IO CInt
+
+foreign import ccall unsafe botan_stream_cipher_clear :: BotanStructT -> IO CInt
+foreign import ccall unsafe botan_stream_cipher_get_keyspec :: BotanStructT
+                                                     -> MBA## CSize   -- ^ minimum_keylength
+                                                     -> MBA## CSize   -- ^ maximum_keylength
+                                                     -> MBA## CSize   -- ^ keylength_modulo
+                                                     -> IO CInt
+foreign import ccall unsafe botan_stream_cipher_set_key :: BotanStructT -> Ptr Word8 -> CSize -> IO CInt
+foreign import ccall unsafe hs_botan_stream_cipher_set_iv
+    :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe hs_botan_stream_cipher_cipher
+    :: BotanStructT
+    -> MBA## Word8  -- ^ output
+    -> BA## Word8   -- ^ input
+    -> Int          -- ^ input offset
+    -> Int          -- ^ input len
+    -> IO CInt      
+
+foreign import ccall unsafe botan_stream_cipher_write_keystream
+    :: BotanStructT
+    -> MBA## Word8  -- ^ output
+    -> CSize        -- ^ output size
+    -> IO CInt      
+
+foreign import ccall unsafe botan_stream_cipher_valid_iv_length :: BotanStructT -> CSize -> IO CInt
+foreign import ccall unsafe botan_stream_cipher_get_default_iv_length :: BotanStructT -> MBA## Int -> IO CInt
 
 --------------------------------------------------------------------------------
 -- PBKDF
 
 foreign import ccall unsafe hs_botan_pwdhash :: BA## Word8
                                              -> Int -> Int -> Int
-                                             -> MBA## Word8 -> Int              -- ^ output
+                                             -> Ptr Word8 -> Int                -- ^ output
                                              -> BA## Word8 -> Int               -- ^ passphrase
                                              -> BA## Word8 -> Int -> Int        -- ^ salt
                                              -> IO CInt
 
 foreign import ccall unsafe hs_botan_pwdhash_timed :: BA## Word8
                                                    -> Int
-                                                   -> MBA## Word8 -> Int        -- ^ output
+                                                   -> Ptr Word8 -> Int          -- ^ output
                                                    -> BA## Word8 -> Int         -- ^ passphrase
                                                    -> BA## Word8 -> Int -> Int  -- ^ salt
                                                    -> IO CInt
@@ -249,8 +274,8 @@ foreign import ccall safe "hs_botan_pwdhash_timed"
 -- KDF
 
 foreign import ccall unsafe hs_botan_kdf :: BA## Word8
-                                         -> MBA## Word8 -> Int
-                                         -> BA## Word8 -> Int -> Int
+                                         -> Ptr Word8 -> CSize
+                                         -> Ptr Word8 -> CSize
                                          -> BA## Word8 -> Int -> Int
                                          -> BA## Word8 -> Int -> Int
                                          -> IO CInt
@@ -259,14 +284,14 @@ foreign import ccall unsafe hs_botan_kdf :: BA## Word8
 --------------------------------------------------------------------------------
 -- Password Hashing
 
-foreign import ccall unsafe hs_botan_bcrypt_generate :: MBA## Word8
-                                                     -> BA## Word8 -> Int -> Int
-                                                     -> BotanStructT
-                                                     -> Int
-                                                     -> Word32
-                                                     -> IO Int
+foreign import ccall unsafe botan_bcrypt_generate :: MBA## Word8 -> MBA## CSize
+                                                  -> BA## Word8
+                                                  -> BotanStructT
+                                                  -> Int
+                                                  -> Word32
+                                                  -> IO CInt
 
-foreign import ccall unsafe hs_botan_bcrypt_is_valid :: BA## Word8 -> Int -> Int
+foreign import ccall unsafe hs_botan_bcrypt_is_valid :: BA## Word8 
                                                      -> BA## Word8 -> Int -> Int
                                                      -> IO CInt
 
@@ -280,7 +305,7 @@ foreign import ccall unsafe botan_mac_output_length ::BotanStructT -> MBA## CSiz
 
 foreign import ccall unsafe botan_mac_final :: BotanStructT -> MBA## Word8 -> IO CInt
 
-foreign import ccall unsafe hs_botan_mac_set_key :: BotanStructT -> BA## Word8 -> Int -> Int -> IO CInt
+foreign import ccall unsafe botan_mac_set_key :: BotanStructT -> Ptr Word8 -> CSize -> IO CInt
 
 foreign import ccall unsafe hs_botan_mac_update :: BotanStructT -> BA## Word8 -> Int -> Int-> IO CInt
 
@@ -428,7 +453,7 @@ foreign import ccall unsafe botan_pk_op_encrypt_output_length :: BotanStructT
 
 foreign import ccall unsafe hs_botan_pk_op_encrypt :: BotanStructT
                                                    -> BotanStructT
-                                                   -> MBA## Word8 -> MBA## Int
+                                                   -> MBA## Word8 -> MBA## CSize
                                                    -> BA## Word8 -> Int -> Int
                                                    -> IO CInt
 
@@ -446,7 +471,7 @@ foreign import ccall unsafe botan_pk_op_decrypt_output_length :: BotanStructT
                                                               -> IO CInt
 
 foreign import ccall unsafe hs_botan_pk_op_decrypt :: BotanStructT
-                                                   -> MBA## Word8 -> MBA## Int
+                                                   -> MBA## Word8 -> MBA## CSize
                                                    -> BA## Word8 -> Int -> Int
                                                    -> IO CInt
 
@@ -470,7 +495,7 @@ foreign import ccall unsafe hs_botan_pk_op_sign_update :: BotanStructT
 foreign import ccall unsafe botan_pk_op_sign_finish :: BotanStructT
                                                     -> BotanStructT
                                                     -> MBA## Word8
-                                                    -> MBA## Int
+                                                    -> MBA## CSize
                                                     -> IO CInt
 
 foreign import ccall unsafe "&botan_pk_op_sign_destroy" botan_pk_op_sign_destroy :: FunPtr (BotanStructT -> IO ())
@@ -506,7 +531,7 @@ foreign import ccall unsafe botan_pk_op_key_agreement_create :: MBA## BotanStruc
 foreign import ccall unsafe "&botan_pk_op_key_agreement_destroy" botan_pk_op_key_agreement_destroy :: FunPtr (BotanStructT -> IO ())
 
 foreign import ccall unsafe botan_pk_op_key_agreement_export_public :: BotanStructT
-                                                                    -> MBA## Word8 -> MBA## Int
+                                                                    -> MBA## Word8 -> MBA## CSize
                                                                     -> IO CInt
 
 foreign import ccall unsafe botan_pk_op_key_agreement_size :: BotanStructT
@@ -514,7 +539,7 @@ foreign import ccall unsafe botan_pk_op_key_agreement_size :: BotanStructT
                                                            -> IO CInt
 
 foreign import ccall unsafe hs_botan_pk_op_key_agreement :: BotanStructT
-                                                         -> MBA## Word8 -> MBA## Int
+                                                         -> Ptr Word8 -> CSize
                                                          -> BA## Word8 -> Int -> Int
                                                          -> BA## Word8 -> Int -> Int
                                                          -> IO CInt
@@ -524,14 +549,14 @@ foreign import ccall unsafe hs_botan_mceies_encrypt :: BotanStructT -> BotanStru
                                                     -> BA## Word8
                                                     -> BA## Word8 -> Int -> Int
                                                     -> BA## Word8 -> Int -> Int
-                                                    -> MBA## Word8 -> MBA## Int
+                                                    -> MBA## Word8 -> MBA## CSize
                                                     -> IO CInt
 
 foreign import ccall unsafe hs_botan_mceies_decrypt :: BotanStructT
                                                     -> BA## Word8
                                                     -> BA## Word8 -> Int -> Int
                                                     -> BA## Word8 -> Int -> Int
-                                                    -> MBA## Word8 -> MBA## Int
+                                                    -> MBA## Word8 -> MBA## CSize
                                                     -> IO CInt
 -}
 
@@ -676,14 +701,14 @@ foreign import ccall unsafe "&botan_x509_certstore_destroy" botan_x509_certstore
 --------------------------------------------------------------------------------
 -- Advanced Encryption Standard (AES) Key Wrap Algorithm
 
-foreign import ccall unsafe hs_botan_key_wrap3394 :: BA## Word8 -> Int -> Int
-                                                  -> BA## Word8 -> Int -> Int
+foreign import ccall unsafe botan_key_wrap3394 :: Ptr Word8 -> CSize
+                                                  -> Ptr Word8 -> CSize
                                                   -> MBA## Word8 -> MBA## CSize
                                                   -> IO CInt
 
 foreign import ccall unsafe hs_botan_key_unwrap3394 :: BA## Word8 -> Int -> Int
-                                                    -> BA## Word8 -> Int -> Int
-                                                    -> MBA## Word8 -> MBA## CSize
+                                                    -> Ptr Word8 -> CSize
+                                                    -> Ptr Word8 -> CSize
                                                     -> IO CInt
 
 --------------------------------------------------------------------------------

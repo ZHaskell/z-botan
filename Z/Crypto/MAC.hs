@@ -34,6 +34,7 @@ import           GHC.Generics
 import           System.IO.Unsafe  (unsafePerformIO)
 import           Z.Botan.Exception
 import           Z.Botan.FFI
+import           Z.Crypto.SafeMem
 import           Z.Crypto.Cipher   (BlockCipherType, blockCipherTypeToCBytes)
 import           Z.Crypto.Hash     (HashType, hashTypeToCBytes)
 import           Z.Data.CBytes     as CB
@@ -112,12 +113,12 @@ newMAC typ = do
     return (MAC bs name (fromIntegral osiz))
 
 -- | Set the random key.
-setKeyMAC :: HasCallStack => MAC -> V.Bytes -> IO ()
+setKeyMAC :: HasCallStack => MAC -> Secret -> IO ()
 {-# INLINABLE setKeyMAC #-}
-setKeyMAC (MAC bts _ _) bs =
+setKeyMAC (MAC bts _ _) key =
     withBotanStruct bts $ \pbts->
-        withPrimVectorUnsafe bs $ \pbs off len ->
-            throwBotanIfMinus_ (hs_botan_mac_set_key pbts pbs off len)
+        withSecret key $ \ pk klen ->
+            throwBotanIfMinus_ (botan_mac_set_key pbts pk klen)
 
 -- | Feed a chunk of input into a 'MAC' object.
 updateMAC :: HasCallStack => MAC -> V.Bytes -> IO ()
@@ -127,11 +128,11 @@ updateMAC (MAC bts _ _) bs =
         withPrimVectorUnsafe bs $ \ pbs off len ->
             throwBotanIfMinus_ (hs_botan_mac_update pbts pbs off len)
 
-finalMAC :: HasCallStack => MAC -> IO V.Bytes
+finalMAC :: HasCallStack => MAC -> IO CEBytes
 {-# INLINABLE finalMAC #-}
 finalMAC (MAC bts _ siz) =
     withBotanStruct bts $ \ pbts -> do
-        fst <$> allocPrimVectorUnsafe siz (\ pout ->
+        newCEBytesUnsafe siz (\ pout ->
             throwBotanIfMinus_ (botan_mac_final pbts pout))
 
 -- | Reset the state of MAC object back to clean, as if no input has been supplied.
@@ -150,9 +151,9 @@ sinkToMAC h = \ k mbs -> case mbs of
 
 -- | Directly compute a message's mac
 mac :: HasCallStack => MACType
-                    -> V.Bytes  -- ^ key
+                    -> Secret   -- ^ key
                     -> V.Bytes  -- ^ input
-                    -> V.Bytes
+                    -> CEBytes
 {-# INLINABLE mac #-}
 mac mt key inp = unsafePerformIO $ do
     m <- newMAC mt
@@ -161,7 +162,7 @@ mac mt key inp = unsafePerformIO $ do
     finalMAC m
 
 -- | Directly compute a chunked message's mac.
-macChunks :: HasCallStack => MACType -> V.Bytes -> [V.Bytes] -> V.Bytes
+macChunks :: HasCallStack => MACType -> Secret -> [V.Bytes] -> CEBytes
 {-# INLINABLE macChunks #-}
 macChunks mt key inps = unsafePerformIO $ do
     m <- newMAC mt

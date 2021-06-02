@@ -1,4 +1,4 @@
-cabal-version:      3.2.1
+cabal-version:      2.4
 name:               Z-Botan
 version:            0.3.1.0
 synopsis:           Crypto for Haskell
@@ -34,7 +34,7 @@ data-files:         third_party/cacert.pem
 custom-setup
   setup-depends:
     , base       >=4.5     && <5.0
-    , Cabal      >=3.2.1.0 && <4
+    , Cabal      >=2.4.0.0 && <4
     , directory  >=1.2.3.0
     , filepath
 
@@ -58,6 +58,7 @@ library
     Z.Crypto.PubKey
     Z.Crypto.PwdHash
     Z.Crypto.RNG
+    Z.Crypto.SafeMem
     Z.Crypto.X509
   other-modules:    Paths_Z_Botan
   autogen-modules:  Paths_Z_Botan
@@ -69,6 +70,7 @@ library
     , scientific   ^>=0.3
     , stm          ^>=2.5
     , time         == 1.11.*
+    , primitive    == 0.7.*
     , Z-Data       >=0.8.2 && < 0.9
     , Z-IO         >=0.8 && < 0.9
 
@@ -76,11 +78,10 @@ library
     include third_party/botan third_party/botan/build/include
     third_party/botan/build/include/external
 
-  includes:           hs_botan.h
-  install-includes:   hs_botan.h
-  c-sources:          cbits/hs_botan.c
-  cc-options:         -march=native
   cxx-sources:        third_party/botan/botan_all.cpp
+                      cbits/hs_botan_extra.cpp
+                      cbits/hs_botan_certstore.cpp
+                      cbits/hs_botan_streamcipher.cpp
 
   if os(windows)
     extra-libraries:
@@ -99,6 +100,7 @@ library
 
   if os(osx)
     extra-libraries: c++
+    frameworks: CoreServices
 
   else
     extra-libraries: stdc++

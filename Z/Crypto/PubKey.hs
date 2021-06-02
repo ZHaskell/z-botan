@@ -146,6 +146,7 @@ import           Z.Crypto.Hash       (HashType(..), hashTypeToCBytes)
 import           Z.Crypto.KDF        (KDFType(..), kdfTypeToCBytes)
 import           Z.Crypto.MPI
 import           Z.Crypto.RNG        (RNG, getRNG, withRNG)
+import           Z.Crypto.SafeMem
 import qualified Z.Data.Builder      as B
 import           Z.Data.CBytes       (CBytes)
 import qualified Z.Data.CBytes       as CB
@@ -1133,16 +1134,16 @@ exportKeyAgreementPublic key =
 keyAgree ::
     HasCallStack =>
     KeyAgreement ->
-    -- | other key
+    -- | other key's public
     V.Bytes ->
     -- | salt
     V.Bytes ->
-    IO V.Bytes
+    IO Secret
 {-# INLINABLE keyAgree  #-}
 keyAgree (KeyAgreement op siz) others salt =
     withBotanStruct op $ \ op' ->
     withPrimVectorUnsafe others $ \ others' others_off others_len ->
     withPrimVectorUnsafe salt $ \ salt' salt_off salt_len ->
-    allocBotanBufferUnsafe siz $ \ ret len ->
-        hs_botan_pk_op_key_agreement op' ret len others'
+    newSecret siz $ \ ret ->
+        hs_botan_pk_op_key_agreement op' ret (fromIntegral siz) others'
             others_off others_len salt' salt_off salt_len

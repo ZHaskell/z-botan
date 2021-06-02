@@ -1,23 +1,25 @@
-#include <hs_botan.h>
+#include <botan/ffi.h>
+#include <botan/internal/ffi_util.h>
+#include <botan/aead.h>
+#include <HsFFI.h>
 #include <string.h>
 
+extern "C" {
+
+using namespace Botan_FFI;
+
+// Mem helper
+
+
+void* hs_botan_allocate_memory(HsInt size){
+    return Botan::allocate_memory(size, 1);
+}
+    
+void hs_botan_deallocate_memory(uint8_t* p1, uint8_t* p2){
+     Botan::deallocate_memory(p1, p2-p1, 1);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
-// FFI Helper
-// Codec
-
-int hs_botan_hex_encode(const uint8_t *x, HsInt x_off, HsInt x_len, char *out){
-    return botan_hex_encode(x+x_off, x_len, out, 0);
-}
-int hs_botan_hex_encode_lower(const uint8_t *x, HsInt x_off, HsInt x_len, char *out){
-    return botan_hex_encode(x+x_off, x_len, out, BOTAN_FFI_HEX_LOWER_CASE);
-}
-HsInt hs_botan_hex_decode(const char* hex_str, HsInt in_off, HsInt in_len, uint8_t* out){
-    size_t* out_size;
-    int r = botan_hex_decode(hex_str+in_off, in_len, out, out_size);
-    if (r < 0) return (HsInt)r;
-    return (HsInt)out_size;
-}
-
 // RNG
 
 int hs_botan_rng_add_entropy(botan_rng_t rng, const uint8_t *seed, HsInt off, HsInt len){
@@ -53,6 +55,10 @@ int hs_botan_cipher_set_key(botan_cipher_t cipher, const uint8_t* key, HsInt key
 
 int hs_botan_cipher_start(botan_cipher_t cipher, const uint8_t* nonce, HsInt nonce_off, HsInt nonce_len){
     return botan_cipher_start(cipher, nonce+nonce_off, nonce_len);
+}
+
+HsInt hs_botan_cipher_output_size(botan_cipher_t cipher, HsInt input_len){
+    return (HsInt)BOTAN_FFI_DO(Botan::Cipher_Mode, (botan_struct<Botan::Cipher_Mode, 0xB4A2BF9C>*)cipher, c, { c.output_length((size_t)input_len); });
 }
 
 HsInt hs_botan_cipher_update(botan_cipher_t cipher,
@@ -124,11 +130,11 @@ int hs_botan_mp_to_bin(botan_mp_t mp, uint8_t* vec, HsInt off){
 // KDF & PBKDF
 
 int hs_botan_kdf(const char* algo
-                ,uint8_t out[], HsInt out_len
-                ,const uint8_t passwd[], HsInt passwd_off, HsInt passwd_len
+                ,uint8_t out[], size_t out_len
+                ,const uint8_t secret[], size_t secret_len
                 ,const uint8_t salt[], HsInt salt_off, HsInt salt_len
                 ,const uint8_t label[], HsInt label_off, HsInt label_len){
-    return botan_kdf(algo, out, out_len, passwd+passwd_off, passwd_len, salt+salt_off, salt_len, label+label_off, label_len);
+    return botan_kdf(algo, out, out_len, secret, secret_len, salt+salt_off, salt_len, label+label_off, label_len);
 }
 
 int hs_botan_pwdhash(const char* algo
@@ -147,33 +153,13 @@ int hs_botan_pwdhash_timed(const char* algo
     return botan_pwdhash_timed(algo, msec, NULL, NULL, NULL, out, out_len, passwd, passwd_len, salt+salt_off, salt_len);
 }
 
-HsInt hs_botan_bcrypt_generate(uint8_t *out, const char *pwd, HsInt pwd_off, HsInt pwd_len
-    , botan_rng_t rng, HsInt work_factor, uint32_t flags){
-    size_t out_len = 64;
-    char pwd0[pwd_len+1];
+int hs_botan_bcrypt_is_valid(const char* pwd, const char* hash, HsInt hash_off, HsInt hash_len){
 
-    memcpy(pwd0, pwd+pwd_off, pwd_len);
-    pwd0[pwd_len] = 0;
-
-    int r = botan_bcrypt_generate(out, &out_len, pwd0, rng, work_factor, flags);
-    if (r < 0) {
-        return (HsInt)r;
-    } else {
-        return (HsInt)out_len;
-    }
-}
-
-int hs_botan_bcrypt_is_valid(const char* pwd, HsInt pwd_off, HsInt pwd_len
-    , const char* hash, HsInt hash_off, HsInt hash_len){
-    char pwd0[pwd_len+1];
     char hash0[hash_len+1];
-
-    memcpy(pwd0, pwd+pwd_off, pwd_len);
-    pwd0[pwd_len] = 0;
     memcpy(hash0, hash+hash_off, hash_len);
     hash0[hash_len] = 0;
 
-    return botan_bcrypt_is_valid(pwd0, hash0);
+    return botan_bcrypt_is_valid(pwd, hash0);
 }
 
 // MAC
@@ -218,11 +204,11 @@ int hs_botan_pubkey_load (botan_pubkey_t* key
 
 // Public Key Encryption / Decryption
 
-int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t out[], HsInt *out_len, const uint8_t plaintext[], HsInt plaintext_off, HsInt plaintext_len){
+int hs_botan_pk_op_encrypt(botan_pk_op_encrypt_t op, botan_rng_t rng, uint8_t out[], size_t *out_len, const uint8_t plaintext[], HsInt plaintext_off, HsInt plaintext_len){
     return botan_pk_op_encrypt(op, rng, out, out_len, plaintext+plaintext_off, plaintext_len);
 }
 
-int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], HsInt *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len){
+int hs_botan_pk_op_decrypt(botan_pk_op_decrypt_t op, uint8_t out[], size_t *out_len, uint8_t ciphertext[], HsInt ciphertext_off, HsInt ciphertext_len){
     return botan_pk_op_decrypt(op, out, out_len, ciphertext+ciphertext_off, ciphertext_len);
 }
 
@@ -242,15 +228,10 @@ int hs_botan_pk_op_verify_finish(botan_pk_op_verify_t op, const uint8_t sig[], H
 
 // Key Agreement
 
-int hs_botan_pk_op_key_agreement(botan_pk_op_ka_t op, uint8_t out[], HsInt *out_len, const uint8_t other_key[], HsInt other_key_off, HsInt other_key_len, const uint8_t salt[], HsInt salt_off, HsInt salt_len){
-    return botan_pk_op_key_agreement(op, out, out_len, other_key+other_key_off, other_key_len, salt+salt_off, salt_len);
+int hs_botan_pk_op_key_agreement(botan_pk_op_ka_t op, uint8_t out[], size_t out_len, const uint8_t other_key[], HsInt other_key_off, HsInt other_key_len, const uint8_t salt[], HsInt salt_off, HsInt salt_len){
+    // this function will not rewrite out_len
+    return botan_pk_op_key_agreement(op, out, &out_len, other_key+other_key_off, other_key_len, salt+salt_off, salt_len);
 }
-
-/*
-int hs_botan_mceies_encrypt(botan_pubkey_t mce_key, botan_rng_t rng, const char *aead, const uint8_t pt[], HsInt pt_off, HsInt pt_len, const uint8_t ad[], HsInt ad_off, HsInt ad_len, uint8_t ct[], HsInt *ct_len){
-    return botan_mceies_encrypt(mce_key, rng, aead, pt+pt_off, pt_len, ad+ad_off, ad_len, ct, ct_len);
-}
-*/
 
 // X.509 Certificates & Certificate Revocation Lists
 
@@ -293,28 +274,6 @@ int hs_botan_x509_cert_verify_with_crl(botan_x509_cert_t cert
 }
 
 
-int hs_botan_x509_cert_verify_with_certstore_crl(
-   botan_x509_cert_t cert,
-   const botan_x509_cert_t* intermediates, HsInt intermediates_len,
-   const botan_x509_certstore_t store,
-   const botan_x509_crl_t* crls, HsInt crls_len,
-   size_t required_strength,
-   const char* hostname,
-   uint64_t reference_time) {
-    int r1;
-    int r2 = botan_x509_cert_verify_with_certstore_crl(&r1, cert
-            , intermediates, intermediates_len
-            , store
-            , crls, crls_len
-            , required_strength, hostname, reference_time);
-    if (r2 < 0){
-        return r2;
-    } else { 
-        return r1; 
-    }
-
-}
-
 int hs_botan_x509_crl_load(botan_x509_crl_t *crl_obj, const uint8_t crl[], HsInt crl_off, HsInt crl_len){
     return botan_x509_crl_load(crl_obj, crl+crl_off, crl_len);
 }
@@ -327,21 +286,12 @@ int hs_botan_x509_crl_load(botan_x509_crl_t *crl_obj, const uint8_t crl[], HsInt
   * Key wrapping as per RFC 3394
 */
 
-int hs_botan_key_wrap3394(const uint8_t key[], HsInt key_off, HsInt key_len
-                         ,const uint8_t kek[], HsInt kek_off, HsInt kek_len
-                         ,uint8_t wrapped_key[], size_t *wrapped_key_len)
-{
-    return botan_key_wrap3394(key+key_off, key_len
-                             ,kek+kek_off, kek_len
-                             ,wrapped_key, wrapped_key_len);
-}
-
 int hs_botan_key_unwrap3394(const uint8_t wrapped_key[], HsInt wrapped_key_off, HsInt wrapped_key_len
-                           ,const uint8_t kek[], HsInt kek_off, HsInt kek_len
-                           ,uint8_t key[], size_t *key_len){
+                           ,const uint8_t kek[], HsInt kek_len
+                           ,uint8_t key[], size_t key_len){
     return botan_key_unwrap3394(wrapped_key+wrapped_key_off, wrapped_key_len
-                               ,kek+kek_off, kek_len
-                               ,key, key_len);}
+                               ,kek, kek_len
+                               ,key, &key_len);}
 
 // OTP
 
@@ -374,3 +324,5 @@ int hs_botan_fpe_encrypt(botan_fpe_t fpe, botan_mp_t x, const uint8_t tweak[], H
 
 int hs_botan_fpe_decrypt(botan_fpe_t fpe, botan_mp_t x, const uint8_t tweak[], HsInt tweak_off, HsInt tweak_len)
 {return botan_fpe_decrypt(fpe, x, tweak+tweak_off, tweak_len);}
+
+}

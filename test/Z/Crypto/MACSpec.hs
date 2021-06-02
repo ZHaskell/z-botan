@@ -58,7 +58,7 @@ spec = do
                             setKeyMAC m key
                             updateMAC m i
                             o' <- finalMAC m
-                            o' @?= o
+                            o' @?= ceBytes o
 
                             -- test clear
                             clearMAC m
@@ -68,7 +68,7 @@ spec = do
                             setKeyMAC m key
                             updateMAC m i
                             o'' <- finalMAC m
-                            o'' @=? o
+                            o'' @=? ceBytes o
 
                             -- test multiple update
                             let ilen = V.length i
@@ -79,4 +79,4 @@ spec = do
                                 updateMAC m $ V.slice 1 (ilen - 2) i
                                 updateMAC m $ V.slice (ilen - 1) 1 i
                                 o''' <- finalMAC m
-                                o''' @=? o
+                                o''' @=? ceBytes o

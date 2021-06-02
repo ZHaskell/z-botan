@@ -35,6 +35,7 @@ import           GHC.Generics      (Generic)
 import           System.IO.Unsafe  (unsafePerformIO)
 import           Z.Botan.Exception (HasCallStack, throwBotanIfMinus_)
 import           Z.Botan.FFI
+import           Z.Crypto.SafeMem
 import           Z.Data.CBytes     as CB
 import           Z.Data.JSON       (JSON)
 import qualified Z.Data.Text       as T
@@ -221,11 +222,11 @@ updateHash (Hash bts _ _) bs =
             throwBotanIfMinus_ (hs_botan_hash_update pbts pbs off len)
 
 -- | Compute hash value.
-finalHash :: HasCallStack => Hash -> IO V.Bytes
+finalHash :: HasCallStack => Hash -> IO CEBytes
 {-# INLINABLE finalHash #-}
 finalHash (Hash bts _ siz) =
     withBotanStruct bts $ \ pbts -> do
-        fst <$> allocPrimVectorUnsafe siz (\ pout ->
+        newCEBytesUnsafe siz (\ pout ->
             throwBotanIfMinus_ (botan_hash_final pbts pout))
 
 {-| Trun 'Hash' to a 'V.Bytes' sink, update 'Hash' by write bytes to the sink.
@@ -255,7 +256,7 @@ sinkToHash h = \ k mbs -> case mbs of
     _       -> k EOF
 
 -- | Directly compute a message's hash.
-hash :: HasCallStack => HashType -> V.Bytes -> V.Bytes
+hash :: HasCallStack => HashType -> V.Bytes -> CEBytes
 {-# INLINABLE hash #-}
 hash ht inp = unsafePerformIO $ do
     h <- newHash ht
@@ -263,7 +264,7 @@ hash ht inp = unsafePerformIO $ do
     finalHash h
 
 -- | Directly compute a chunked message's hash.
-hashChunks:: HasCallStack => HashType -> [V.Bytes] -> V.Bytes
+hashChunks:: HasCallStack => HashType -> [V.Bytes] -> CEBytes
 {-# INLINABLE hashChunks #-}
 hashChunks ht inp = unsafePerformIO $ do
     h <- newHash ht
