@@ -214,7 +214,7 @@ foreign import ccall unsafe botan_cipher_get_tag_length :: BotanStructT -> MBA##
 foreign import ccall unsafe hs_botan_cipher_output_size :: BotanStructT -> Int -> IO Int
 
 
-foreign import ccall unsafe botan_stream_cipher_init :: MBA## BotanStructT -> BA## Word8 -> Word32 -> IO CInt
+foreign import ccall unsafe botan_stream_cipher_init :: MBA## BotanStructT -> BA## Word8 -> IO CInt
 foreign import ccall unsafe "&botan_stream_cipher_destroy"
     botan_stream_cipher_destroy :: FunPtr (BotanStructT -> IO ())
 foreign import ccall unsafe botan_stream_cipher_seek :: BotanStructT -> CSize -> IO CInt

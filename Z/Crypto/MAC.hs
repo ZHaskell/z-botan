@@ -28,6 +28,9 @@ module Z.Crypto.MAC (
   -- * Internal helper
   , macTypeToCBytes
   , withMAC
+    -- * re-export
+  , HashType(..), BlockCipherType(..)
+  , module Z.Crypto.SafeMem
   ) where
 
 import           GHC.Generics

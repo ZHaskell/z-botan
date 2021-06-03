@@ -51,9 +51,12 @@ spec = do
                 it (T.unpack $ T.validate algoName) $ do
                     tvMap <- parseMACTestVector =<< "./third_party/botan/src/tests/data/mac/" `FS.join` file
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
-                    forM_ tvs $ \(miv, key, i, o) -> case miv of
+                    forM_ tvs $ \(miv, key0, i, o) -> case miv of
                         Just _  -> return ()  -- mac->start(nonce) is not supported yet.
                         Nothing -> do
+
+                            key <- unsafeSecretFromBytes key0
+
                             m <- newMAC macType
                             setKeyMAC m key
                             updateMAC m i

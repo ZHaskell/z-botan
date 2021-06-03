@@ -150,7 +150,7 @@ import           Z.Crypto.SafeMem
 import qualified Z.Data.Builder      as B
 import           Z.Data.CBytes       (CBytes)
 import qualified Z.Data.CBytes       as CB
-import           Z.Data.JSON       (JSON)
+import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Text         as T
 import qualified Z.Data.Vector       as V
 import           Z.Foreign
@@ -1124,6 +1124,8 @@ newKeyAgreement key kdf =
                 throwBotanIfMinus_ $ botan_pk_op_key_agreement_size op' siz')
         return (KeyAgreement op (fromIntegral siz))
 
+-- | Produce the public value to send to other party.
+--
 exportKeyAgreementPublic :: HasCallStack => PrivKey -> IO V.Bytes
 {-# INLINABLE exportKeyAgreementPublic  #-}
 exportKeyAgreementPublic key =

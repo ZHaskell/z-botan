@@ -118,6 +118,7 @@ spec = do
 
                         o' <- runCipher c nonce i ""
                         o' @=? o
+
                         i' <- runCipher d nonce o ""
                         i' @=? i
 
@@ -133,13 +134,13 @@ spec = do
 
                         key <- unsafeSecretFromBytes key0
 
-                        c <- newStreamCipher cipherType CipherEncrypt
+                        c <- newStreamCipher cipherType
                         setStreamCipherKey c key
-                        setStreamCipherIV nonce
+                        setStreamCipherIV c nonce
 
-                        d <- newStreamCipher cipherType CipherDecrypt
+                        d <- newStreamCipher cipherType
                         setStreamCipherKey d key
-                        setStreamCipherIV nonce
+                        setStreamCipherIV d nonce
 
                         o' <- runStreamCipher c i
                         o' @?= o

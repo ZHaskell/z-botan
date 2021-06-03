@@ -20,7 +20,12 @@ The other approach, iteration, refers to the general technique of forcing multip
 Memory usage while checking a password is also a consideration; if the computation requires using a certain minimum amount of memory, then an attacker can become memory-bound, which may in particular make customized cracking hardware more expensive. Some password hashing designs, such as scrypt, explicitly attempt to provide this. The bcrypt approach requires over 4 KiB of RAM (for the Blowfish key schedule) and may also make some hardware attacks more expensive.
 -}
 
-module Z.Crypto.PwdHash where
+module Z.Crypto.PwdHash (
+    -- * bcrypt password hash
+    genBcrypt, validBcrypt
+    -- * re-export
+  , module Z.Crypto.SafeMem
+  ) where
 
 import           Z.Botan.Exception
 import           Z.Botan.FFI

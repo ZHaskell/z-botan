@@ -71,7 +71,7 @@ library
     , stm          ^>=2.5
     , time         == 1.11.*
     , primitive    == 0.7.*
-    , Z-Data       >=0.8.2 && < 0.9
+    , Z-Data       >=0.8.4 && < 0.9
     , Z-IO         >=0.8 && < 0.9
 
   include-dirs:

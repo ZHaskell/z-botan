@@ -26,6 +26,8 @@ module Z.Crypto.KDF (
   -- * Internal helps
   , kdfTypeToCBytes
   , pbkdfTypeToParam
+    -- * re-export
+  , module Z.Crypto.SafeMem
   ) where
 
 import           GHC.Generics

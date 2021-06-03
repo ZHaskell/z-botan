@@ -11,12 +11,12 @@ using namespace Botan_FFI;
 // Mem helper
 
 
-void* hs_botan_allocate_memory(HsInt size){
-    return Botan::allocate_memory(size, 1);
+uint8_t* hs_botan_allocate_memory(HsInt size){
+    return (uint8_t*)Botan::allocate_memory(size, 1);
 }
     
-void hs_botan_deallocate_memory(uint8_t* p1, uint8_t* p2){
-     Botan::deallocate_memory(p1, p2-p1, 1);
+void hs_botan_deallocate_memory(uint8_t* eptr, uint8_t* ptr){
+     Botan::deallocate_memory(ptr, eptr-ptr, 1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -49,31 +49,14 @@ int hs_botan_cipher_set_associated_data(botan_cipher_t cipher, const uint8_t* ad
     return botan_cipher_set_associated_data(cipher, ad+ad_off, ad_len);
 }
 
-int hs_botan_cipher_set_key(botan_cipher_t cipher, const uint8_t* key, HsInt key_off, HsInt key_len){
-    return botan_cipher_set_key(cipher, key+key_off, key_len);
-}
-
 int hs_botan_cipher_start(botan_cipher_t cipher, const uint8_t* nonce, HsInt nonce_off, HsInt nonce_len){
     return botan_cipher_start(cipher, nonce+nonce_off, nonce_len);
 }
 
 HsInt hs_botan_cipher_output_size(botan_cipher_t cipher, HsInt input_len){
-    return (HsInt)BOTAN_FFI_DO(Botan::Cipher_Mode, (botan_struct<Botan::Cipher_Mode, 0xB4A2BF9C>*)cipher, c, { c.output_length((size_t)input_len); });
-}
-
-HsInt hs_botan_cipher_update(botan_cipher_t cipher,
-                           uint8_t* output,
-                           const uint8_t* input,
-                           HsInt input_off,
-                           HsInt input_len){
-    size_t input_consumed, output_written;
-    int r = botan_cipher_update(cipher, 0, output, input_len
-        , &output_written, input+input_off, input_len, &input_consumed);
-    if (r < 0){
-        return (HsInt)r;
-    } else {
-        return (HsInt)output_written;
-    }
+    return (HsInt)BOTAN_FFI_DO(Botan::Cipher_Mode, 
+        (botan_struct<Botan::Cipher_Mode, 0xB4A2BF9C>*)cipher, c, 
+            { return c.output_length((size_t)input_len) + c.update_granularity(); });
 }
 
 HsInt hs_botan_cipher_finish(botan_cipher_t cipher,

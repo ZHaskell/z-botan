@@ -10,7 +10,12 @@ Portability : non-portable
 This module provides RFC3394 key Wrapping. It uses a 128-bit, 192-bit, or 256-bit key to encrypt an input key. AES is always used. The input must be a multiple of 8 bytes; if not an exception is thrown.
 
 -}
-module Z.Crypto.KeyWrap where
+module Z.Crypto.KeyWrap (
+    -- * key wrap & unwrap
+    keyWrap, keyUnwrap
+    -- * re-export
+  , module Z.Crypto.SafeMem
+  ) where
 
 import           Z.Botan.Exception
 import           Z.Botan.FFI

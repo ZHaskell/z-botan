@@ -33,6 +33,9 @@ module Z.Crypto.Cipher
   , withBlockCipher
   , withCipher
   , withStreamCipher
+    -- * re-export
+  , HashType(..)
+  , module Z.Crypto.SafeMem
   ) where
 
 import           Control.Monad
@@ -45,6 +48,7 @@ import           Z.Data.CBytes       as CB
 import           Z.Data.JSON         (JSON)
 import qualified Z.Data.Text         as T
 import qualified Z.Data.Vector.Base  as V
+import qualified Z.Data.Vector.Extra as V
 import           Z.Foreign
 import           Z.IO.BIO
 
@@ -520,23 +524,26 @@ runCipher :: HasCallStack
           => Cipher
           -> Nonce         -- ^ nonce
           -> V.Bytes       -- ^ input
-          -> V.Bytes       -- ^ associated data, ignored if not an AEAD
+          -> V.Bytes       -- ^ associated data, ignored if not an AEAD or empty
           -> IO V.Bytes
 {-# INLINABLE runCipher #-}
 runCipher ci nonce inp ad =
     withCipher ci $ \ pci -> do
-        withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len ->
-            throwBotanIfMinus_ (hs_botan_cipher_start pci pnonce nonce_off nonce_len)
 
         when (cipherTagLength ci /= 0) . withPrimVectorUnsafe ad $ \ pad ad_off ad_len -> do
             throwBotanIfMinus_ (hs_botan_cipher_set_associated_data
                 pci pad ad_off ad_len)
 
+        withPrimVectorUnsafe nonce $ \ pnonce nonce_off nonce_len ->
+            throwBotanIfMinus_ (hs_botan_cipher_start pci pnonce nonce_off nonce_len)
+
         osiz <- hs_botan_cipher_output_size pci (V.length inp)
-        (out, _) <- allocPrimVectorUnsafe osiz $ \ out ->
+
+        (out, r) <- allocPrimVectorUnsafe osiz $ \ out ->
             withPrimVectorUnsafe inp $ \ pinp inp_off inp_len ->
-                throwBotanIfMinus_ (hs_botan_cipher_finish pci out osiz pinp inp_off inp_len)
-        return out
+                throwBotanIfMinus (hs_botan_cipher_finish pci out osiz pinp inp_off inp_len)
+
+        return $! V.unsafeTake r out
 
 --------------------------------------------------------------------------------
 
@@ -595,13 +602,17 @@ streamCipherTypeToCBytes s = case s of
 
 -- | Create a new stream cipher.
 --
-newStreamCipher :: HasCallStack => StreamCipherType -> CipherDirection -> IO StreamCipher
+-- A stream cipher is a symmetric key cipher where plaintext digits are combined with a pseudorandom cipher digit stream (keystream).
+-- In a stream cipher, each plaintext digit is encrypted one at a time with the corresponding digit of the keystream, to give a digit of the ciphertext stream.
+-- Since encryption of each digit is dependent on the current state of the cipher, it is also known as state cipher.
+-- In practice, a digit is typically a bit and the combining operation is an exclusive-or (XOR).
+--
+newStreamCipher :: HasCallStack => StreamCipherType -> IO StreamCipher
 {-# INLINABLE newStreamCipher #-}
-newStreamCipher typ dir = do
+newStreamCipher typ = do
     let name = streamCipherTypeToCBytes typ
     ci <- newBotanStruct
-        (\ bts -> withCBytesUnsafe name $ \ pb ->
-            botan_stream_cipher_init bts pb (cipherDirectionToFlag dir))
+        (\ bts -> withCBytesUnsafe name (botan_stream_cipher_init bts))
         botan_stream_cipher_destroy
 
     withBotanStruct ci $ \ pci -> do
@@ -649,8 +660,7 @@ seekStreamCipher sc off =
 
 -- | Update cipher with some data.
 --
--- If the input size is not a multiplier of 'cipherUpdateGranularity', there'll
--- be some trailing input.
+-- Since stream ciphers work by XOR data, encryption and decryption are the same process.
 runStreamCipher :: HasCallStack
                    => StreamCipher
                    -> V.Bytes
@@ -713,8 +723,11 @@ streamCipherBIO c = \ k mbs -> case mbs of
     Just chunk -> k . Just =<< runStreamCipher c chunk
     _ -> k EOF
 
--- | Turn a 'StreamCipher' into a source, with each chunk size equal to 'defaultIVLength'.
+-- | Turn a 'StreamCipher' into a source.
 --
-keyStreamSource :: HasCallStack => StreamCipher -> Source V.Bytes
+keyStreamSource :: HasCallStack
+                => StreamCipher
+                -> Int              -- ^ each chunk size
+                -> Source V.Bytes
 {-# INLINABLE keyStreamSource #-}
-keyStreamSource c = \ k _ -> k . Just =<< streamCipherKeyStream c (defaultIVLength c)
+keyStreamSource c cs = \ k _ -> k . Just =<< streamCipherKeyStream c cs

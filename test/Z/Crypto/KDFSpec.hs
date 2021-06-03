@@ -87,8 +87,9 @@ spec = do
                     tvMap <- parseKDFTestVector =<< "./third_party/botan/src/tests/data/kdf/" `FS.join` file
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
                     forM_ tvs $ \ (salt, label, secret, o) -> do
-                        o' <- kdf kdfType (V.length o) secret salt label
-                        o' @?= o
+                        secret' <- unsafeSecretFromBytes secret
+                        o' <- kdf kdfType (V.length o) secret' salt label
+                        unsafeSecretToBytes o' >>= (@?= o)
 
     describe "Crypto.KDF.PBKDF" $ do
         forM_
@@ -105,5 +106,5 @@ spec = do
                     tvMap <- parsePBKDFTestVector =<< "./third_party/botan/src/tests/data/pbkdf/" `FS.join` file
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
                     forM_ tvs $ \ (salt, iterations, passphrase, o) -> do
-                        o' <- pbkdf (pbkdfType iterations) (V.length o) passphrase salt
-                        o' @?= o
+                        o' <- pbkdf (pbkdfType iterations) (V.length o) (mkPassword passphrase) salt
+                        unsafeSecretToBytes o' >>= (@?= o)

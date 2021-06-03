@@ -29,6 +29,8 @@ module Z.Crypto.Hash(
   -- * Internal helper
   , hashTypeToCBytes
   , withHash
+    -- * re-export
+  , module Z.Crypto.SafeMem
   ) where
 
 import           GHC.Generics      (Generic)
