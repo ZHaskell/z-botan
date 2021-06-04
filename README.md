@@ -39,11 +39,9 @@ This package is part of [ZHaskell](https://z.haskell.world) project, providing c
 
 ```haskell
 > :set -XOverloadedLists
-> :m + Z.Crypto.Hash Z.Data.Vector.Hex 
+> :m + Z.Crypto.Hash 
 >
-> hash MD5 "hello, world"
-[228,215,241,180,237,46,66,209,88,152,244,178,123,1,157,164]
-> HexBytes $ hash SHA256  "hello, world"
+> hash SHA256 "hello, world"
 09CA7E4EAA6E8AE9C7D261167129184883644D07DFBA7CBFBC4C8A2E08360D5B
 >
 > :m + Z.Crypto.RNG Z.Crypto.PwdHash 

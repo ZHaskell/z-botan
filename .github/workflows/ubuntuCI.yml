@@ -7,7 +7,6 @@ jobs:
       matrix:
         ghc: ['8.8', '8.10', '9.0']
         cabal: ['3.2', '3.4']
-        avx_flag: ['', '-fno-avx']
         exclude:
           # GHC 9+ only works with cabal v3.4+
           - ghc: 9.0
@@ -29,7 +28,7 @@ jobs:
 
       - run: |
           cabal update
-          cabal freeze ${{ matrix.avx_flag }} $CONFIG
+          cabal freeze $CONFIG
 
       - uses: actions/cache@v2
         with:
@@ -41,7 +40,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.ghc }}-
 
       - run: |
-          cabal configure ${{ matrix.avx_flag }} $CONFIG  
+          cabal configure $CONFIG  
           cabal build $CONFIG
           cabal test --test-show-details=direct
       - run: |

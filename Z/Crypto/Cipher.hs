@@ -368,8 +368,8 @@ data CipherMode
     -- Default tag size is 16
     | GCM BlockCipherType
     -- | GCM with custom tag length
-    | GCM' BlockCipherType
-            Int         -- ^ tag size
+    | GCM' BlockCipherType Int         -- ^ tag size
+
     -- | OCB
     --
     -- A block cipher based AEAD. Supports 128-bit, 256-bit and 512-bit block ciphers.
@@ -380,16 +380,16 @@ data CipherMode
     -- Default tag size is 16
     | OCB BlockCipherType
     -- | OCB with custom tag length
-    | OCB' BlockCipherType
-            Int         -- ^ tag size
+    | OCB' BlockCipherType Int         -- ^ tag size
+
     -- | EAX
     -- A secure composition of CTR mode and CMAC. Supports 128-bit, 256-bit and 512-bit block ciphers.
     --
     -- Default tag size is the block size
     | EAX BlockCipherType
     -- | EAX with custom tag length
-    | EAX' BlockCipherType
-            Int         -- ^ tag size
+    | EAX' BlockCipherType Int         -- ^ tag size
+
     -- | SIV
     --
     -- Requires a 128-bit block cipher. Unlike other AEADs, SIV is “misuse resistant”;
@@ -410,6 +410,7 @@ data CipherMode
     | CCM' BlockCipherType
             Int         -- ^ tag size
             Int         -- ^ L
+
     -- | CFB
     --
     -- CFB uses a block cipher to create a self-synchronizing stream cipher.
@@ -421,6 +422,7 @@ data CipherMode
     -- | CFB with custom feedback bits size
     | CFB' BlockCipherType
             Int     -- ^ feedback bits size
+
     -- | XTS
     --
     -- XTS is a mode specialized for encrypting disk or database storage where ciphertext expansion
@@ -574,6 +576,8 @@ setCipherKey ci key =
             throwBotanIfMinus_ (botan_cipher_set_key pci pkey key_len)
 
 -- | Do the encryption or decryption.
+--
+-- BE CAREFUL ON 'Nonce' handling! Some 'CipherMode's will fail if 'Nonce' is reused or not randomly enough.
 runCipher :: HasCallStack
           => Cipher
           -> Nonce         -- ^ nonce
@@ -637,6 +641,8 @@ data StreamCipher = StreamCipher
     , streamCipherKeySpec           :: {-# UNPACK #-} !KeySpec       -- ^ cipher keyspec
     , defaultIVLength               :: {-# UNPACK #-} !Int           -- ^ a proper default IV length.
     }
+    deriving (Show, Generic)
+    deriving anyclass T.Print
 
 withStreamCipher :: StreamCipher -> (BotanStructT -> IO r) -> IO r
 {-# INLINE withStreamCipher #-}
@@ -682,7 +688,7 @@ newStreamCipher typ = do
 
         return (StreamCipher ci name (KeySpec a b c) n)
 
--- | Set the key for this cipher object
+-- | Set the key for the 'StreamCipher' object
 --
 setStreamCipherKey :: HasCallStack => StreamCipher -> Secret -> IO ()
 {-# INLINABLE setStreamCipherKey #-}
@@ -728,10 +734,8 @@ runStreamCipher sci input =
                     out_p in_p in_off in_len)
             return out
 
--- | Finish cipher with some data.
+-- | Export 'StreamCipher' 's key stream for other usage.
 --
--- You can directly call this function to encrypt a whole message,
--- Note some cipher modes have a minimal input length requirement for last chunk(CTS, XTS, etc.).
 streamCipherKeyStream :: HasCallStack
                       => StreamCipher
                       -> Int
@@ -743,10 +747,10 @@ streamCipherKeyStream sci siz =
             throwBotanIfMinus (botan_stream_cipher_write_keystream pci out_p (fromIntegral siz))
         return pa
 
--- | Wrap a cipher into a 'BIO' node(experimental).
+-- | Wrap a 'StreamCipher' into a 'BIO' node(experimental).
 --
--- The cipher should have already started by setting key, nounce, etc,
--- for example to encrypt a file in constant memory:
+-- The cipher should have already started by setting key, iv, etc,
+-- for example to encrypt a file in constant memory using AES with CTR mode:
 --
 -- @
 -- import Z.Data.CBytes (CBytes)
@@ -754,18 +758,18 @@ streamCipherKeyStream sci siz =
 -- import Z.IO
 -- import Z.Crypto.Cipher
 --
--- encryptFile :: CBytes -> CBytes -> IO ()
--- encryptFile origin target = do
+-- -- | encryption and decryption are the same process.
+-- cipherFile :: CBytes -> CBytes -> IO ()
+-- cipherFile origin target = do
 --     let demoKey = "12345678123456781234567812345678"
---         iv = "demo only, use random nonce"
---     cipher <- newStreamCipher (CTR_BE AES256) CipherEncrypt
+--         iv = "demo only !!!!!!"
+--     cipher <- newStreamCipher (CTR_BE AES256)
 --     setStreamCipherKey cipher demoKey
---     startCipher cipher nonce
---     encryptor <- cipherBIO cipher
+--     setStreamCipherIV cipher iv
 --
 --     withResource (initSourceFromFile origin) $ \\ src ->
 --         withResource (initSinkToFile target) $ \\ sink ->
---             runBIO_ $ src . encryptor . sink
+--             runBIO_ $ src . streamCipherBIO cipher . sink
 -- @
 --
 -- Note that many cipher modes have a maximum length limit on the plaintext under a security context,
@@ -777,7 +781,7 @@ streamCipherBIO c = \ k mbs -> case mbs of
     Just chunk -> k . Just =<< runStreamCipher c chunk
     _ -> k EOF
 
--- | Turn a 'StreamCipher' into a source.
+-- | Turn a 'StreamCipher' into a key stream source.
 --
 keyStreamSource :: HasCallStack
                 => StreamCipher

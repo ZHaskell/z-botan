@@ -1,5 +1,15 @@
 # Revision history for z-botan
 
+## 0.4.0.0  -- 2020-06-06
+
+* Add `Z.Crypto.SafeMem` module to improve memory safety:
+    * Add `Password` type to enforce compare password by using password hash.
+    * Add `CEBytes` with contant time equal comparing.
+    * Add `Secret` with OS locking and auto zeroing.
+* Add `StreamCipher` to `Z.Crypto.Cipher`, change `cipherBIO` to `streamCipherBIO` to use `StreamCipher` only.
+* Rewrite AEAD/cipher mode interface to expose AEAD API only.
+* Add more tests.
+
 ## 0.3.1.0  -- 2020-05-14
 
 * Change `cipherBIO` to buffer an extra chunk so that the last chunk is larger than minimum final chunk size, add a file encryption example.
