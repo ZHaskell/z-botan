@@ -40,6 +40,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.ghc }}-
 
       - run: |
+          cabal clean # we need force configure to get botan_all.cpp
           cabal configure $CONFIG  
           cabal build $CONFIG
           cabal test --test-show-details=direct
