@@ -364,17 +364,32 @@ data CipherMode
     --
     -- NIST standard, commonly used. Requires a 128-bit block cipher.
     -- Fairly slow, unless hardware support for carryless multiplies is available.
+    --
+    -- Default tag size is 16
     | GCM BlockCipherType
+    -- | GCM with custom tag length
+    | GCM' BlockCipherType
+            Int         -- ^ tag size
     -- | OCB
     --
     -- A block cipher based AEAD. Supports 128-bit, 256-bit and 512-bit block ciphers.
     -- This mode is very fast and easily secured against side channels.
     -- Adoption has been poor because it is patented in the United States,
     -- though a license is available allowing it to be freely used by open source software.
+    --
+    -- Default tag size is 16
     | OCB BlockCipherType
+    -- | OCB with custom tag length
+    | OCB' BlockCipherType
+            Int         -- ^ tag size
     -- | EAX
     -- A secure composition of CTR mode and CMAC. Supports 128-bit, 256-bit and 512-bit block ciphers.
+    --
+    -- Default tag size is the block size
     | EAX BlockCipherType
+    -- | EAX with custom tag length
+    | EAX' BlockCipherType
+            Int         -- ^ tag size
     -- | SIV
     --
     -- Requires a 128-bit block cipher. Unlike other AEADs, SIV is “misuse resistant”;
@@ -388,13 +403,24 @@ data CipherMode
     --
     -- A composition of CTR mode and CBC-MAC. Requires a 128-bit block cipher.
     -- This is a NIST standard mode, but that is about all to recommend it. Prefer EAX.
+    --
+    -- Default tag size is 16 and L is 3
     | CCM BlockCipherType
+    -- | CCM with custom tag size
+    | CCM' BlockCipherType
+            Int         -- ^ tag size
+            Int         -- ^ L
     -- | CFB
     --
     -- CFB uses a block cipher to create a self-synchronizing stream cipher.
     -- It is used for example in the OpenPGP protocol. There is no reason to prefer it,
     -- as it has worse performance characteristics than modes such as CTR or CBC.
-    | CFB BlockCipherType Int
+    --
+    -- The default feedback bits size are 8*blocksize
+    | CFB BlockCipherType
+    -- | CFB with custom feedback bits size
+    | CFB' BlockCipherType
+            Int     -- ^ feedback bits size
     -- | XTS
     --
     -- XTS is a mode specialized for encrypting disk or database storage where ciphertext expansion
@@ -442,13 +468,41 @@ cipherTypeToCBytes :: CipherMode -> CBytes
 {-# INLINABLE cipherTypeToCBytes #-}
 cipherTypeToCBytes ct = case ct of
     ChaCha20Poly1305 -> "ChaCha20Poly1305"
-    GCM        bct -> blockCipherTypeToCBytes bct <> "/GCM"
-    OCB        bct -> blockCipherTypeToCBytes bct <> "/OCB"
-    EAX        bct -> blockCipherTypeToCBytes bct <> "/EAX"
+    GCM        bct        -> blockCipherTypeToCBytes bct <> "/GCM"
+    GCM'       bct tagsiz -> CB.concat [ blockCipherTypeToCBytes bct
+                                     , "/GCM("
+                                     , CB.fromText (T.toText tagsiz)
+                                     , ")"
+                                     ]
+
+    OCB        bct        -> blockCipherTypeToCBytes bct <> "/OCB"
+    OCB'       bct tagsiz -> CB.concat [ blockCipherTypeToCBytes bct
+                                     , "/OCB("
+                                     , CB.fromText (T.toText tagsiz)
+                                     , ")"
+                                     ]
+
+    EAX        bct        -> blockCipherTypeToCBytes bct <> "/EAX"
+    EAX'       bct tagsiz -> CB.concat [ blockCipherTypeToCBytes bct
+                                     , "/EAX("
+                                     , CB.fromText (T.toText tagsiz)
+                                     , ")"
+                                     ]
+
+
     SIV        bct -> blockCipherTypeToCBytes bct <> "/SIV"
-    CCM        bct -> blockCipherTypeToCBytes bct <> "/CCM"
-    CFB           bct 0 -> blockCipherTypeToCBytes bct <> "/CFB"
-    CFB           bct x -> CB.concat [ blockCipherTypeToCBytes bct
+
+    CCM        bct          -> blockCipherTypeToCBytes bct <> "/CCM"
+    CCM'       bct tagsiz l -> CB.concat [ blockCipherTypeToCBytes bct
+                                         , "/CCM("
+                                         , CB.fromText (T.toText tagsiz)
+                                         , ","
+                                         , CB.fromText (T.toText l)
+                                         , ")"
+                                         ]
+
+    CFB           bct   -> blockCipherTypeToCBytes bct <> "/CFB"
+    CFB'          bct x -> CB.concat [ blockCipherTypeToCBytes bct
                                      , "/CFB("
                                      , CB.fromText (T.toText x)
                                      , ")"

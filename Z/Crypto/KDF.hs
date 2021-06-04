@@ -16,7 +16,6 @@ module Z.Crypto.KDF (
     KDFType(..)
   , HashType(..)
   , MACType(..)
-  , Secret
   , kdf
   , kdf'
   -- * PBKDF

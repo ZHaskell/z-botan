@@ -83,18 +83,18 @@ spec = do
             , ("cbc.vec", "AES-256/CBC/NoPadding", CBC_NoPadding AES256)
             , ("cbc.vec", "AES-128/CBC/CTS", CBC_CTS AES128)
             , ("cbc.vec", "ARIA-256/CBC/NoPadding", CBC_NoPadding ARIA256)
-            , ("cfb.vec", "DES/CFB", CFB DES 0)
-            , ("cfb.vec", "DES/CFB(32)", CFB DES 32)
-            , ("cfb.vec", "DES/CFB(16)", CFB DES 16)
-            , ("cfb.vec", "DES/CFB(8)", CFB DES 8)
-            , ("cfb.vec", "TripleDES/CFB", CFB TripleDES 0)
-            , ("cfb.vec", "TripleDES/CFB(8)", CFB TripleDES 8)
-            , ("cfb.vec", "AES-128/CFB(8)", CFB AES128 8)
-            , ("cfb.vec", "AES-192/CFB(8)", CFB AES192 8)
-            , ("cfb.vec", "AES-256/CFB(8)", CFB AES256 8)
-            , ("cfb.vec", "AES-128/CFB", CFB AES128 0)
-            , ("cfb.vec", "AES-192/CFB", CFB AES192 0)
-            , ("cfb.vec", "AES-256/CFB", CFB AES256 0)
+            , ("cfb.vec", "DES/CFB", CFB DES)
+            , ("cfb.vec", "DES/CFB(32)", CFB' DES 32)
+            , ("cfb.vec", "DES/CFB(16)", CFB' DES 16)
+            , ("cfb.vec", "DES/CFB(8)", CFB' DES 8)
+            , ("cfb.vec", "TripleDES/CFB", CFB TripleDES)
+            , ("cfb.vec", "TripleDES/CFB(8)", CFB' TripleDES 8)
+            , ("cfb.vec", "AES-128/CFB(8)", CFB' AES128 8)
+            , ("cfb.vec", "AES-192/CFB(8)", CFB' AES192 8)
+            , ("cfb.vec", "AES-256/CFB(8)", CFB' AES256 8)
+            , ("cfb.vec", "AES-128/CFB", CFB AES128)
+            , ("cfb.vec", "AES-192/CFB", CFB AES192)
+            , ("cfb.vec", "AES-256/CFB", CFB AES256)
             , ("xts.vec", "AES-128/XTS", XTS AES128)
             , ("xts.vec", "AES-256/XTS", XTS AES256)
             , ("xts.vec", "Twofish/XTS", XTS Twofish)
@@ -121,6 +121,31 @@ spec = do
 
                         i' <- runCipher d nonce o ""
                         i' @=? i
+
+    describe "Crypto.Cipher.AEAD" $ do
+        forM_
+            [ ("ccm.vec", "AES-128/CCM(8,2)", CCM' AES128 8 2)
+            , ("chacha20poly1305.vec", "ChaCha20Poly1305", ChaCha20Poly1305)
+            ] $ \ (file, algoName, cipherType) ->
+                it (T.unpack $ T.validate algoName) $ do
+                    tvMap <- parseCipherAEADTestVector =<< "./third_party/botan/src/tests/data/aead/" `FS.join` file
+                    tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
+                    forM_ tvs $ \ (key0, nonce, i, ad, o) -> do
+
+                        key <- unsafeSecretFromBytes key0
+
+                        c <- newCipher cipherType CipherEncrypt
+                        setCipherKey c key
+
+                        d <- newCipher cipherType CipherDecrypt
+                        setCipherKey d key
+
+                        o' <- runCipher c nonce i ad
+                        o' @=? o
+
+                        i' <- runCipher d nonce o ad
+                        i' @=? i
+
 
     describe "Crypto.Cipher.StreamCipher(I)" $ do
         forM_

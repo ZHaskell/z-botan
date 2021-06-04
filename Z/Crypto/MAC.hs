@@ -38,8 +38,8 @@ import           System.IO.Unsafe  (unsafePerformIO)
 import           Z.Botan.Exception
 import           Z.Botan.FFI
 import           Z.Crypto.SafeMem
-import           Z.Crypto.Cipher   (BlockCipherType, blockCipherTypeToCBytes)
-import           Z.Crypto.Hash     (HashType, hashTypeToCBytes)
+import           Z.Crypto.Cipher   (BlockCipherType(..), blockCipherTypeToCBytes)
+import           Z.Crypto.Hash     (HashType(..), hashTypeToCBytes)
 import           Z.Data.CBytes     as CB
 import           Z.Data.JSON       (JSON)
 import qualified Z.Data.Text       as T
