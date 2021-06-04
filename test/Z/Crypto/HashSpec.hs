@@ -60,5 +60,4 @@ spec = describe "Crypto.Hash" $ do
                 tvMap <- parseHashTestVector =<< "./third_party/botan/src/tests/data/hash/" `FS.join` file
                 tvs <- unwrap' "ENOTFOUND" "no algo found" $ lookup algoName tvMap
                 forM_ tvs $ \ (i, o) -> do
-                    when (algoName == "Skein-512(384)")  $ print (ceBytes i, ceBytes o)
                     hash hashType i @?= ceBytes o
