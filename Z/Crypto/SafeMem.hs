@@ -172,6 +172,10 @@ instance Show CEBytes where
 instance T.Print CEBytes where
     toUTF8BuilderP _ = V.hexEncodeBuilder True . unCEBytes
 
+-- | This instance will throw error if literal is not valid hex string, whitespace is ignored, see 'V.hexDecodeWS''.
+instance IsString CEBytes where
+    fromString = CEBytes . V.arrVec . V.hexDecodeWS' . fromString
+
 -- | Create a ceBytes from unsafe FFI.
 newCEBytesUnsafe :: Int -> (MBA# Word8 -> IO r) -> IO CEBytes
 {-# INLINABLE newCEBytesUnsafe #-}
