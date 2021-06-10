@@ -15,7 +15,7 @@ import qualified Z.IO.FileSystem    as FS
 import qualified Z.Data.Text        as T
 import           Z.Crypto.Cipher
 import           Z.Crypto.Hash
-import           Z.Crypto.SafeMem
+import           Z.Crypto.MPI
 import           Utils
 
 main :: IO ()
@@ -60,9 +60,9 @@ main = hspec $ do
                         print (key0, i, o)
 
     describe "Crypto.Hash" $ do
-        it "SHA256" $ do
-            p1 <- unsafeSecretFromBytes "hello"
-            p2 <- unsafeSecretFromBytes "hello"
+        it "MPI" $ do
+            let p1 = (3 :: MPI)
+                p2 = (4 :: MPI)
             p1 @?= p2
 
 #else
