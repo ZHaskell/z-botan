@@ -15,6 +15,7 @@ import qualified Z.IO.FileSystem    as FS
 import qualified Z.Data.Text        as T
 import           Z.Crypto.Cipher
 import           Z.Crypto.Hash
+import           Z.Crypto.MPI
 import           Utils
 
 main :: IO ()
@@ -57,6 +58,10 @@ main = hspec $ do
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
                     forM_ tvs $ \ (key0, i, o) -> do
                         print (key0, i, o)
+
+    describe "Crypto.Hash" $ do
+        it "newHash" $ do
+            print =<< newHash MD5
 
 
 #else
