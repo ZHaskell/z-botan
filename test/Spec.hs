@@ -19,9 +19,8 @@ import           Z.Crypto.SafeMem
 import           Utils
 
 main :: IO ()
-main = hspec $
+main = hspec $ do
     describe "Crypto.Hash" $ do
-
         forM_
             [ ("aes.vec", "AES-128", AES128)
             , ("aes.vec", "AES-192", AES192)
