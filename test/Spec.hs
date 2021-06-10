@@ -1,4 +1,6 @@
 -- file test/Spec.hs
+{-# LANGUAGE CPP #-}
+
 #ifdef mingw32_HOST_OS
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -21,4 +23,4 @@ spec = describe "Crypto.Hash" $ do
 
 #else
 {-# OPTIONS_GHC -F -pgmF hspec-discover #-}
-#end
+#endif
