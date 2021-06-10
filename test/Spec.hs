@@ -60,6 +60,7 @@ main = hspec $
                     forM_ tvs $ \ (key0, i, o) -> do
                         print (key0, i, o)
 
+    describe "Crypto.Hash" $ do
         it "SHA256" $ do
             p1 <- unsafeSecretFromBytes "hello"
             p2 <- unsafeSecretFromBytes "hello"
