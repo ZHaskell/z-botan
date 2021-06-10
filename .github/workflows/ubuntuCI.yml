@@ -7,6 +7,7 @@ jobs:
       matrix:
         ghc: ['8.8', '8.10', '9.0']
         cabal: ['3.2', '3.4']
+        avx_flag: ['', '-f-no-avx']
         exclude:
           # GHC 9+ only works with cabal v3.4+
           - ghc: 9.0
@@ -15,6 +16,12 @@ jobs:
     env:
         CONFIG: "--enable-tests --enable-benchmarks"
     steps:
+
+      - name: CPU info
+        run: |
+            sudo apt-get install cpuid
+            cpuid
+
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
@@ -28,7 +35,7 @@ jobs:
 
       - run: |
           cabal update
-          cabal freeze $CONFIG
+          cabal freeze ${{ matrix.avx_flag }} $CONFIG
 
       - uses: actions/cache@v2
         with:
@@ -41,8 +48,9 @@ jobs:
 
       - run: |
           cabal clean # we need force configure to get botan_all.cpp
-          cabal configure $CONFIG  
+          cabal configure ${{ matrix.avx_flag }} $CONFIG  
           cabal build $CONFIG
+      - run: |
           cabal test --test-show-details=direct
       - run: |
           cabal haddock

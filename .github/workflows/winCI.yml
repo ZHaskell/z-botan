@@ -5,7 +5,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        ghc: ['8.10.4']
+        ghc: ['8.10']
         cabal: ['3.2', '3.4']
         exclude:
           # GHC 9+ only works with cabal v3.4+
@@ -43,6 +43,7 @@ jobs:
           cabal clean # we need force configure to get botan_all.cpp
           cabal configure $CONFIG
           cabal build
+      - run: |
           cabal test --test-show-details=direct
       - run: |
           cabal haddock

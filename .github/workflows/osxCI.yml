@@ -15,6 +15,11 @@ jobs:
     env:
         CONFIG: "--enable-tests --enable-benchmarks"
     steps:
+      - name: CPU info
+        run: |
+            sysctl -n machdep.cpu.features
+            sysctl -n machdep.cpu.leaf7_features
+
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
@@ -43,6 +48,7 @@ jobs:
           cabal clean # we need force configure to get botan_all.cpp
           cabal configure $CONFIG
           cabal build $CONFIG
+      - run: |
           cabal test --test-show-details=direct
       - run: |
           cabal haddock
