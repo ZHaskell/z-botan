@@ -152,7 +152,10 @@ library
 
 test-suite Z-Botan-Test
   type:             exitcode-stdio-1.0
-  main-is:          Spec.hs
+  if os(windows)
+    main-is:          Win.hs
+  else
+    main-is:          Spec.hs
   hs-source-dirs:   test/
   build-depends:
     , base

@@ -69,7 +69,9 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
         hostFlag = [ "--cpu=" ++ show (pretty arch), "--os=" ++ osStr]
         -- pass amalgamation to produce botan_all.cpp
         args = if os == Windows
-            then configureFile:"--amalgamation":"--disable-shared":"--without-stack-protector":"--without-os-feature=threads":hostFlag
+            then configureFile:"--amalgamation":"--disable-shared":
+                "--without-stack-protector":"--without-os-feature=threads":
+                    "--optimize-for-size":"--cc-abi-flags=-static":hostFlag
             else configureFile:"--amalgamation":"--disable-shared":hostFlag
 
     pyConfiguredProg <- forM pyProgs $ \ pyProg ->
