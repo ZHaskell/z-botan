@@ -11,6 +11,9 @@ import           Control.Monad
 import           Test.Hspec
 import           Test.HUnit
 import           Z.IO
+import qualified Z.IO.FileSystem    as FS
+import qualified Z.Data.Text        as T
+import           Z.Crypto.Hash
 import           Utils
 
 main :: IO ()
