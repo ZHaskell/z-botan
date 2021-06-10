@@ -87,6 +87,8 @@ library
     extra-libraries:
       Ws2_32
       crypt32
+      advapi32
+      user32
 
     cxx-options:
       -std=c++11 -march=native -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18

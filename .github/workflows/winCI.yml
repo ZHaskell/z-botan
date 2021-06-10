@@ -50,6 +50,7 @@ jobs:
           cabal build
       - run: |
           cabal test --test-show-details=streaming
+          cat dist-newstyle\build\x86_64-windows\ghc-8.10.5\Z-Botan-0.4.0.0\test\Z-Botan-0.4.0.0-Z-Botan-Test.log
       - run: |
           cabal haddock
           cabal check
