@@ -15,12 +15,12 @@ import qualified Z.IO.FileSystem    as FS
 import qualified Z.Data.Text        as T
 import           Z.Crypto.Cipher
 import           Z.Crypto.Hash
+import           Z.Crypto.SafeMem
 import           Utils
 
 main :: IO ()
 main = hspec $
     describe "Crypto.Hash" $ do
-        it "SHA256" $ print "test"
 
         forM_
             [ ("aes.vec", "AES-128", AES128)
@@ -59,6 +59,11 @@ main = hspec $
                     tvs <- unwrap' "ENOTFOUND" "no algo founded" $ lookup algoName tvMap
                     forM_ tvs $ \ (key0, i, o) -> do
                         print (key0, i, o)
+
+        it "SHA256" $ do
+            p1 <- unsafeSecretFromBytes "hello"
+            p2 <- unsafeSecretFromBytes "hello"
+            p1 @?= p2
 
 #else
 {-# OPTIONS_GHC -F -pgmF hspec-discover #-}
