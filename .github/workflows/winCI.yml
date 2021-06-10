@@ -49,7 +49,7 @@ jobs:
           cabal configure $CONFIG
           cabal build
       - run: |
-          cabal test --test-show-details=direct
+          cabal test --test-show-details=streaming
       - run: |
           cabal haddock
           cabal check
