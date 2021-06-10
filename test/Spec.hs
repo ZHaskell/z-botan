@@ -15,7 +15,6 @@ import qualified Z.IO.FileSystem    as FS
 import qualified Z.Data.Text        as T
 import           Z.Crypto.Cipher
 import           Z.Crypto.Hash
-import           Z.Crypto.MPI
 import           Utils
 
 main :: IO ()
@@ -59,11 +58,6 @@ main = hspec $ do
                     forM_ tvs $ \ (key0, i, o) -> do
                         print (key0, i, o)
 
-    describe "Crypto.Hash" $ do
-        it "MPI" $ do
-            let p1 = (3 :: MPI)
-                p2 = (4 :: MPI)
-            p1 @?= p2
 
 #else
 {-# OPTIONS_GHC -F -pgmF hspec-discover #-}
