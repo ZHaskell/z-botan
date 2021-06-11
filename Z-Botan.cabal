@@ -143,7 +143,6 @@ library
                             third_party/botan/src/lib/compat/sodium/sodium_utils.cpp
                             third_party/botan/src/lib/entropy/dev_random/dev_random.cpp
                             third_party/botan/src/lib/entropy/entropy_srcs.cpp
-                            third_party/botan/src/lib/entropy/proc_walk/proc_walk.cpp
                             third_party/botan/src/lib/entropy/rdseed/rdseed.cpp
                             third_party/botan/src/lib/ffi/ffi.cpp
                             third_party/botan/src/lib/ffi/ffi_block.cpp
@@ -255,10 +254,7 @@ library
                             third_party/botan/src/lib/modes/aead/ccm/ccm.cpp
                             third_party/botan/src/lib/modes/aead/chacha20poly1305/chacha20poly1305.cpp
                             third_party/botan/src/lib/modes/aead/eax/eax.cpp
-                            third_party/botan/src/lib/modes/aead/gcm/clmul_cpu/clmul_cpu.cpp
-                            third_party/botan/src/lib/modes/aead/gcm/clmul_ssse3/clmul_ssse3.cpp
                             third_party/botan/src/lib/modes/aead/gcm/gcm.cpp
-                            third_party/botan/src/lib/modes/aead/gcm/ghash.cpp
                             third_party/botan/src/lib/modes/aead/ocb/ocb.cpp
                             third_party/botan/src/lib/modes/aead/siv/siv.cpp
                             third_party/botan/src/lib/modes/cbc/cbc.cpp
@@ -292,20 +288,6 @@ library
                             third_party/botan/src/lib/pk_pad/iso9796/iso9796.cpp
                             third_party/botan/src/lib/pk_pad/mgf1/mgf1.cpp
                             third_party/botan/src/lib/pk_pad/padding.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_ecc_key.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_ecdh.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_ecdsa.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_mechanism.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_module.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_object.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_randomgenerator.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_rsa.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_session.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_slot.cpp
-                            third_party/botan/src/lib/prov/pkcs11/p11_x509.cpp
-                            third_party/botan/src/lib/psk_db/psk_db.cpp
-                            third_party/botan/src/lib/psk_db/psk_db_sql.cpp
                             third_party/botan/src/lib/pubkey/blinding.cpp
                             third_party/botan/src/lib/pubkey/cecpq1/cecpq1.cpp
                             third_party/botan/src/lib/pubkey/curve25519/curve25519.cpp
