@@ -89,7 +89,7 @@ library
       crypt32
 
     cxx-options:
-      -march=native -pthread
+      -m64 -pthread
       -D_WIN32_WINNT=0x0600 -D_REENTRANT
       -DBOTAN_IS_BEING_BUILT
       -fno-stack-protector
@@ -100,7 +100,7 @@ library
       -ffixed-xmm31
 
   else
-    cxx-options: -std=c++11 -march=native -D_REENTRANT -DBOTAN_IS_BEING_BUILT
+    cxx-options: -std=c++11 -D_REENTRANT -DBOTAN_IS_BEING_BUILT
 
   if os(osx)
     extra-libraries: c++
