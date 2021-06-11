@@ -23,6 +23,8 @@ import Z.Data.CBytes
 botanErrDesc :: CInt -> IO Text
 botanErrDesc errno = toText <$> (fromCString =<< botan_error_description errno)
 
+foreign import ccall unsafe botan_error_description :: CInt -> IO CString
+
 -- | Generally returned to indicate success
 pattern BOTAN_FFI_SUCCESS                         :: CInt
 -- | Note this value is positive, but still represents an error condition. In indicates that the function completed successfully, but the value provided was not correct. For example botan_bcrypt_is_valid returns this value if the password did not match the hash.
