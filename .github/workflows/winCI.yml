@@ -43,8 +43,10 @@ jobs:
           cabal clean # we need force configure to get botan_all.cpp
           cabal configure $CONFIG
           cabal build
-      - run: |
-          cabal test --test-show-details=direct
+
+          # - run: |
+          #     cabal test --test-show-details=direct
+          
       - run: |
           cabal haddock
           cabal check
