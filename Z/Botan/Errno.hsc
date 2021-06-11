@@ -14,8 +14,16 @@ INTERNAL MODULE, provides all botan errno.
 module Z.Botan.Errno where
 
 import Foreign.C.Types
+import Z.Data.Text (Text)
+import Z.Data.CBytes
 
 #include <botan/ffi.h>
+
+-- | Returns the error name for the given error code. Leaks a few bytes of memory when you call it with an unknown error code.
+botanErrDesc :: CInt -> IO Text
+botanErrDesc errno = toText <$> (fromCString =<< botan_error_description errno)
+
+foreign import ccall unsafe botan_error_description :: CInt -> IO CString
 
 -- | Generally returned to indicate success
 pattern BOTAN_FFI_SUCCESS                         :: CInt

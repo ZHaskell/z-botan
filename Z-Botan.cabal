@@ -46,18 +46,18 @@ library
   exposed-modules:
     Z.Botan.Errno
     Z.Botan.Exception
-    Z.Botan.FFI
+    -- Z.Botan.FFI
     -- Z.Crypto.Cipher
     -- Z.Crypto.FPE
     -- Z.Crypto.Hash
     -- Z.Crypto.KDF
     -- Z.Crypto.KeyWrap
     -- Z.Crypto.MAC
-    Z.Crypto.MPI
+    -- Z.Crypto.MPI
     -- Z.Crypto.OTP
     -- Z.Crypto.PubKey
     -- Z.Crypto.PwdHash
-    Z.Crypto.RNG
+    -- Z.Crypto.RNG
     -- Z.Crypto.SafeMem
     -- Z.Crypto.X509
   other-modules:    Paths_Z_Botan
@@ -79,7 +79,7 @@ library
     third_party/botan/build/include/external
 
   cxx-sources:        third_party/botan/botan_all.cpp
-                      cbits/hs_botan_extra.cpp
+                      -- cbits/hs_botan_extra.cpp
                       --cbits/hs_botan_certstore.cpp
                       --cbits/hs_botan_streamcipher.cpp
 
