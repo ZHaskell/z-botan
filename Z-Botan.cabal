@@ -87,10 +87,12 @@ library
     extra-libraries:
       Ws2_32
       crypt32
-      advapi32
-      user32
 
     cxx-options:
+      -D_WIN32_WINNT=0x0600 -D_REENTRANT
+      -m64 -pthread
+      -O3 -DBOTAN_IS_BEING_BUILT
+      -fno-stack-protector
       -std=c++11 -march=native -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18
       -ffixed-xmm19 -ffixed-xmm20 -ffixed-xmm21 -ffixed-xmm22
       -ffixed-xmm23 -ffixed-xmm24 -ffixed-xmm25 -ffixed-xmm26

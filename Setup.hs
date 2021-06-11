@@ -68,10 +68,7 @@ runConfigureScript configFolder configFile verbosity flags lbi = do
         osStr = if os == Windows then "mingw" else (show (pretty os))
         hostFlag = [ "--cpu=" ++ show (pretty arch), "--os=" ++ osStr]
         -- pass amalgamation to produce botan_all.cpp
-        args = if os == Windows
-            then configureFile:"--amalgamation":"--disable-shared":
-                "--without-stack-protector":"--cc-abi-flags=-static":hostFlag
-            else configureFile:"--amalgamation":"--disable-shared":hostFlag
+        args = configureFile:"--amalgamation":"--disable-shared":hostFlag
 
     pyConfiguredProg <- forM pyProgs $ \ pyProg ->
         lookupProgram pyProg <$> configureProgram verbosity pyProg progDb
