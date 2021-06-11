@@ -85,23 +85,27 @@ library
 
   if os(windows)
     extra-libraries:
-      Ws2_32
+      ws2_32
       crypt32
 
     cxx-options:
-      -std=c++11 -march=native -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18
+      -march=native -pthread
+      -D_WIN32_WINNT=0x0600 -D_REENTRANT
+      -DBOTAN_IS_BEING_BUILT
+      -fno-stack-protector
+      -std=c++11 -ffixed-xmm16 -ffixed-xmm17 -ffixed-xmm18
       -ffixed-xmm19 -ffixed-xmm20 -ffixed-xmm21 -ffixed-xmm22
       -ffixed-xmm23 -ffixed-xmm24 -ffixed-xmm25 -ffixed-xmm26
       -ffixed-xmm27 -ffixed-xmm28 -ffixed-xmm29 -ffixed-xmm30
       -ffixed-xmm31
 
   else
-    cxx-options: -std=c++11 -march=native
+    cxx-options: -std=c++11 -march=native -D_REENTRANT -DBOTAN_IS_BEING_BUILT
 
   if os(osx)
     extra-libraries: c++
-    frameworks: CoreServices
-
+    frameworks: CoreFoundation
+                Security
   else
     extra-libraries: stdc++
 
