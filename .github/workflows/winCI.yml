@@ -46,6 +46,7 @@ jobs:
 
       - run: |
           cabal test --test-show-details=direct
+          echo $LASTEXITCODE
           
       - run: |
           cabal haddock
