@@ -26,7 +26,10 @@ jobs:
           submodules: 'recursive'
 
       - name: Setup Haskell
-        run: sudo apt-get install ghc-${{ matrix.ghc }} cabal-install-${{ matrix.cabal }}
+        run: |
+          sudo add-apt-repository -y -u ppa:hvr/ghc
+          sudo apt-get update
+          sudo apt-get install ghc-${{ matrix.ghc }} cabal-install-${{ matrix.cabal }}
 
       - run: |
           cabal update
