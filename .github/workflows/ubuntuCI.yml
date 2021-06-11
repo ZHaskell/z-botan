@@ -7,14 +7,13 @@ jobs:
       matrix:
         ghc: ['8.8', '8.10', '9.0']
         cabal: ['3.2', '3.4']
-        avx_flag: ['', '-f-no-avx']
         exclude:
           # GHC 9+ only works with cabal v3.4+
           - ghc: 9.0
             cabal: 3.2
     name: Haskell GHC ${{ matrix.ghc }} sample
     env:
-        CONFIG: "--enable-tests --enable-benchmarks"
+        CONFIG: "--enable-tests --enable-benchmarks --test-show-details=direct"
     steps:
 
       - name: CPU info
@@ -35,7 +34,7 @@ jobs:
 
       - run: |
           cabal update
-          cabal freeze ${{ matrix.avx_flag }} $CONFIG
+          cabal freeze 
 
       - uses: actions/cache@v2
         with:
@@ -48,10 +47,10 @@ jobs:
 
       - run: |
           cabal clean # we need force configure to get botan_all.cpp
-          cabal configure ${{ matrix.avx_flag }} $CONFIG  
-          cabal build $CONFIG
+          cabal configure $CONFIG  
+          cabal build
       - run: |
-          cabal test --test-show-details=direct
+          cabal test 
       - run: |
           cabal haddock
           cabal check
