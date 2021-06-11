@@ -136,6 +136,8 @@ foreign import ccall unsafe botan_mp_clear_bit :: BotanStructT -> CSize -> IO CI
 
 --------------------------------------------------------------------------------
 
+{-
+
 foreign import ccall unsafe botan_block_cipher_init :: MBA## BotanStructT -> BA## Word8 -> IO CInt
 foreign import ccall unsafe "&botan_block_cipher_destroy"
     botan_block_cipher_destroy :: FunPtr (BotanStructT -> IO ())
@@ -770,3 +772,4 @@ foreign import ccall unsafe hs_botan_fpe_decrypt :: BotanStructT -> BotanStructT
                                                  -> IO CInt
 
 foreign import ccall unsafe "&botan_fpe_destroy" botan_fpe_destroy :: FunPtr (BotanStructT -> IO ())
+-}
