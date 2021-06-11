@@ -13,7 +13,7 @@ jobs:
             cabal: 3.2
     name: Haskell GHC ${{ matrix.ghc }} sample
     env:
-        CONFIG: "--enable-tests --enable-benchmarks"
+        CONFIG: "--enable-tests --enable-benchmarks --test-show-details=direct"
     steps:
       - name: Set git to use LF
         run: |
@@ -35,7 +35,7 @@ jobs:
           # use ghc's bundled mingw
           echo "C:\tools\ghc-8.10.5\mingw\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           cabal update
-          cabal freeze $CONFIG
+          cabal freeze
 
       - uses: actions/cache@v2
         with:
@@ -52,7 +52,7 @@ jobs:
           cabal build
 
       - run: |
-          cabal test --test-show-details=direct
+          cabal test
 
       - run: |
           cabal haddock
