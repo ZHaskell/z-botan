@@ -72,7 +72,7 @@ library
     , time         == 1.11.*
     , primitive    == 0.7.*
     , Z-Data       >=0.8.7 && < 0.9
-    , Z-IO         >=0.8 && < 0.9
+    , Z-IO         >=0.8.1.1 && < 0.9
 
   include-dirs:
     third_party/botan third_party/botan/build/include
