@@ -7,7 +7,7 @@ license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Z.Haskell Contributors
 maintainer:         winterland1989@gmail.com
-copyright:          (c) Z.Haskell Contributors, 2017-2020
+copyright:          (c) Z.Haskell Contributors, 2017-2021
 category:           Data
 build-type:         Custom
 homepage:           https://github.com/ZHaskell/z-botan
@@ -112,6 +112,7 @@ library
   default-language:   Haskell2010
   default-extensions:
     BangPatterns
+    BlockArguments
     CApiFFI
     CPP
     ConstraintKinds
